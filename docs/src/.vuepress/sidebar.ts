@@ -2,9 +2,8 @@ import { sidebar } from "vuepress-theme-hope";
 
 export default sidebar({
   "/": [
-    "",
     {
-      text: "API 文档",
+      text: "API 接口详细文档",
       icon: "book",
       prefix: "api/",
       children: [

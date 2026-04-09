@@ -11,7 +11,7 @@ export default hopeTheme({
     url: "https://github.com/JNTMTMTM",
   },
 
-  logo: "",
+  logo: "/eisland.svg",
 
   repo: "https://github.com/Python-island/pyisland-admin",
 

@@ -1,3 +1,9 @@
+---
+title: PyIsland API 文档站
+navbar: true
+sidebar: true
+---
+
 # PyIsland API 文档站
 
 ## 项目说明
