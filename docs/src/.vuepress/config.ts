@@ -9,6 +9,8 @@ export default defineUserConfig({
   title: "PyIsland API",
   description: "pyisland-api文档站",
 
+  head: [["link", { rel: "icon", href: "/favicon.ico" }]],
+
   theme,
 
   // 和 PWA 一起启用
