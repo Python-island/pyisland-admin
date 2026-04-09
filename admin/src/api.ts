@@ -2,6 +2,16 @@ import { showKickedModal } from "./modal";
 
 const BASE = import.meta.env.VITE_API_BASE || "/api";
 
+export function sanitizeUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") return url;
+  } catch { /* invalid URL */ }
+  if (url.startsWith("data:image/")) return url;
+  return null;
+}
+
 function getToken(): string | null {
   return localStorage.getItem("token");
 }

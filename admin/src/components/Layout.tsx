@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { clearToken, getUsername, users } from "../api";
+import { clearToken, getUsername, users, sanitizeUrl } from "../api";
 import { useState, useEffect } from "react";
 
 const navItems = [
@@ -209,7 +209,7 @@ export default function Layout() {
                 height: 28,
                 borderRadius: "50%",
                 backgroundColor: "var(--apple-surface-2)",
-                backgroundImage: avatar ? `url(${avatar})` : "none",
+                backgroundImage: sanitizeUrl(avatar) ? `url(${sanitizeUrl(avatar)})` : "none",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 display: "flex",

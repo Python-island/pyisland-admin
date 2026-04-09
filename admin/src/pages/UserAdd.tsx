@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { users, uploadAvatar } from "../api";
+import { users, uploadAvatar, sanitizeUrl } from "../api";
 import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
@@ -134,7 +134,7 @@ export default function UserAdd() {
                 height: 72,
                 borderRadius: "50%",
                 backgroundColor: "var(--apple-surface-2)",
-                backgroundImage: avatarPreview ? `url(${avatarPreview})` : "none",
+                backgroundImage: sanitizeUrl(avatarPreview) ? `url(${sanitizeUrl(avatarPreview)})` : "none",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 display: "flex",

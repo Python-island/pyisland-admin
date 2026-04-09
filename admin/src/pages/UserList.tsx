@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { users, getUsername, type AdminUserInfo } from "../api";
+import { users, getUsername, sanitizeUrl, type AdminUserInfo } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -170,7 +170,7 @@ export default function UserList() {
                           height: 32,
                           borderRadius: "50%",
                           backgroundColor: "var(--apple-surface-2)",
-                          backgroundImage: u.avatar ? `url(${u.avatar})` : "none",
+                          backgroundImage: sanitizeUrl(u.avatar) ? `url(${sanitizeUrl(u.avatar)})` : "none",
                           backgroundSize: "cover",
                           backgroundPosition: "center",
                           display: "flex",
