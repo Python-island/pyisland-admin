@@ -84,7 +84,7 @@ export default function Dashboard() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await version.create(formAppName, formVersion, formDesc);
+      const res = await version.create(formAppName, formVersion, formDesc, "");
       if (res.code === 200) {
         showMsg("应用创建成功");
         setSearchName(formAppName);
@@ -108,7 +108,7 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       const name = formAppName || current?.appName || "";
-      const res = await version.update(name, formVersion, formDesc);
+      const res = await version.update(name, formVersion, formDesc, current?.downloadUrl || "");
       if (res.code === 200) {
         showMsg("版本更新成功");
         setCurrent(res.data!);
