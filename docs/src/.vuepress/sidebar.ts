@@ -9,6 +9,7 @@ export default sidebar({
       prefix: "api/",
       children: [
         "overview",
+        "sdk-example",
         "auth",
         "users",
         "version",

@@ -39,6 +39,7 @@ Authorization: Bearer <token>
 ## 文档目录
 
 - [接口总览](/api/overview.html)
+- [前端 SDK 示例](/api/sdk-example.html)
 - [认证接口](/api/auth.html)
 - [用户管理接口](/api/users.html)
 - [版本管理接口](/api/version.html)

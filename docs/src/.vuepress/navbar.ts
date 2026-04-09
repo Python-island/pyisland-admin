@@ -8,6 +8,7 @@ export default navbar([
     prefix: "/api/",
     children: [
       "overview",
+      "sdk-example",
       "auth",
       "users",
       "version",
