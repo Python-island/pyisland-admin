@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.repository.AppVersionMapper">
+
+    <resultMap id="AppVersionResultMap" type="AppVersion">
+        <id property="id" column="id"/>
+        <result property="appName" column="app_name"/>
+        <result property="version" column="version"/>
+        <result property="description" column="description"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="selectByAppName" resultMap="AppVersionResultMap">
+        SELECT id, app_name, version, description, updated_at
+        FROM app_version
+        WHERE app_name = #{appName}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO app_version (app_name, version, description, updated_at)
+        VALUES (#{appName}, #{version}, #{description}, #{updatedAt})
+    </insert>
+
+    <update id="updateByAppName">
+        UPDATE app_version
+        SET version = #{version},
+            description = #{description},
+            updated_at = #{updatedAt}
+        WHERE app_name = #{appName}
+    </update>
+
+</mapper>

@@ -1,3 +1,14 @@
 spring:
   application:
     name: server
+  datasource:
+    url: jdbc:mysql://127.0.0.1:不告诉你/不告诉你?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: 不告诉你
+    password: 不告诉你
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.pyisland.server.entity
+  configuration:
+    map-underscore-to-camel-case: true
