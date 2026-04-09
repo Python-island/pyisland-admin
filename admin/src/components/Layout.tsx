@@ -174,15 +174,19 @@ export default function Layout() {
             borderTop: "1px solid rgba(255,255,255,0.06)",
           }}
         >
-          <div
+          <NavLink
+            to="/profile"
             style={{
+              display: "block",
               fontSize: 12,
               color: "rgba(255,255,255,0.48)",
               marginBottom: 8,
+              textDecoration: "none",
+              cursor: "pointer",
             }}
           >
             {getUsername()}
-          </div>
+          </NavLink>
           <button
             onClick={handleLogout}
             className="cursor-pointer border-none bg-transparent"

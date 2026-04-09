@@ -71,6 +71,13 @@ export interface LoginData {
 export interface AdminUserInfo {
   id: number;
   username: string;
+  avatar: string | null;
+  createdAt: string;
+}
+
+export interface ProfileData {
+  username: string;
+  avatar: string | null;
   createdAt: string;
 }
 
@@ -130,5 +137,16 @@ export const users = {
       `/v1/users?username=${encodeURIComponent(username)}`,
       { method: "DELETE" }
     );
+  },
+  getProfile(username: string) {
+    return request<ApiResponse<ProfileData>>(
+      `/v1/users/profile?username=${encodeURIComponent(username)}`
+    );
+  },
+  updateProfile(username: string, password: string | null, avatar: string | null) {
+    return request<ApiResponse>("/v1/users/profile", {
+      method: "PUT",
+      body: JSON.stringify({ username, password, avatar }),
+    });
   },
 };

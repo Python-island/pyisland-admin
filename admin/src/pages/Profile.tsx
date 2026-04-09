@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { users } from "../api";
+import { useState, useEffect, useRef } from "react";
+import { users, getUsername } from "../api";
 import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
@@ -25,19 +25,37 @@ const labelStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.64)",
 };
 
-export default function UserAdd() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+export default function Profile() {
+  const username = getUsername();
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [createdAt, setCreatedAt] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
+  const [loading, setLoading] = useState(true);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
     setMsgType(type);
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await users.getProfile(username);
+        if (res.code === 200 && res.data) {
+          setAvatar(res.data.avatar);
+          setCreatedAt(res.data.createdAt);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [username]);
 
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,34 +65,41 @@ export default function UserAdd() {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setAvatarPreview(reader.result as string);
+    reader.onload = () => setAvatar(reader.result as string);
     reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPwd) {
+    if (newPassword && newPassword !== confirmPwd) {
       showMsg("两次密码输入不一致", "err");
       return;
     }
     try {
-      const res = await users.add(username, password);
+      const res = await users.updateProfile(
+        username,
+        newPassword || null,
+        avatar
+      );
       if (res.code === 200) {
-        if (avatarPreview) {
-          await users.updateProfile(username, null, avatarPreview);
-        }
-        showMsg("添加管理员成功");
-        setUsername("");
-        setPassword("");
+        showMsg("更新成功");
+        setNewPassword("");
         setConfirmPwd("");
-        setAvatarPreview(null);
       } else {
         showMsg(res.message, "err");
       }
     } catch {
-      showMsg("添加失败", "err");
+      showMsg("更新失败", "err");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center" style={{ minHeight: "60vh" }}>
+        <span style={{ color: "rgba(255,255,255,0.48)", fontSize: 17 }}>加载中...</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "48px 48px" }}>
@@ -88,7 +113,7 @@ export default function UserAdd() {
           margin: "0 0 8px",
         }}
       >
-        添加管理员
+        个人信息
       </h1>
       <p
         style={{
@@ -100,7 +125,7 @@ export default function UserAdd() {
           marginBottom: 40,
         }}
       >
-        注册新的管理员账号
+        修改头像和密码
       </p>
 
       <MessageDialog
@@ -118,32 +143,43 @@ export default function UserAdd() {
         }}
       >
         <form onSubmit={handleSubmit}>
-          {/* Avatar */}
-          <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 20 }}>
+          {/* Avatar + Info */}
+          <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 32 }}>
             <div
               onClick={() => fileRef.current?.click()}
               className="cursor-pointer"
               style={{
-                width: 72,
-                height: 72,
+                width: 88,
+                height: 88,
                 borderRadius: "50%",
                 backgroundColor: "var(--apple-surface-2)",
-                backgroundImage: avatarPreview ? `url(${avatarPreview})` : "none",
+                backgroundImage: avatar ? `url(${avatar})` : "none",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 24,
+                fontSize: 28,
                 color: "rgba(255,255,255,0.32)",
                 flexShrink: 0,
               }}
             >
-              {!avatarPreview && "+"}
+              {!avatar && username.charAt(0).toUpperCase()}
             </div>
             <div>
-              <label style={labelStyle}>头像</label>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>点击圆圈上传，支持 JPG/PNG，最大 2MB</div>
+              <div style={{ fontSize: 21, fontWeight: 600, color: "#ffffff", marginBottom: 4 }}>
+                {username}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+                创建于 {createdAt}
+              </div>
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="cursor-pointer"
+                style={{ fontSize: 14, color: "var(--apple-link-dark)", marginTop: 8 }}
+              >
+                更换头像
+              </div>
             </div>
             <input
               ref={fileRef}
@@ -154,39 +190,28 @@ export default function UserAdd() {
             />
           </div>
 
+          {/* Password */}
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>用户名</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="新管理员用户名"
-              required
-              style={inputStyle}
-            />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>密码</label>
+            <label style={labelStyle}>新密码</label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="设置密码"
-              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="留空则不修改密码"
               style={inputStyle}
             />
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={labelStyle}>确认密码</label>
+            <label style={labelStyle}>确认新密码</label>
             <input
               type="password"
               value={confirmPwd}
               onChange={(e) => setConfirmPwd(e.target.value)}
-              placeholder="再次输入密码"
-              required
+              placeholder="再次输入新密码"
               style={inputStyle}
             />
           </div>
+
           <button
             type="submit"
             className="cursor-pointer"
@@ -200,7 +225,7 @@ export default function UserAdd() {
               fontWeight: 400,
             }}
           >
-            添加
+            保存
           </button>
         </form>
       </div>

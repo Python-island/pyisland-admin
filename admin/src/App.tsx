@@ -8,6 +8,7 @@ import VersionCreate from "./pages/VersionCreate";
 import VersionDelete from "./pages/VersionDelete";
 import UserList from "./pages/UserList";
 import UserAdd from "./pages/UserAdd";
+import Profile from "./pages/Profile";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />;
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/version/delete" element={<VersionDelete />} />
           <Route path="/users/list" element={<UserList />} />
           <Route path="/users/add" element={<UserAdd />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
