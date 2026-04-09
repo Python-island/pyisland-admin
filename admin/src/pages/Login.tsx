@@ -8,32 +8,19 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
-      if (isRegister) {
-        const res = await auth.register(username, password);
-        if (res.code === 200) {
-          setIsRegister(false);
-          setError("");
-          alert("注册成功，请登录");
-        } else {
-          setError(res.message);
-        }
+      const res = await auth.login(username, password);
+      if (res.code === 200 && res.data) {
+        setToken(res.data.token);
+        setUsername(res.data.username);
+        navigate("/");
       } else {
-        const res = await auth.login(username, password);
-        if (res.code === 200 && res.data) {
-          setToken(res.data.token);
-          setUsername(res.data.username);
-          navigate("/");
-        } else {
-          setError(res.message);
-        }
+        setError(res.message);
       }
     } catch {
       setError("网络错误，请重试");
@@ -48,7 +35,6 @@ export default function Login() {
       style={{ backgroundColor: "var(--apple-black)" }}
     >
       <div className="w-full" style={{ maxWidth: 400 }}>
-        {/* Hero heading */}
         <div className="text-center mb-10">
           <h1
             className="text-white"
@@ -77,7 +63,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Card */}
         <div
           className="p-10"
           style={{
@@ -95,7 +80,7 @@ export default function Login() {
               letterSpacing: "0.196px",
             }}
           >
-            {isRegister ? "注册账号" : "登录"}
+            登录
           </h2>
 
           <form onSubmit={handleSubmit}>
@@ -199,27 +184,9 @@ export default function Login() {
                 opacity: loading ? 0.5 : 1,
               }}
             >
-              {loading ? "请稍候..." : isRegister ? "注册" : "登录"}
+              {loading ? "请稍候..." : "登录"}
             </button>
           </form>
-
-          <div className="mt-8 text-center">
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError("");
-              }}
-              className="cursor-pointer transition-all border-none bg-transparent"
-              style={{
-                fontSize: 14,
-                lineHeight: 1.43,
-                letterSpacing: "-0.224px",
-                color: "var(--apple-link-dark)",
-              }}
-            >
-              {isRegister ? "已有账号？去登录 ›" : "没有账号？去注册 ›"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

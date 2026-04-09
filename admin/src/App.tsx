@@ -1,7 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { isLoggedIn } from "./api";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
+import Layout from "./components/Layout";
+import Overview from "./pages/Overview";
+import VersionUpdate from "./pages/VersionUpdate";
+import VersionCreate from "./pages/VersionCreate";
+import VersionDelete from "./pages/VersionDelete";
+import Users from "./pages/Users";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />;
@@ -13,13 +18,18 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
-          path="/"
           element={
             <PrivateRoute>
-              <Dashboard />
+              <Layout />
             </PrivateRoute>
           }
-        />
+        >
+          <Route index element={<Overview />} />
+          <Route path="/version/update" element={<VersionUpdate />} />
+          <Route path="/version/create" element={<VersionCreate />} />
+          <Route path="/version/delete" element={<VersionDelete />} />
+          <Route path="/users" element={<Users />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

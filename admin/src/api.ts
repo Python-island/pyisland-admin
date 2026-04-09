@@ -68,6 +68,12 @@ export interface LoginData {
   username: string;
 }
 
+export interface AdminUserInfo {
+  id: number;
+  username: string;
+  createdAt: string;
+}
+
 export const auth = {
   login(username: string, password: string) {
     return request<ApiResponse<LoginData>>("/auth/login", {
@@ -75,15 +81,12 @@ export const auth = {
       body: JSON.stringify({ username, password }),
     });
   },
-  register(username: string, password: string) {
-    return request<ApiResponse>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-    });
-  },
 };
 
 export const version = {
+  list() {
+    return request<ApiResponse<AppVersion[]>>("/v1/version/list");
+  },
   get(appName: string) {
     return request<ApiResponse<AppVersion>>(
       `/v1/version?appName=${encodeURIComponent(appName)}`
@@ -104,6 +107,27 @@ export const version = {
   delete(appName: string) {
     return request<ApiResponse>(
       `/v1/version?appName=${encodeURIComponent(appName)}`,
+      { method: "DELETE" }
+    );
+  },
+};
+
+export const users = {
+  list() {
+    return request<ApiResponse<AdminUserInfo[]>>("/v1/users");
+  },
+  count() {
+    return request<ApiResponse<number>>("/v1/users/count");
+  },
+  add(username: string, password: string) {
+    return request<ApiResponse>("/v1/users", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+  },
+  delete(username: string) {
+    return request<ApiResponse>(
+      `/v1/users?username=${encodeURIComponent(username)}`,
       { method: "DELETE" }
     );
   },

@@ -1,0 +1,193 @@
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { clearToken, getUsername } from "../api";
+import { useState } from "react";
+
+const navItems = [
+  { label: "总览", path: "/" },
+  {
+    label: "版本",
+    children: [
+      { label: "更新", path: "/version/update" },
+      { label: "创建", path: "/version/create" },
+      { label: "删除", path: "/version/delete" },
+    ],
+  },
+  { label: "人员管理", path: "/users" },
+];
+
+const linkBase: React.CSSProperties = {
+  display: "block",
+  padding: "8px 20px",
+  borderRadius: 8,
+  fontSize: 14,
+  lineHeight: 1.43,
+  letterSpacing: "-0.224px",
+  color: "rgba(255,255,255,0.64)",
+  textDecoration: "none",
+  transition: "all 0.15s",
+};
+
+const linkActive: React.CSSProperties = {
+  ...linkBase,
+  backgroundColor: "var(--apple-blue)",
+  color: "#ffffff",
+};
+
+const subLinkBase: React.CSSProperties = {
+  ...linkBase,
+  paddingLeft: 36,
+  fontSize: 13,
+};
+
+const subLinkActive: React.CSSProperties = {
+  ...subLinkBase,
+  color: "var(--apple-link-dark)",
+};
+
+export default function Layout() {
+  const navigate = useNavigate();
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(["版本"])
+  );
+
+  const toggleSection = (label: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
+  const handleLogout = () => {
+    clearToken();
+    navigate("/login");
+  };
+
+  return (
+    <div className="min-h-screen flex" style={{ backgroundColor: "var(--apple-black)" }}>
+      {/* Sidebar */}
+      <aside
+        className="flex flex-col"
+        style={{
+          width: 240,
+          minHeight: "100vh",
+          backgroundColor: "var(--apple-surface-1)",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        {/* Logo */}
+        <div
+          style={{
+            padding: "24px 20px 20px",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 21,
+              fontWeight: 600,
+              lineHeight: 1.19,
+              letterSpacing: "0.231px",
+              color: "#ffffff",
+            }}
+          >
+            PyIsland
+          </span>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1" style={{ padding: "12px 12px" }}>
+          {navItems.map((item) =>
+            item.children ? (
+              <div key={item.label} style={{ marginBottom: 4 }}>
+                <button
+                  onClick={() => toggleSection(item.label)}
+                  className="w-full text-left cursor-pointer border-none bg-transparent"
+                  style={{
+                    ...linkBase,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  {item.label}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      transform: expandedSections.has(item.label)
+                        ? "rotate(90deg)"
+                        : "rotate(0deg)",
+                      transition: "transform 0.15s",
+                    }}
+                  >
+                    ›
+                  </span>
+                </button>
+                {expandedSections.has(item.label) && (
+                  <div>
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        style={({ isActive }) =>
+                          isActive ? subLinkActive : subLinkBase
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === "/"}
+                style={({ isActive }) => (isActive ? linkActive : linkBase)}
+              >
+                {item.label}
+              </NavLink>
+            )
+          )}
+        </nav>
+
+        {/* User / Logout */}
+        <div
+          style={{
+            padding: "16px 20px",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              color: "rgba(255,255,255,0.48)",
+              marginBottom: 8,
+            }}
+          >
+            {getUsername()}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="cursor-pointer border-none bg-transparent"
+            style={{
+              fontSize: 12,
+              color: "var(--apple-link-dark)",
+              padding: 0,
+            }}
+          >
+            退出登录
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1" style={{ overflow: "auto" }}>
+        <Outlet />
+      </main>
+    </div>
+  );
+}
