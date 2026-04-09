@@ -60,8 +60,8 @@ export default function Profile() {
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      showMsg("头像文件不能超过 2MB", "err");
+    if (file.size > 5 * 1024 * 1024) {
+      showMsg("头像文件不能超过 5MB", "err");
       return;
     }
     const reader = new FileReader();

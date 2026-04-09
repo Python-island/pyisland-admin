@@ -126,6 +126,12 @@ public class UserController {
                     "message", "用户不存在"
             ));
         }
+        if (request.avatar() != null && request.avatar().length() > 7 * 1024 * 1024) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 400,
+                    "message", "头像文件不能超过 5MB"
+            ));
+        }
         if (request.password() != null && !request.password().isBlank()) {
             adminUserService.updateProfile(request.username(), request.password(), request.avatar());
         } else {

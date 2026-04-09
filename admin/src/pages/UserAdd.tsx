@@ -42,8 +42,8 @@ export default function UserAdd() {
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      showMsg("头像文件不能超过 2MB", "err");
+    if (file.size > 5 * 1024 * 1024) {
+      showMsg("头像文件不能超过 5MB", "err");
       return;
     }
     const reader = new FileReader();
@@ -143,7 +143,7 @@ export default function UserAdd() {
             </div>
             <div>
               <label style={labelStyle}>头像</label>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>点击圆圈上传，支持 JPG/PNG，最大 2MB</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>点击圆圈上传，支持 JPG/PNG，最大 5MB</div>
             </div>
             <input
               ref={fileRef}
