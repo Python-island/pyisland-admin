@@ -19,6 +19,14 @@ const navItems = [
       { label: "添加管理员", path: "/users/add" },
     ],
   },
+  {
+    label: "接口管理",
+    children: [
+      { label: "接口状态", path: "/api-status" },
+      { label: "状态管理", path: "/api-message" },
+      { label: "调试接口", path: "/api-debug" },
+    ],
+  },
 ];
 
 const linkBase: React.CSSProperties = {
@@ -53,7 +61,7 @@ const subLinkActive: React.CSSProperties = {
 export default function Layout() {
   const navigate = useNavigate();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["版本管理", "人员管理"])
+    new Set(["版本管理", "人员管理", "接口管理"])
   );
   const [avatar, setAvatar] = useState<string | null>(null);
 

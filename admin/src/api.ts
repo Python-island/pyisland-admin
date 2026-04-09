@@ -98,6 +98,14 @@ export interface ProfileData {
   createdAt: string;
 }
 
+export interface ApiStatus {
+  id: number;
+  apiName: string;
+  status: boolean;
+  message: string;
+  updatedAt: string;
+}
+
 export const auth = {
   login(username: string, password: string) {
     return request<ApiResponse<LoginData>>("/auth/login", {
@@ -188,6 +196,18 @@ export const users = {
     return request<ApiResponse>("/v1/users/profile", {
       method: "PUT",
       body: JSON.stringify({ username, password, avatar }),
+    });
+  },
+};
+
+export const apiStatus = {
+  list() {
+    return request<ApiResponse<ApiStatus[]>>("/v1/service-status/list");
+  },
+  update(apiName: string, status: boolean, message: string) {
+    return request<ApiResponse>("/v1/service-status", {
+      method: "PUT",
+      body: JSON.stringify({ apiName, status, message }),
     });
   },
 };

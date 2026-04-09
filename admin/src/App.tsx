@@ -9,6 +9,9 @@ import VersionDelete from "./pages/VersionDelete";
 import UserList from "./pages/UserList";
 import UserAdd from "./pages/UserAdd";
 import Profile from "./pages/Profile";
+import ApiStatusPage from "./pages/ApiStatus";
+import ApiStatusManage from "./pages/ApiStatusManage";
+import ApiDebug from "./pages/ApiDebug";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />;
@@ -33,6 +36,9 @@ export default function App() {
           <Route path="/users/list" element={<UserList />} />
           <Route path="/users/add" element={<UserAdd />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/api-status" element={<ApiStatusPage />} />
+          <Route path="/api-message" element={<ApiStatusManage />} />
+          <Route path="/api-debug" element={<ApiDebug />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
