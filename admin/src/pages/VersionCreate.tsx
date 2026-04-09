@@ -55,7 +55,7 @@ export default function VersionCreate() {
   };
 
   return (
-    <div style={{ padding: "48px 48px", maxWidth: 720 }}>
+    <div style={{ padding: "48px 48px" }}>
       <h1
         style={{
           fontFamily: "var(--font-display)",

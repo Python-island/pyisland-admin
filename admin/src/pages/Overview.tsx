@@ -48,7 +48,7 @@ export default function Overview() {
   }
 
   return (
-    <div style={{ padding: "48px 48px", maxWidth: 980 }}>
+    <div style={{ padding: "48px 48px" }}>
       {/* Hero */}
       <h1
         style={{
@@ -85,7 +85,7 @@ export default function Overview() {
 
       {/* Version list */}
       <div style={cardStyle}>
-        <h2 style={headingStyle}>所有版本一览</h2>
+        <h2 style={headingStyle}>版本一览</h2>
         {versions.length === 0 ? (
           <p style={{ color: "rgba(255,255,255,0.48)", fontSize: 14 }}>暂无版本数据</p>
         ) : (
