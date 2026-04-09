@@ -1,4 +1,4 @@
-const BASE = "/api";
+const BASE = "https://server.pyisland.com/api";
 
 function getToken(): string | null {
   return localStorage.getItem("token");
