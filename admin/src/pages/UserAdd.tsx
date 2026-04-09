@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { users } from "../api";
+import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
   padding: "10px 14px",
@@ -33,7 +34,6 @@ export default function UserAdd() {
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
     setMsgType(type);
-    setTimeout(() => setMsg(""), 3000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,22 +79,12 @@ export default function UserAdd() {
         注册新的管理员账号
       </p>
 
-      {msg && (
-        <div
-          className="fixed z-50"
-          style={{
-            top: 24,
-            right: 24,
-            padding: "10px 20px",
-            borderRadius: 8,
-            fontSize: 14,
-            color: "#ffffff",
-            backgroundColor: msgType === "ok" ? "var(--apple-blue)" : "#ff453a",
-          }}
-        >
-          {msg}
-        </div>
-      )}
+      <MessageDialog
+        visible={!!msg}
+        type={msgType}
+        message={msg}
+        onClose={() => setMsg("")}
+      />
 
       <div
         style={{

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { users, getUsername, type AdminUserInfo } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
+import MessageDialog from "../components/MessageDialog";
 
 const cardStyle: React.CSSProperties = {
   backgroundColor: "var(--apple-surface-1)",
@@ -39,7 +40,6 @@ export default function UserList() {
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
     setMsgType(type);
-    setTimeout(() => setMsg(""), 3000);
   };
 
   const fetchUsers = async () => {
@@ -109,22 +109,12 @@ export default function UserList() {
         查看和管理系统管理员
       </p>
 
-      {msg && (
-        <div
-          className="fixed z-50"
-          style={{
-            top: 24,
-            right: 24,
-            padding: "10px 20px",
-            borderRadius: 8,
-            fontSize: 14,
-            color: "#ffffff",
-            backgroundColor: msgType === "ok" ? "var(--apple-blue)" : "#ff453a",
-          }}
-        >
-          {msg}
-        </div>
-      )}
+      <MessageDialog
+        visible={!!msg}
+        type={msgType}
+        message={msg}
+        onClose={() => setMsg("")}
+      />
 
       <div style={cardStyle}>
         <h2 style={headingStyle}>

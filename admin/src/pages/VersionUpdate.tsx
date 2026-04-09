@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { version, type AppVersion } from "../api";
+import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
   padding: "10px 14px",
@@ -49,7 +50,6 @@ export default function VersionUpdate() {
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
     setMsgType(type);
-    setTimeout(() => setMsg(""), 3000);
   };
 
   const fetchVersions = async () => {
@@ -117,22 +117,12 @@ export default function VersionUpdate() {
         选择应用并更新版本号
       </p>
 
-      {msg && (
-        <div
-          className="fixed z-50"
-          style={{
-            top: 24,
-            right: 24,
-            padding: "10px 20px",
-            borderRadius: 8,
-            fontSize: 14,
-            color: "#ffffff",
-            backgroundColor: msgType === "ok" ? "var(--apple-blue)" : "#ff453a",
-          }}
-        >
-          {msg}
-        </div>
-      )}
+      <MessageDialog
+        visible={!!msg}
+        type={msgType}
+        message={msg}
+        onClose={() => setMsg("")}
+      />
 
       {loading ? (
         <p style={{ color: "rgba(255,255,255,0.48)", fontSize: 14 }}>加载中...</p>

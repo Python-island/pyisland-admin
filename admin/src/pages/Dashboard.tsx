@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { version, type AppVersion } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
+import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
   padding: "10px 14px",
@@ -59,7 +60,6 @@ export default function Dashboard() {
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
     setMsgType(type);
-    setTimeout(() => setMsg(""), 3000);
   };
 
   const handleSearch = useCallback(async () => {
@@ -149,27 +149,12 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: "48px 48px" }}>
-      {/* Toast */}
-      {msg && (
-        <div
-          className="fixed z-50"
-          style={{
-            top: 24,
-            right: 24,
-            padding: "10px 20px",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 400,
-            lineHeight: 1.29,
-            letterSpacing: "-0.224px",
-            color: "#ffffff",
-            backgroundColor:
-              msgType === "ok" ? "var(--apple-blue)" : "#ff453a",
-          }}
-        >
-          {msg}
-        </div>
-      )}
+      <MessageDialog
+        visible={!!msg}
+        type={msgType}
+        message={msg}
+        onClose={() => setMsg("")}
+      />
 
       {/* Hero */}
       <h1
