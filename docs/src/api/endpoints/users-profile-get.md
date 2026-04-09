@@ -1,5 +1,17 @@
 # GET /api/v1/users/profile
 
+:::tip 用途
+用于获取单个管理员的资料信息。
+:::
+
+:::warning 鉴权
+该接口需要 `Bearer Token`。
+:::
+
+:::info 典型场景
+常用于“个人中心”或“编辑资料”页面初始化。
+:::
+
 ## 基础信息
 
 - Method: `GET`

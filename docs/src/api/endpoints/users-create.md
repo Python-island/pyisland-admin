@@ -1,5 +1,17 @@
 # POST /api/v1/users
 
+:::tip 用途
+用于新增后台管理员账号。
+:::
+
+:::warning 参数校验
+`username` 与 `password` 为空会返回 `400`。
+:::
+
+:::info 建议
+创建成功后建议立即刷新管理员列表，保持界面数据一致。
+:::
+
 ## 基础信息
 
 - Method: `POST`

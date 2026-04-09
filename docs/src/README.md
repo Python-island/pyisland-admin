@@ -6,6 +6,18 @@ sidebar: true
 
 # PyIsland API 文档站
 
+:::tip 文档说明
+本页用于快速了解 API 全貌，具体接口请从左侧侧边栏按分组进入。
+:::
+
+:::warning 鉴权提醒
+除公开接口外，调用时都需要携带 `Authorization: Bearer <token>`。
+:::
+
+:::info 线上环境
+推荐基址：`https://server.pyisland.com/api`
+:::
+
 ## 项目说明
 
 本项目为 `pyisland-admin/server` 的接口文档站，覆盖当前后端控制器中的全部公开 API。

@@ -1,5 +1,17 @@
 # PUT /api/v1/service-status
 
+:::tip 用途
+用于后台手动更新某个接口的状态与提示信息。
+:::
+
+:::warning 鉴权
+该接口需要 `Bearer Token`，并建议限制为管理员角色调用。
+:::
+
+:::info 运维建议
+可将 `message` 与 `remark` 作为面向用户的故障说明文案。
+:::
+
 ## 基础信息
 
 - Method: `PUT`

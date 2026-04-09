@@ -1,5 +1,17 @@
 # DELETE /api/v1/users
 
+:::tip 用途
+用于删除指定管理员账号。
+:::
+
+:::warning 风险提示
+删除后不可恢复，建议在前端增加二次确认弹窗。
+:::
+
+:::info 参数说明
+通过 query 参数 `username` 指定要删除的用户。
+:::
+
 ## 基础信息
 
 - Method: `DELETE`
