@@ -51,6 +51,19 @@ public class AdminUserService {
         return adminUserMapper.count();
     }
 
+    public AdminUser getByUsername(String username) {
+        return adminUserMapper.selectByUsername(username);
+    }
+
+    public boolean updateProfile(String username, String newPassword, String avatar) {
+        String hashed = hashPassword(newPassword);
+        return adminUserMapper.updateProfile(username, hashed, avatar) > 0;
+    }
+
+    public boolean updateAvatar(String username, String avatar) {
+        return adminUserMapper.updateAvatar(username, avatar) > 0;
+    }
+
     private String hashPassword(String password) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");

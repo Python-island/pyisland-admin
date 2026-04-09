@@ -14,5 +14,8 @@ CREATE TABLE IF NOT EXISTS admin_user (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     username    VARCHAR(100) NOT NULL UNIQUE,
     password    VARCHAR(255) NOT NULL,
+    avatar      TEXT,
     created_at  DATETIME
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS avatar TEXT AFTER password;

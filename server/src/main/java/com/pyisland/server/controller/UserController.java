@@ -6,11 +6,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,11 +29,14 @@ public class UserController {
     @GetMapping
     public ResponseEntity<?> listUsers() {
         List<AdminUser> users = adminUserService.listAll();
-        var safeList = users.stream().map(u -> Map.of(
-                "id", u.getId(),
-                "username", u.getUsername(),
-                "createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : ""
-        )).toList();
+        var safeList = users.stream().map(u -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", u.getId());
+            m.put("username", u.getUsername());
+            m.put("avatar", u.getAvatar());
+            m.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
+            return m;
+        }).toList();
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
@@ -86,6 +91,55 @@ public class UserController {
         ));
     }
 
+    @GetMapping("/profile")
+    public ResponseEntity<?> getProfile(@RequestParam String username) {
+        AdminUser user = adminUserService.getByUsername(username);
+        if (user == null) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 404,
+                    "message", "用户不存在"
+            ));
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("username", user.getUsername());
+        data.put("avatar", user.getAvatar());
+        data.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", data
+        ));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
+        if (request.username() == null || request.username().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "用户名不能为空"
+            ));
+        }
+        AdminUser user = adminUserService.getByUsername(request.username());
+        if (user == null) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 404,
+                    "message", "用户不存在"
+            ));
+        }
+        if (request.password() != null && !request.password().isBlank()) {
+            adminUserService.updateProfile(request.username(), request.password(), request.avatar());
+        } else {
+            adminUserService.updateAvatar(request.username(), request.avatar());
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "更新成功"
+        ));
+    }
+
     public record AddUserRequest(String username, String password) {
+    }
+
+    public record UpdateProfileRequest(String username, String password, String avatar) {
     }
 }

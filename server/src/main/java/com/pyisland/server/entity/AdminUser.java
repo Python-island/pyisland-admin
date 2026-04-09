@@ -7,6 +7,7 @@ public class AdminUser {
     private Long id;
     private String username;
     private String password;
+    private String avatar;
     private LocalDateTime createdAt;
 
     public AdminUser() {
@@ -34,6 +35,14 @@ public class AdminUser {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
     }
 
     public LocalDateTime getCreatedAt() {

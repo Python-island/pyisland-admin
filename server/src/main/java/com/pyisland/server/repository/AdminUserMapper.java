@@ -16,4 +16,8 @@ public interface AdminUserMapper {
     int deleteByUsername(@Param("username") String username);
 
     int count();
+
+    int updateProfile(@Param("username") String username, @Param("password") String password, @Param("avatar") String avatar);
+
+    int updateAvatar(@Param("username") String username, @Param("avatar") String avatar);
 }

@@ -7,22 +7,23 @@
         <id property="id" column="id"/>
         <result property="username" column="username"/>
         <result property="password" column="password"/>
+        <result property="avatar" column="avatar"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <select id="selectByUsername" resultMap="AdminUserResultMap">
-        SELECT id, username, password, created_at
+        SELECT id, username, password, avatar, created_at
         FROM admin_user
         WHERE username = #{username}
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO admin_user (username, password, created_at)
-        VALUES (#{username}, #{password}, #{createdAt})
+        INSERT INTO admin_user (username, password, avatar, created_at)
+        VALUES (#{username}, #{password}, #{avatar}, #{createdAt})
     </insert>
 
     <select id="selectAll" resultMap="AdminUserResultMap">
-        SELECT id, username, password, created_at
+        SELECT id, username, password, avatar, created_at
         FROM admin_user
         ORDER BY created_at DESC
     </select>
@@ -35,5 +36,18 @@
     <select id="count" resultType="int">
         SELECT COUNT(*) FROM admin_user
     </select>
+
+    <update id="updateProfile">
+        UPDATE admin_user
+        SET password = #{password},
+            avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateAvatar">
+        UPDATE admin_user
+        SET avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
 
 </mapper>
