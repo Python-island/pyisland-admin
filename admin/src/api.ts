@@ -1,4 +1,6 @@
-const BASE = "https://server.pyisland.com/api";
+import { showKickedModal } from "./modal";
+
+const BASE = import.meta.env.VITE_API_BASE || "/api";
 
 function getToken(): string | null {
   return localStorage.getItem("token");
@@ -41,9 +43,14 @@ async function request<T>(
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
+    const body = await res.json().catch(() => null);
     clearToken();
+    if (body?.code === 4011) {
+      showKickedModal(() => { window.location.href = "/login"; });
+      throw new Error(body?.message || "账号已在其他设备登录");
+    }
     window.location.href = "/login";
-    throw new Error("未登录或token已过期");
+    throw new Error(body?.message || "未登录或token已过期");
   }
 
   return res.json();
@@ -131,9 +138,14 @@ export async function uploadAvatar(file: File): Promise<ApiResponse<string>> {
     body: formData,
   });
   if (res.status === 401) {
+    const body = await res.json().catch(() => null);
     clearToken();
+    if (body?.code === 4011) {
+      showKickedModal(() => { window.location.href = "/login"; });
+      throw new Error(body?.message || "账号已在其他设备登录");
+    }
     window.location.href = "/login";
-    throw new Error("未登录或token已过期");
+    throw new Error(body?.message || "未登录或token已过期");
   }
   return res.json();
 }
