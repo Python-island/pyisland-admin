@@ -88,15 +88,19 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: "var(--apple-black)" }}>
+    <div className="flex" style={{ backgroundColor: "var(--apple-black)", height: "100vh", overflow: "hidden" }}>
       {/* Sidebar */}
       <aside
         className="flex flex-col"
         style={{
           width: 280,
-          minHeight: "100vh",
+          flexShrink: 0,
+          height: "100vh",
+          position: "sticky",
+          top: 0,
           backgroundColor: "var(--apple-surface-1)",
           borderRight: "1px solid rgba(255,255,255,0.06)",
+          overflowY: "auto",
         }}
       >
         {/* Logo */}
