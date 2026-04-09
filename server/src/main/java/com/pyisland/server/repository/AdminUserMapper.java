@@ -20,4 +20,6 @@ public interface AdminUserMapper {
     int updateProfile(@Param("username") String username, @Param("password") String password, @Param("avatar") String avatar);
 
     int updateAvatar(@Param("username") String username, @Param("avatar") String avatar);
+
+    int updateSessionToken(@Param("username") String username, @Param("sessionToken") String sessionToken);
 }

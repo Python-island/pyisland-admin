@@ -20,8 +20,7 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        String method = request.getMethod();
-        if ("OPTIONS".equalsIgnoreCase(method) || "GET".equalsIgnoreCase(method)) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
 
@@ -30,10 +29,17 @@ public class JwtInterceptor implements HandlerInterceptor {
             String token = authHeader.substring(7);
             if (jwtUtil.validateToken(token)) {
                 String username = jwtUtil.getUsernameFromToken(token);
-                if (adminUserMapper.selectByUsername(username) == null) {
+                var user = adminUserMapper.selectByUsername(username);
+                if (user == null) {
                     response.setStatus(401);
                     response.setContentType("application/json;charset=UTF-8");
                     response.getWriter().write("{\"code\":401,\"message\":\"用户已被删除\"}");
+                    return false;
+                }
+                if (user.getSessionToken() != null && !token.equals(user.getSessionToken())) {
+                    response.setStatus(401);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"code\":4011,\"message\":\"账号已在其他设备登录\"}");
                     return false;
                 }
                 request.setAttribute("username", username);

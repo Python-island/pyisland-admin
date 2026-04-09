@@ -8,6 +8,7 @@ public class AdminUser {
     private String username;
     private String password;
     private String avatar;
+    private String sessionToken;
     private LocalDateTime createdAt;
 
     public AdminUser() {
@@ -43,6 +44,14 @@ public class AdminUser {
 
     public void setAvatar(String avatar) {
         this.avatar = avatar;
+    }
+
+    public String getSessionToken() {
+        return sessionToken;
+    }
+
+    public void setSessionToken(String sessionToken) {
+        this.sessionToken = sessionToken;
     }
 
     public LocalDateTime getCreatedAt() {

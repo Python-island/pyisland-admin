@@ -8,11 +8,12 @@
         <result property="username" column="username"/>
         <result property="password" column="password"/>
         <result property="avatar" column="avatar"/>
+        <result property="sessionToken" column="session_token"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <select id="selectByUsername" resultMap="AdminUserResultMap">
-        SELECT id, username, password, avatar, created_at
+        SELECT id, username, password, avatar, session_token, created_at
         FROM admin_user
         WHERE username = #{username}
     </select>
@@ -23,7 +24,7 @@
     </insert>
 
     <select id="selectAll" resultMap="AdminUserResultMap">
-        SELECT id, username, password, avatar, created_at
+        SELECT id, username, password, avatar, session_token, created_at
         FROM admin_user
         ORDER BY created_at DESC
     </select>
@@ -47,6 +48,12 @@
     <update id="updateAvatar">
         UPDATE admin_user
         SET avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateSessionToken">
+        UPDATE admin_user
+        SET session_token = #{sessionToken}
         WHERE username = #{username}
     </update>
 

@@ -20,3 +20,4 @@ CREATE TABLE IF NOT EXISTS admin_user (
 
 ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS avatar LONGTEXT AFTER password;
 ALTER TABLE admin_user MODIFY COLUMN avatar LONGTEXT;
+-- ALTER TABLE admin_user ADD COLUMN session_token VARCHAR(500) AFTER avatar;

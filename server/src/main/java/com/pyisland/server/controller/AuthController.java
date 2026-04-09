@@ -1,6 +1,7 @@
 package com.pyisland.server.controller;
 
 import com.pyisland.server.entity.AdminUser;
+import com.pyisland.server.repository.AdminUserMapper;
 import com.pyisland.server.service.AdminUserService;
 import com.pyisland.server.util.JwtUtil;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +17,12 @@ import java.util.Map;
 public class AuthController {
 
     private final AdminUserService adminUserService;
+    private final AdminUserMapper adminUserMapper;
     private final JwtUtil jwtUtil;
 
-    public AuthController(AdminUserService adminUserService, JwtUtil jwtUtil) {
+    public AuthController(AdminUserService adminUserService, AdminUserMapper adminUserMapper, JwtUtil jwtUtil) {
         this.adminUserService = adminUserService;
+        this.adminUserMapper = adminUserMapper;
         this.jwtUtil = jwtUtil;
     }
 
@@ -39,6 +42,7 @@ public class AuthController {
             ));
         }
         String token = jwtUtil.generateToken(user.getUsername());
+        adminUserMapper.updateSessionToken(user.getUsername(), token);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "登录成功",
