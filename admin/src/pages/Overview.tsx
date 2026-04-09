@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { version, users, type AppVersion } from "../api";
+import { version, users, apiStatus, type AppVersion } from "../api";
 
 const headingStyle: React.CSSProperties = {
   fontFamily: "var(--font-display)",
@@ -14,17 +14,24 @@ const headingStyle: React.CSSProperties = {
 export default function Overview() {
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [adminCount, setAdminCount] = useState(0);
+  const [apiAvailable, setApiAvailable] = useState(0);
+  const [apiUnavailable, setApiUnavailable] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, cRes] = await Promise.all([
+        const [vRes, cRes, sRes] = await Promise.all([
           version.list(),
           users.count(),
+          apiStatus.list(),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
         if (cRes.code === 200 && cRes.data !== undefined) setAdminCount(cRes.data);
+        if (sRes.code === 200 && sRes.data) {
+          setApiAvailable(sRes.data.filter((x) => x.status).length);
+          setApiUnavailable(sRes.data.filter((x) => !x.status).length);
+        }
       } catch {
         /* ignore */
       } finally {
@@ -74,6 +81,7 @@ export default function Overview() {
       {/* Stats */}
       <div className="flex" style={{ gap: 20, marginBottom: 32 }}>
         <StatCard label="管理员数量" value={adminCount} />
+        <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
         <StatCard label="应用版本数" value={versions.length} />
       </div>
 
@@ -189,6 +197,64 @@ function StatCard({ label, value }: { label: string; value: number }) {
         }}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+function ApiStatusCard({ available, unavailable }: { available: number; unavailable: number }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        backgroundColor: "var(--apple-surface-1)",
+        borderRadius: 12,
+        padding: "24px 28px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          lineHeight: 1.33,
+          letterSpacing: "-0.12px",
+          color: "rgba(255,255,255,0.48)",
+          textTransform: "uppercase",
+          marginBottom: 16,
+        }}
+      >
+        接口状态
+      </div>
+      <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "#30d158",
+            }}
+          >
+            {available}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>可用</div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: unavailable > 0 ? "#ff453a" : "rgba(255,255,255,0.32)",
+            }}
+          >
+            {unavailable}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>不可用</div>
+        </div>
       </div>
     </div>
   );
