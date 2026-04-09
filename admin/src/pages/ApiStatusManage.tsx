@@ -88,7 +88,7 @@ export default function ApiStatusManage() {
     updateRow(apiName, { status: next });
     setSaving((p) => ({ ...p, [apiName]: true }));
     try {
-      const res = await apiStatus.update(apiName, next, row.message || "");
+      const res = await apiStatus.update(apiName, next, row.message || "", row.remark || "");
       if (res.code === 200) {
         showMsg("更新成功");
         fetchList();
@@ -109,7 +109,7 @@ export default function ApiStatusManage() {
     if (!row) return;
     setSaving((p) => ({ ...p, [apiName]: true }));
     try {
-      const res = await apiStatus.update(apiName, row.status, row.message || "");
+      const res = await apiStatus.update(apiName, row.status, row.message || "", row.remark || "");
       if (res.code === 200) {
         showMsg("保存成功");
         fetchList();
@@ -195,6 +195,7 @@ export default function ApiStatusManage() {
                   <th style={thStyle}>API</th>
                   <th style={thStyle}>状态</th>
                   <th style={thStyle}>提示信息</th>
+                  <th style={thStyle}>备注信息</th>
                   <th style={thStyle}>操作</th>
                 </tr>
               </thead>
@@ -205,12 +206,9 @@ export default function ApiStatusManage() {
                     <tr key={row.apiName}>
                       <td style={tdStyle}>{row.apiName}</td>
                       <td style={tdStyle}>
-                        <button
-                          onClick={() => toggleStatus(row.apiName)}
-                          disabled={busy}
-                          className="cursor-pointer"
+                        <span
                           style={{
-                            padding: "4px 14px",
+                            padding: "2px 12px",
                             borderRadius: 980,
                             border: "1px solid rgba(255,255,255,0.16)",
                             backgroundColor: row.status
@@ -219,12 +217,11 @@ export default function ApiStatusManage() {
                             color: row.status ? "#30d158" : "#ff453a",
                             fontSize: 12,
                             lineHeight: 1.43,
-                            opacity: busy ? 0.6 : 1,
-                            cursor: busy ? "not-allowed" : "pointer",
+                            display: "inline-block",
                           }}
                         >
                           {row.status ? "启用" : "禁用"}
-                        </button>
+                        </span>
                       </td>
                       <td style={tdStyle}>
                         <input
@@ -243,29 +240,72 @@ export default function ApiStatusManage() {
                             fontSize: 14,
                             lineHeight: 1.43,
                             letterSpacing: "-0.224px",
-                            width: 260,
+                            width: 200,
                           }}
                         />
                       </td>
                       <td style={tdStyle}>
-                        <button
-                          onClick={() => saveMessage(row.apiName)}
-                          disabled={busy}
-                          className="cursor-pointer"
+                        <input
+                          value={row.remark || ""}
+                          onChange={(e) =>
+                            updateRow(row.apiName, { remark: e.target.value })
+                          }
+                          placeholder="接口用途说明"
+                          className="outline-none"
                           style={{
-                            padding: "6px 14px",
-                            backgroundColor: "var(--apple-blue)",
-                            color: "#ffffff",
-                            borderRadius: 980,
+                            padding: "7px 12px",
+                            backgroundColor: "var(--apple-surface-2)",
+                            borderRadius: 8,
                             border: "none",
-                            fontSize: 12,
+                            color: "#ffffff",
+                            fontSize: 14,
                             lineHeight: 1.43,
-                            opacity: busy ? 0.6 : 1,
-                            cursor: busy ? "not-allowed" : "pointer",
+                            letterSpacing: "-0.224px",
+                            width: 200,
                           }}
-                        >
-                          保存
-                        </button>
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <button
+                            onClick={() => toggleStatus(row.apiName)}
+                            disabled={busy}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "6px 14px",
+                              backgroundColor: row.status
+                                ? "rgba(255, 69, 58, 0.16)"
+                                : "rgba(48, 209, 88, 0.16)",
+                              color: row.status ? "#ff453a" : "#30d158",
+                              borderRadius: 980,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                              opacity: busy ? 0.6 : 1,
+                              cursor: busy ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {row.status ? "设为禁用" : "设为启用"}
+                          </button>
+                          <button
+                            onClick={() => saveMessage(row.apiName)}
+                            disabled={busy}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "6px 14px",
+                              backgroundColor: "var(--apple-blue)",
+                              color: "#ffffff",
+                              borderRadius: 980,
+                              border: "none",
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                              opacity: busy ? 0.6 : 1,
+                              cursor: busy ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            保存
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

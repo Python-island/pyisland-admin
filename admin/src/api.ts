@@ -103,6 +103,7 @@ export interface ApiStatus {
   apiName: string;
   status: boolean;
   message: string;
+  remark: string;
   updatedAt: string;
 }
 
@@ -204,10 +205,10 @@ export const apiStatus = {
   list() {
     return request<ApiResponse<ApiStatus[]>>("/v1/service-status/list");
   },
-  update(apiName: string, status: boolean, message: string) {
+  update(apiName: string, status: boolean, message: string, remark: string) {
     return request<ApiResponse>("/v1/service-status", {
       method: "PUT",
-      body: JSON.stringify({ apiName, status, message }),
+      body: JSON.stringify({ apiName, status, message, remark }),
     });
   },
 };

@@ -140,6 +140,7 @@ export default function ApiStatusPage() {
                   <th style={thStyle}>API</th>
                   <th style={thStyle}>状态</th>
                   <th style={thStyle}>提示信息</th>
+                  <th style={thStyle}>备注信息</th>
                   <th style={thStyle}>最后更新</th>
                 </tr>
               </thead>
@@ -165,6 +166,9 @@ export default function ApiStatusPage() {
                     </td>
                     <td style={{ ...tdStyle, color: row.message ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.24)" }}>
                       {row.message || "—"}
+                    </td>
+                    <td style={{ ...tdStyle, color: row.remark ? "rgba(255,255,255,0.48)" : "rgba(255,255,255,0.20)", fontSize: 13 }}>
+                      {row.remark || "—"}
                     </td>
                     <td style={{ ...tdStyle, color: "rgba(255,255,255,0.40)", fontSize: 12 }}>
                       {row.updatedAt || "—"}
