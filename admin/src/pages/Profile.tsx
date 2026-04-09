@@ -98,9 +98,11 @@ export default function Profile() {
       if (res.code === 200) {
         showMsg("更新成功");
         setAvatar(avatarUrl);
+        setAvatarPreview(avatarUrl);
         setAvatarFile(null);
         setNewPassword("");
         setConfirmPwd("");
+        window.dispatchEvent(new CustomEvent("avatar-updated", { detail: avatarUrl }));
       } else {
         showMsg(res.message, "err");
       }

@@ -66,6 +66,11 @@ export default function Layout() {
         }
       }).catch(() => {});
     }
+    const onAvatarUpdated = (e: Event) => {
+      setAvatar((e as CustomEvent).detail);
+    };
+    window.addEventListener("avatar-updated", onAvatarUpdated);
+    return () => window.removeEventListener("avatar-updated", onAvatarUpdated);
   }, []);
 
   const toggleSection = (label: string) => {
