@@ -14,16 +14,27 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * 应用版本控制器。
+ */
 @RestController
 @RequestMapping("/v1/version")
 public class VersionController {
 
     private final AppVersionService appVersionService;
 
+    /**
+     * 构造版本控制器。
+     * @param appVersionService 版本服务。
+     */
     public VersionController(AppVersionService appVersionService) {
         this.appVersionService = appVersionService;
     }
 
+    /**
+     * 查询全部版本。
+     * @return 版本列表。
+     */
     @GetMapping("/list")
     public ResponseEntity<?> listVersions() {
         var list = appVersionService.listAll();
@@ -34,6 +45,11 @@ public class VersionController {
         ));
     }
 
+    /**
+     * 查询指定应用版本。
+     * @param appName 应用名称。
+     * @return 版本信息。
+     */
     @GetMapping
     public ResponseEntity<?> getVersion(@RequestParam String appName) {
         AppVersion version = appVersionService.getVersion(appName);
@@ -50,6 +66,11 @@ public class VersionController {
         ));
     }
 
+    /**
+     * 更新应用版本信息。
+     * @param request 更新请求。
+     * @return 更新结果。
+     */
     @PutMapping
     public ResponseEntity<?> updateVersion(@RequestBody UpdateVersionRequest request) {
         if (request.version() == null || request.version().isBlank()) {
@@ -88,6 +109,11 @@ public class VersionController {
         ));
     }
 
+    /**
+     * 删除应用版本。
+     * @param appName 应用名称。
+     * @return 删除结果。
+     */
     @DeleteMapping
     public ResponseEntity<?> deleteVersion(@RequestParam String appName) {
         boolean deleted = appVersionService.deleteVersion(appName);
@@ -103,6 +129,11 @@ public class VersionController {
         ));
     }
 
+    /**
+     * 创建应用版本。
+     * @param request 创建请求。
+     * @return 创建结果。
+     */
     @PostMapping
     public ResponseEntity<?> createVersion(@RequestBody CreateVersionRequest request) {
         if (request.appName() == null || request.appName().isBlank()) {
@@ -131,9 +162,23 @@ public class VersionController {
         ));
     }
 
+    /**
+     * 更新版本请求体。
+     * @param appName 应用名称。
+     * @param version 版本号。
+     * @param description 版本描述。
+     * @param downloadUrl 下载地址。
+     */
     public record UpdateVersionRequest(String appName, String version, String description, String downloadUrl) {
     }
 
+    /**
+     * 创建版本请求体。
+     * @param appName 应用名称。
+     * @param version 版本号。
+     * @param description 版本描述。
+     * @param downloadUrl 下载地址。
+     */
     public record CreateVersionRequest(String appName, String version, String description, String downloadUrl) {
     }
 }

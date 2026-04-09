@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * 认证接口控制器。
+ */
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -20,12 +23,23 @@ public class AuthController {
     private final AdminUserMapper adminUserMapper;
     private final JwtUtil jwtUtil;
 
+    /**
+     * 构造认证控制器。
+     * @param adminUserService 管理员服务。
+     * @param adminUserMapper 管理员数据访问接口。
+     * @param jwtUtil JWT 工具。
+     */
     public AuthController(AdminUserService adminUserService, AdminUserMapper adminUserMapper, JwtUtil jwtUtil) {
         this.adminUserService = adminUserService;
         this.adminUserMapper = adminUserMapper;
         this.jwtUtil = jwtUtil;
     }
 
+    /**
+     * 管理员登录。
+     * @param request 登录请求。
+     * @return 登录结果。
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         if (request.username() == null || request.password() == null) {
@@ -53,6 +67,11 @@ public class AuthController {
         ));
     }
 
+    /**
+     * 登录请求体。
+     * @param username 用户名。
+     * @param password 密码。
+     */
     public record LoginRequest(String username, String password) {
     }
 }

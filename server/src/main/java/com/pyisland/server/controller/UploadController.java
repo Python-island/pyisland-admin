@@ -10,16 +10,28 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
+/**
+ * 文件上传控制器。
+ */
 @RestController
 @RequestMapping("/v1/upload")
 public class UploadController {
 
     private final OssService ossService;
 
+    /**
+     * 构造上传控制器。
+     * @param ossService OSS 服务。
+     */
     public UploadController(OssService ossService) {
         this.ossService = ossService;
     }
 
+    /**
+     * 上传头像文件。
+     * @param file 头像文件。
+     * @return 上传结果。
+     */
     @PostMapping("/avatar")
     public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {

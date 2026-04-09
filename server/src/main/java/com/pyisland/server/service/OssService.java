@@ -10,6 +10,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.UUID;
 
+/**
+ * OSS 文件服务。
+ */
 @Service
 public class OssService {
 
@@ -28,6 +31,13 @@ public class OssService {
     @Value("${aliyun.oss.domain}")
     private String domain;
 
+    /**
+     * 上传文件到 OSS 并返回可访问地址。
+     * @param file 待上传文件。
+     * @param folder OSS 目录。
+     * @return 文件公网地址。
+     * @throws IOException 文件读取失败时抛出。
+     */
     public String upload(MultipartFile file, String folder) throws IOException {
         String originalFilename = file.getOriginalFilename();
         String ext = "";

@@ -16,16 +16,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 管理员用户控制器。
+ */
 @RestController
 @RequestMapping("/v1/users")
 public class UserController {
 
     private final AdminUserService adminUserService;
 
+    /**
+     * 构造用户控制器。
+     * @param adminUserService 管理员服务。
+     */
     public UserController(AdminUserService adminUserService) {
         this.adminUserService = adminUserService;
     }
 
+    /**
+     * 查询管理员列表。
+     * @return 管理员列表。
+     */
     @GetMapping
     public ResponseEntity<?> listUsers() {
         List<AdminUser> users = adminUserService.listAll();
@@ -44,6 +55,10 @@ public class UserController {
         ));
     }
 
+    /**
+     * 查询管理员数量。
+     * @return 管理员数量。
+     */
     @GetMapping("/count")
     public ResponseEntity<?> countUsers() {
         int count = adminUserService.count();
@@ -54,6 +69,11 @@ public class UserController {
         ));
     }
 
+    /**
+     * 新增管理员。
+     * @param request 新增请求。
+     * @return 新增结果。
+     */
     @PostMapping
     public ResponseEntity<?> addUser(@RequestBody AddUserRequest request) {
         if (request.username() == null || request.username().isBlank()
@@ -76,6 +96,11 @@ public class UserController {
         ));
     }
 
+    /**
+     * 删除管理员。
+     * @param username 用户名。
+     * @return 删除结果。
+     */
     @DeleteMapping
     public ResponseEntity<?> deleteUser(@RequestParam String username) {
         boolean deleted = adminUserService.deleteUser(username);
@@ -91,6 +116,11 @@ public class UserController {
         ));
     }
 
+    /**
+     * 查询管理员资料。
+     * @param username 用户名。
+     * @return 资料信息。
+     */
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(@RequestParam String username) {
         AdminUser user = adminUserService.getByUsername(username);
@@ -111,6 +141,11 @@ public class UserController {
         ));
     }
 
+    /**
+     * 更新管理员资料。
+     * @param request 更新请求。
+     * @return 更新结果。
+     */
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         if (request.username() == null || request.username().isBlank()) {
@@ -137,9 +172,20 @@ public class UserController {
         ));
     }
 
+    /**
+     * 新增管理员请求体。
+     * @param username 用户名。
+     * @param password 密码。
+     */
     public record AddUserRequest(String username, String password) {
     }
 
+    /**
+     * 更新管理员资料请求体。
+     * @param username 用户名。
+     * @param password 新密码。
+     * @param avatar 头像地址。
+     */
     public record UpdateProfileRequest(String username, String password, String avatar) {
     }
 }

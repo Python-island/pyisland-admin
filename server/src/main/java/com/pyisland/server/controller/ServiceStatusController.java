@@ -13,16 +13,28 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 接口状态控制器。
+ */
 @RestController
 @RequestMapping("/v1/service-status")
 public class ServiceStatusController {
 
     private final ServiceStatusService serviceStatusService;
 
+    /**
+     * 构造接口状态控制器。
+     * @param serviceStatusService 接口状态服务。
+     */
     public ServiceStatusController(ServiceStatusService serviceStatusService) {
         this.serviceStatusService = serviceStatusService;
     }
 
+    /**
+     * 查询单个接口状态。
+     * @param apiName 接口名称。
+     * @return 接口状态信息。
+     */
     @GetMapping
     public ResponseEntity<?> getStatus(@RequestParam String apiName) {
         ServiceStatus status = serviceStatusService.getByApiName(apiName);
@@ -45,6 +57,10 @@ public class ServiceStatusController {
         ));
     }
 
+    /**
+     * 查询全部接口状态。
+     * @return 接口状态列表。
+     */
     @GetMapping("/list")
     public ResponseEntity<?> listAll() {
         var list = serviceStatusService.listAll();
@@ -55,6 +71,11 @@ public class ServiceStatusController {
         ));
     }
 
+    /**
+     * 更新接口状态。
+     * @param request 更新请求。
+     * @return 更新结果。
+     */
     @PutMapping
     public ResponseEntity<?> updateStatus(@RequestBody UpdateStatusRequest request) {
         if (request.apiName() == null || request.apiName().isBlank()) {
@@ -84,6 +105,13 @@ public class ServiceStatusController {
         ));
     }
 
+    /**
+     * 更新接口状态请求体。
+     * @param apiName 接口名称。
+     * @param status 接口可用状态。
+     * @param message 状态消息。
+     * @param remark 备注信息。
+     */
     public record UpdateStatusRequest(String apiName, Boolean status, String message, String remark) {
     }
 }

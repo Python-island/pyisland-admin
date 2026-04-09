@@ -7,17 +7,33 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+/**
+ * JWT 鉴权拦截器。
+ */
 @Component
 public class JwtInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
     private final AdminUserMapper adminUserMapper;
 
+    /**
+     * 构造 JWT 拦截器。
+     * @param jwtUtil JWT 工具。
+     * @param adminUserMapper 管理员数据访问接口。
+     */
     public JwtInterceptor(JwtUtil jwtUtil, AdminUserMapper adminUserMapper) {
         this.jwtUtil = jwtUtil;
         this.adminUserMapper = adminUserMapper;
     }
 
+    /**
+     * 对请求执行鉴权校验。
+     * @param request HTTP 请求。
+     * @param response HTTP 响应。
+     * @param handler 处理器对象。
+     * @return 是否放行。
+     * @throws Exception 写响应失败时抛出。
+     */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String method = request.getMethod();

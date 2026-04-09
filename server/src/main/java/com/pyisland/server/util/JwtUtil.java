@@ -10,18 +10,31 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+/**
+ * JWT 工具类。
+ */
 @Component
 public class JwtUtil {
 
     private final SecretKey key;
     private final long expiration;
 
+    /**
+     * 构造 JWT 工具。
+     * @param secret 签名密钥。
+     * @param expiration 过期时长（毫秒）。
+     */
     public JwtUtil(@Value("${jwt.secret}") String secret,
                    @Value("${jwt.expiration}") long expiration) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
     }
 
+    /**
+     * 生成 JWT token。
+     * @param username 用户名。
+     * @return token 字符串。
+     */
     public String generateToken(String username) {
         return Jwts.builder()
                 .subject(username)
@@ -31,10 +44,20 @@ public class JwtUtil {
                 .compact();
     }
 
+    /**
+     * 从 token 提取用户名。
+     * @param token token 字符串。
+     * @return 用户名。
+     */
     public String getUsernameFromToken(String token) {
         return parseClaims(token).getSubject();
     }
 
+    /**
+     * 校验 token 是否有效。
+     * @param token token 字符串。
+     * @return 是否有效。
+     */
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -44,6 +67,11 @@ public class JwtUtil {
         }
     }
 
+    /**
+     * 解析 token 并返回声明信息。
+     * @param token token 字符串。
+     * @return 声明对象。
+     */
     private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
