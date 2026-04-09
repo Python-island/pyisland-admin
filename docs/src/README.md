@@ -46,8 +46,13 @@ Authorization: Bearer <token>
 
 - [接口总览](/api/overview.html)
 - [前端 SDK 示例](/api/sdk-example.html)
-- [认证接口](/api/auth.html)
-- [用户管理接口](/api/users.html)
-- [版本管理接口](/api/version.html)
-- [服务状态接口](/api/service-status.html)
-- [上传接口](/api/upload.html)
+
+### 单接口页面示例
+
+- [POST /api/auth/login](/api/endpoints/auth-login.html)
+- [GET /api/v1/users](/api/endpoints/users-list.html)
+- [GET /api/v1/version/list](/api/endpoints/version-list.html)
+- [GET /api/v1/service-status/list](/api/endpoints/service-status-list.html)
+- [POST /api/v1/upload/avatar](/api/endpoints/upload-avatar.html)
+
+其余接口可通过左侧 `sidebar` 的 `children-item` 逐个进入。
