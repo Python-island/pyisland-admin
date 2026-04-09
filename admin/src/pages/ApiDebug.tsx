@@ -1,14 +1,11 @@
 import { useState } from "react";
 
-const METHODS = ["GET", "POST", "PUT", "DELETE"] as const;
-type Method = (typeof METHODS)[number];
-
 const PRESET_APIS = [
-  { label: "获取所有版本", method: "GET" as Method, path: "/v1/version/list", body: "" },
-  { label: "获取指定版本", method: "GET" as Method, path: "/v1/version?appName=pyisland", body: "" },
-  { label: "管理员列表", method: "GET" as Method, path: "/v1/users", body: "" },
-  { label: "管理员数量", method: "GET" as Method, path: "/v1/users/count", body: "" },
-  { label: "接口状态列表", method: "GET" as Method, path: "/v1/service-status/list", body: "" },
+  { label: "获取所有版本", path: "/v1/version/list" },
+  { label: "获取指定版本", path: "/v1/version?appName=pyisland" },
+  { label: "管理员列表", path: "/v1/users" },
+  { label: "管理员数量", path: "/v1/users/count" },
+  { label: "接口状态列表", path: "/v1/service-status/list" },
 ];
 
 const cardStyle: React.CSSProperties = {
@@ -31,9 +28,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function ApiDebug() {
-  const [method, setMethod] = useState<Method>("GET");
   const [path, setPath] = useState("/v1/version/list");
-  const [body, setBody] = useState("");
   const [response, setResponse] = useState<string | null>(null);
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,11 +48,7 @@ export default function ApiDebug() {
         "Content-Type": "application/json",
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const opts: RequestInit = { method, headers };
-      if (method !== "GET" && method !== "DELETE" && body.trim()) {
-        opts.body = body;
-      }
-      const res = await fetch(`${base}${path}`, opts);
+      const res = await fetch(`${base}${path}`, { method: "GET", headers });
       const ms = Date.now() - start;
       setStatusCode(res.status);
       setElapsed(ms);
@@ -77,9 +68,7 @@ export default function ApiDebug() {
   };
 
   const applyPreset = (p: (typeof PRESET_APIS)[number]) => {
-    setMethod(p.method);
     setPath(p.path);
-    setBody(p.body);
     setResponse(null);
     setStatusCode(null);
     setElapsed(null);
@@ -161,24 +150,22 @@ export default function ApiDebug() {
               </div>
             </div>
 
-            {/* Method + Path */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value as Method)}
+            {/* Method badge + Path */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
+              <span
                 style={{
-                  ...inputStyle,
-                  width: 100,
+                  padding: "8px 14px",
+                  backgroundColor: "rgba(48,209,88,0.12)",
+                  color: "#30d158",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: "0.4px",
                   flexShrink: 0,
-                  cursor: "pointer",
                 }}
               >
-                {METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+                GET
+              </span>
               <input
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
@@ -186,36 +173,6 @@ export default function ApiDebug() {
                 style={inputStyle}
               />
             </div>
-
-            {/* Body */}
-            {(method === "POST" || method === "PUT") && (
-              <div style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,0.48)",
-                    textTransform: "uppercase",
-                    letterSpacing: "-0.12px",
-                    marginBottom: 8,
-                  }}
-                >
-                  请求体 (JSON)
-                </div>
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder={'{\n  "key": "value"\n}'}
-                  rows={6}
-                  style={{
-                    ...inputStyle,
-                    resize: "vertical",
-                    fontFamily: "monospace",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-            )}
 
             <button
               onClick={send}
