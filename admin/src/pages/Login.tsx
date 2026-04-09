@@ -43,49 +43,141 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">PyIsland Admin</h1>
-          <p className="text-slate-400 mt-2">管理面板</p>
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: "var(--apple-black)" }}
+    >
+      <div className="w-full" style={{ maxWidth: 400 }}>
+        {/* Hero heading */}
+        <div className="text-center mb-10">
+          <h1
+            className="text-white"
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              letterSpacing: "normal",
+            }}
+          >
+            PyIsland
+          </h1>
+          <p
+            className="mt-2"
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 21,
+              fontWeight: 400,
+              lineHeight: 1.19,
+              letterSpacing: "0.231px",
+              color: "rgba(255, 255, 255, 0.56)",
+            }}
+          >
+            管理面板
+          </p>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-white mb-6">
+        {/* Card */}
+        <div
+          className="p-10"
+          style={{
+            backgroundColor: "var(--apple-surface-1)",
+            borderRadius: 12,
+          }}
+        >
+          <h2
+            className="text-white mb-8"
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 28,
+              fontWeight: 600,
+              lineHeight: 1.14,
+              letterSpacing: "0.196px",
+            }}
+          >
             {isRegister ? "注册账号" : "登录"}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+          <form onSubmit={handleSubmit}>
+            <div className="mb-5">
+              <label
+                className="block mb-2"
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  lineHeight: 1.29,
+                  letterSpacing: "-0.224px",
+                  color: "rgba(255, 255, 255, 0.64)",
+                }}
+              >
                 用户名
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsernameInput(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="请输入用户名"
                 required
+                className="w-full outline-none transition-all"
+                style={{
+                  padding: "10px 14px",
+                  backgroundColor: "var(--apple-surface-2)",
+                  borderRadius: 8,
+                  border: "none",
+                  color: "#ffffff",
+                  fontSize: 17,
+                  lineHeight: 1.47,
+                  letterSpacing: "-0.374px",
+                }}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+            <div className="mb-5">
+              <label
+                className="block mb-2"
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  lineHeight: 1.29,
+                  letterSpacing: "-0.224px",
+                  color: "rgba(255, 255, 255, 0.64)",
+                }}
+              >
                 密码
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="请输入密码"
                 required
+                className="w-full outline-none transition-all"
+                style={{
+                  padding: "10px 14px",
+                  backgroundColor: "var(--apple-surface-2)",
+                  borderRadius: 8,
+                  border: "none",
+                  color: "#ffffff",
+                  fontSize: 17,
+                  lineHeight: 1.47,
+                  letterSpacing: "-0.374px",
+                }}
               />
             </div>
 
             {error && (
-              <div className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-2.5">
+              <div
+                className="mb-5"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  backgroundColor: "rgba(255, 59, 48, 0.12)",
+                  color: "#ff453a",
+                  fontSize: 14,
+                  lineHeight: 1.29,
+                  letterSpacing: "-0.224px",
+                }}
+              >
                 {error}
               </div>
             )}
@@ -93,21 +185,39 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white font-medium rounded-lg transition cursor-pointer"
+              className="w-full cursor-pointer transition-all"
+              style={{
+                padding: "12px 15px",
+                backgroundColor: "var(--apple-blue)",
+                color: "#ffffff",
+                borderRadius: 980,
+                border: "none",
+                fontSize: 17,
+                fontWeight: 400,
+                lineHeight: 1,
+                letterSpacing: "normal",
+                opacity: loading ? 0.5 : 1,
+              }}
             >
               {loading ? "请稍候..." : isRegister ? "注册" : "登录"}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button
               onClick={() => {
                 setIsRegister(!isRegister);
                 setError("");
               }}
-              className="text-sm text-blue-400 hover:text-blue-300 transition cursor-pointer"
+              className="cursor-pointer transition-all border-none bg-transparent"
+              style={{
+                fontSize: 14,
+                lineHeight: 1.43,
+                letterSpacing: "-0.224px",
+                color: "var(--apple-link-dark)",
+              }}
             >
-              {isRegister ? "已有账号？去登录" : "没有账号？去注册"}
+              {isRegister ? "已有账号？去登录 ›" : "没有账号？去注册 ›"}
             </button>
           </div>
         </div>
