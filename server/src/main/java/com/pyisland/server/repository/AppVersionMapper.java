@@ -14,4 +14,6 @@ public interface AppVersionMapper {
     int updateByAppName(AppVersion appVersion);
 
     int deleteByAppName(@Param("appName") String appName);
+
+    java.util.List<AppVersion> selectAll();
 }

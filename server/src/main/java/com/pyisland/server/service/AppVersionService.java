@@ -19,6 +19,10 @@ public class AppVersionService {
         return appVersionMapper.selectByAppName(appName);
     }
 
+    public java.util.List<AppVersion> listAll() {
+        return appVersionMapper.selectAll();
+    }
+
     public boolean deleteVersion(String appName) {
         return appVersionMapper.deleteByAppName(appName) > 0;
     }

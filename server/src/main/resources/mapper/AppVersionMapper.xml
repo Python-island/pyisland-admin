@@ -35,4 +35,10 @@
         WHERE app_name = #{appName}
     </delete>
 
+    <select id="selectAll" resultMap="AppVersionResultMap">
+        SELECT id, app_name, version, description, updated_at
+        FROM app_version
+        ORDER BY updated_at DESC
+    </select>
+
 </mapper>

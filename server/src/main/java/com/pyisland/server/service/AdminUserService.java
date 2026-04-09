@@ -39,6 +39,18 @@ public class AdminUserService {
         return user;
     }
 
+    public java.util.List<AdminUser> listAll() {
+        return adminUserMapper.selectAll();
+    }
+
+    public boolean deleteUser(String username) {
+        return adminUserMapper.deleteByUsername(username) > 0;
+    }
+
+    public int count() {
+        return adminUserMapper.count();
+    }
+
     private String hashPassword(String password) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");

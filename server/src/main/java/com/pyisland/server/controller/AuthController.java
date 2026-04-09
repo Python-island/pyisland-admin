@@ -49,28 +49,6 @@ public class AuthController {
         ));
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody LoginRequest request) {
-        if (request.username() == null || request.username().isBlank()
-                || request.password() == null || request.password().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "code", 400,
-                    "message", "用户名和密码不能为空"
-            ));
-        }
-        AdminUser user = adminUserService.register(request.username(), request.password());
-        if (user == null) {
-            return ResponseEntity.ok(Map.of(
-                    "code", 409,
-                    "message", "用户名已存在"
-            ));
-        }
-        return ResponseEntity.ok(Map.of(
-                "code", 200,
-                "message", "注册成功"
-        ));
-    }
-
     public record LoginRequest(String username, String password) {
     }
 }

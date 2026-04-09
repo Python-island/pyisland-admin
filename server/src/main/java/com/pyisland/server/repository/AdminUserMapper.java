@@ -10,4 +10,10 @@ public interface AdminUserMapper {
     AdminUser selectByUsername(@Param("username") String username);
 
     int insert(AdminUser user);
+
+    java.util.List<AdminUser> selectAll();
+
+    int deleteByUsername(@Param("username") String username);
+
+    int count();
 }

@@ -24,6 +24,16 @@ public class VersionController {
         this.appVersionService = appVersionService;
     }
 
+    @GetMapping("/list")
+    public ResponseEntity<?> listVersions() {
+        var list = appVersionService.listAll();
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", list
+        ));
+    }
+
     @GetMapping
     public ResponseEntity<?> getVersion(@RequestParam String appName) {
         AppVersion version = appVersionService.getVersion(appName);

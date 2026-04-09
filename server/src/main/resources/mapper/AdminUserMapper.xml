@@ -21,4 +21,19 @@
         VALUES (#{username}, #{password}, #{createdAt})
     </insert>
 
+    <select id="selectAll" resultMap="AdminUserResultMap">
+        SELECT id, username, password, created_at
+        FROM admin_user
+        ORDER BY created_at DESC
+    </select>
+
+    <delete id="deleteByUsername">
+        DELETE FROM admin_user
+        WHERE username = #{username}
+    </delete>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM admin_user
+    </select>
+
 </mapper>
