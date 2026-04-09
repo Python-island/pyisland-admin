@@ -17,7 +17,8 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        String method = request.getMethod();
+        if ("OPTIONS".equalsIgnoreCase(method) || "GET".equalsIgnoreCase(method)) {
             return true;
         }
 
