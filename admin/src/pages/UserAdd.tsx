@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { users } from "../api";
+import { users, uploadAvatar } from "../api";
 import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
@@ -30,6 +30,7 @@ export default function UserAdd() {
   const [password, setPassword] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
@@ -46,6 +47,7 @@ export default function UserAdd() {
       showMsg("头像文件不能超过 5MB", "err");
       return;
     }
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatarPreview(reader.result as string);
     reader.readAsDataURL(file);
@@ -60,14 +62,18 @@ export default function UserAdd() {
     try {
       const res = await users.add(username, password);
       if (res.code === 200) {
-        if (avatarPreview) {
-          await users.updateProfile(username, null, avatarPreview);
+        if (avatarFile) {
+          const upRes = await uploadAvatar(avatarFile);
+          if (upRes.code === 200 && upRes.data) {
+            await users.updateProfile(username, null, upRes.data);
+          }
         }
         showMsg("添加管理员成功");
         setUsername("");
         setPassword("");
         setConfirmPwd("");
         setAvatarPreview(null);
+        setAvatarFile(null);
       } else {
         showMsg(res.message, "err");
       }

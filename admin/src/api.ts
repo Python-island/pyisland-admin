@@ -119,6 +119,25 @@ export const version = {
   },
 };
 
+export async function uploadAvatar(file: File): Promise<ApiResponse<string>> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}/v1/upload/avatar`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("未登录或token已过期");
+  }
+  return res.json();
+}
+
 export const users = {
   list() {
     return request<ApiResponse<AdminUserInfo[]>>("/v1/users");

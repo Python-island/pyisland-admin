@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { users, getUsername } from "../api";
+import { users, getUsername, uploadAvatar } from "../api";
 import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
@@ -28,6 +28,8 @@ const labelStyle: React.CSSProperties = {
 export default function Profile() {
   const username = getUsername();
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [createdAt, setCreatedAt] = useState("");
@@ -47,6 +49,7 @@ export default function Profile() {
         const res = await users.getProfile(username);
         if (res.code === 200 && res.data) {
           setAvatar(res.data.avatar);
+          setAvatarPreview(res.data.avatar);
           setCreatedAt(res.data.createdAt);
         }
       } catch {
@@ -64,8 +67,9 @@ export default function Profile() {
       showMsg("头像文件不能超过 5MB", "err");
       return;
     }
+    setAvatarFile(file);
     const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result as string);
+    reader.onload = () => setAvatarPreview(reader.result as string);
     reader.readAsDataURL(file);
   };
 
@@ -76,13 +80,25 @@ export default function Profile() {
       return;
     }
     try {
+      let avatarUrl = avatar;
+      if (avatarFile) {
+        const upRes = await uploadAvatar(avatarFile);
+        if (upRes.code === 200 && upRes.data) {
+          avatarUrl = upRes.data;
+        } else {
+          showMsg(upRes.message || "头像上传失败", "err");
+          return;
+        }
+      }
       const res = await users.updateProfile(
         username,
         newPassword || null,
-        avatar
+        avatarUrl
       );
       if (res.code === 200) {
         showMsg("更新成功");
+        setAvatar(avatarUrl);
+        setAvatarFile(null);
         setNewPassword("");
         setConfirmPwd("");
       } else {
@@ -153,7 +169,7 @@ export default function Profile() {
                 height: 88,
                 borderRadius: "50%",
                 backgroundColor: "var(--apple-surface-2)",
-                backgroundImage: avatar ? `url(${avatar})` : "none",
+                backgroundImage: avatarPreview ? `url(${avatarPreview})` : "none",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 display: "flex",
@@ -164,7 +180,7 @@ export default function Profile() {
                 flexShrink: 0,
               }}
             >
-              {!avatar && username.charAt(0).toUpperCase()}
+              {!avatarPreview && username.charAt(0).toUpperCase()}
             </div>
             <div>
               <div style={{ fontSize: 21, fontWeight: 600, color: "#ffffff", marginBottom: 4 }}>
