@@ -89,4 +89,14 @@ public class AppVersionService {
             return appVersion;
         }
     }
+
+    /**
+     * 递增指定应用和版本的更新统计次数。
+     * @param appName 应用名称。
+     * @param version 版本号。
+     * @return 是否更新成功。
+     */
+    public boolean incrementUpdateCount(String appName, String version) {
+        return appVersionMapper.incrementUpdateCountByAppNameAndVersion(appName, version) > 0;
+    }
 }

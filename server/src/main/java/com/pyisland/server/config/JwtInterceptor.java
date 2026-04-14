@@ -45,6 +45,9 @@ public class JwtInterceptor implements HandlerInterceptor {
         if ("GET".equalsIgnoreCase(method) && uri.startsWith("/api/v1/version")) {
             return true;
         }
+        if ("POST".equalsIgnoreCase(method) && "/api/v1/version/update-count".equals(uri)) {
+            return true;
+        }
         if ("GET".equalsIgnoreCase(method) && uri.startsWith("/api/v1/service-status")) {
             return true;
         }

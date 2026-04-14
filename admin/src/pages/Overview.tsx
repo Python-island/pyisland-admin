@@ -94,6 +94,7 @@ export default function Overview() {
         <StatCard label="管理员数量" value={adminCount} />
         <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
         <StatCard label="应用版本数" value={versions.length} />
+        <VersionUpdateCard versions={versions} />
       </div>
 
       {/* Version list */}
@@ -163,9 +164,79 @@ export default function Overview() {
                 style={{
                   fontSize: 12,
                   color: "rgba(255,255,255,0.32)",
+                  marginBottom: 4,
+                }}
+              >
+                更新次数 {v.updateCount ?? 0}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.32)",
                 }}
               >
                 更新于 {v.updatedAt}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VersionUpdateCard({ versions }: { versions: AppVersion[] }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        backgroundColor: "var(--apple-surface-1)",
+        borderRadius: 12,
+        padding: "24px 20px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          lineHeight: 1.33,
+          letterSpacing: "-0.12px",
+          color: "rgba(255,255,255,0.48)",
+          textTransform: "uppercase",
+          marginBottom: 12,
+        }}
+      >
+        应用更新数据
+      </div>
+
+      {versions.length === 0 ? (
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)" }}>暂无版本数据</div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {versions.map((v) => (
+            <div
+              key={v.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(255,255,255,0.88)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={v.appName}
+              >
+                {v.appName}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.56)", whiteSpace: "nowrap" }}>
+                v{v.version} · {v.updateCount ?? 0} 次
               </div>
             </div>
           ))}

@@ -12,6 +12,7 @@ public class AppVersion {
     private String version;
     private String description;
     private String downloadUrl;
+    private Long updateCount;
     private LocalDateTime updatedAt;
 
     /**
@@ -32,6 +33,7 @@ public class AppVersion {
         this.version = version;
         this.description = description;
         this.downloadUrl = downloadUrl;
+        this.updateCount = 0L;
         this.updatedAt = java.time.LocalDateTime.now();
     }
 
@@ -113,6 +115,22 @@ public class AppVersion {
      */
     public void setDownloadUrl(String downloadUrl) {
         this.downloadUrl = downloadUrl;
+    }
+
+    /**
+     * 获取更新统计次数。
+     * @return 更新次数。
+     */
+    public Long getUpdateCount() {
+        return updateCount;
+    }
+
+    /**
+     * 设置更新统计次数。
+     * @param updateCount 更新次数。
+     */
+    public void setUpdateCount(Long updateCount) {
+        this.updateCount = updateCount;
     }
 
     /**

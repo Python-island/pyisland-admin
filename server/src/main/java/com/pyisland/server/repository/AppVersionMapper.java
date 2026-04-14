@@ -32,6 +32,14 @@ public interface AppVersionMapper {
     int updateByAppName(AppVersion appVersion);
 
     /**
+     * 按应用名称和版本号递增更新次数。
+     * @param appName 应用名称。
+     * @param version 版本号。
+     * @return 影响行数。
+     */
+    int incrementUpdateCountByAppNameAndVersion(@Param("appName") String appName, @Param("version") String version);
+
+    /**
      * 按应用名称删除版本。
      * @param appName 应用名称。
      * @return 影响行数。

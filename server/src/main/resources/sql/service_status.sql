@@ -23,6 +23,7 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     -- --------------------------------------------------------
     ('version.list',                1, '', 'GET /v1/version/list - 获取所有版本'),
     ('version.get',                 1, '', 'GET /v1/version?appName= - 获取指定版本'),
+    ('version.update-count',        1, '', 'POST /v1/version/update-count - 统计版本更新次数'),
     ('version.create',              1, '', 'POST /v1/version - 创建版本'),
     ('version.update',              1, '', 'PUT /v1/version - 更新版本'),
     ('version.delete',              1, '', 'DELETE /v1/version?appName= - 删除版本'),

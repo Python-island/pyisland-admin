@@ -163,6 +163,36 @@ public class VersionController {
     }
 
     /**
+     * 统计指定版本更新次数。
+     * @param request 统计请求。
+     * @return 统计结果。
+     */
+    @PostMapping("/update-count")
+    public ResponseEntity<?> incrementUpdateCount(@RequestBody UpdateCountRequest request) {
+        if (request.version() == null || request.version().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "版本号不能为空"
+            ));
+        }
+
+        String appName = request.appName() == null || request.appName().isBlank()
+                ? "pyisland" : request.appName();
+        boolean updated = appVersionService.incrementUpdateCount(appName, request.version());
+        if (!updated) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 404,
+                    "message", "未找到对应版本"
+            ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "更新次数统计成功"
+        ));
+    }
+
+    /**
      * 更新版本请求体。
      * @param appName 应用名称。
      * @param version 版本号。
@@ -180,5 +210,13 @@ public class VersionController {
      * @param downloadUrl 下载地址。
      */
     public record CreateVersionRequest(String appName, String version, String description, String downloadUrl) {
+    }
+
+    /**
+     * 更新统计请求体。
+     * @param appName 应用名称。
+     * @param version 版本号。
+     */
+    public record UpdateCountRequest(String appName, String version) {
     }
 }

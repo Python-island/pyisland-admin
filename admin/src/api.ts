@@ -109,6 +109,7 @@ export interface AppVersion {
   version: string;
   description: string;
   downloadUrl: string;
+  updateCount: number;
   updatedAt: string;
 }
 
