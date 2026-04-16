@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS admin_user (
 CREATE TABLE IF NOT EXISTS app_user (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY,
     username     VARCHAR(100) NOT NULL UNIQUE,
+    email        VARCHAR(150) NOT NULL UNIQUE,
     password     VARCHAR(255) NOT NULL,
     avatar       LONGTEXT,
     session_token VARCHAR(500),
@@ -93,6 +94,44 @@ PREPARE app_user_avatar_stmt FROM @app_user_avatar_sql;
 EXECUTE app_user_avatar_stmt;
 DEALLOCATE PREPARE app_user_avatar_stmt;
 ALTER TABLE app_user MODIFY COLUMN avatar LONGTEXT;
+
+SET @app_user_email_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'email'
+);
+SET @app_user_email_sql := IF(
+    @app_user_email_exists = 0,
+    'ALTER TABLE app_user ADD COLUMN email VARCHAR(150) NULL AFTER username',
+    'SELECT 1'
+);
+PREPARE app_user_email_stmt FROM @app_user_email_sql;
+EXECUTE app_user_email_stmt;
+DEALLOCATE PREPARE app_user_email_stmt;
+
+UPDATE app_user
+SET email = CONCAT(username, '@placeholder.local')
+WHERE email IS NULL OR email = '';
+
+ALTER TABLE app_user MODIFY COLUMN email VARCHAR(150) NOT NULL;
+
+SET @app_user_email_unique_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND INDEX_NAME = 'uk_app_user_email'
+);
+SET @app_user_email_unique_sql := IF(
+    @app_user_email_unique_exists = 0,
+    'ALTER TABLE app_user ADD CONSTRAINT uk_app_user_email UNIQUE (email)',
+    'SELECT 1'
+);
+PREPARE app_user_email_unique_stmt FROM @app_user_email_unique_sql;
+EXECUTE app_user_email_unique_stmt;
+DEALLOCATE PREPARE app_user_email_unique_stmt;
 
 SET @app_user_session_token_exists := (
     SELECT COUNT(*)

@@ -9,6 +9,7 @@ public class AppUser {
 
     private Long id;
     private String username;
+    private String email;
     private String password;
     private String avatar;
     private String sessionToken;
@@ -44,6 +45,22 @@ public class AppUser {
      */
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    /**
+     * 获取邮箱。
+     * @return 邮箱。
+     */
+    public String getEmail() {
+        return email;
+    }
+
+    /**
+     * 设置邮箱。
+     * @param email 邮箱。
+     */
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     /**

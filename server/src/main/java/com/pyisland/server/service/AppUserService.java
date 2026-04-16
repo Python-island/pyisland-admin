@@ -42,16 +42,19 @@ public class AppUserService {
     /**
      * 注册普通用户。
      * @param username 用户名。
+     * @param email 邮箱。
      * @param password 明文密码。
      * @return 注册成功返回用户，已存在时返回 null。
      */
-    public AppUser register(String username, String password) {
+    public AppUser register(String username, String email, String password) {
         AppUser existing = appUserMapper.selectByUsername(username);
-        if (existing != null) {
+        AppUser existingByEmail = appUserMapper.selectByEmail(email);
+        if (existing != null || existingByEmail != null) {
             return null;
         }
         AppUser user = new AppUser();
         user.setUsername(username);
+        user.setEmail(email);
         user.setPassword(hashPassword(password));
         user.setCreatedAt(LocalDateTime.now());
         appUserMapper.insert(user);

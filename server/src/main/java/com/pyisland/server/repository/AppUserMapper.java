@@ -18,6 +18,13 @@ public interface AppUserMapper {
     AppUser selectByUsername(@Param("username") String username);
 
     /**
+     * 按邮箱查询普通用户。
+     * @param email 邮箱。
+     * @return 用户实体。
+     */
+    AppUser selectByEmail(@Param("email") String email);
+
+    /**
      * 新增普通用户。
      * @param user 用户实体。
      * @return 影响行数。

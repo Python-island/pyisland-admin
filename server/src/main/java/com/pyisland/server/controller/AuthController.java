@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 认证接口控制器。
@@ -21,6 +22,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
 
     private final AdminUserService adminUserService;
     private final AppUserService appUserService;
@@ -105,17 +108,29 @@ public class AuthController {
                     "message", "用户名和密码不能为空"
             ));
         }
+        if (request.email() == null || request.email().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "邮箱不能为空"
+            ));
+        }
+        if (!EMAIL_PATTERN.matcher(request.email()).matches()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "邮箱格式不正确"
+            ));
+        }
         if (request.password().length() < 6) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", 400,
                     "message", "密码长度不能小于 6 位"
             ));
         }
-        AppUser user = appUserService.register(request.username(), request.password());
+        AppUser user = appUserService.register(request.username(), request.email(), request.password());
         if (user == null) {
             return ResponseEntity.ok(Map.of(
                     "code", 409,
-                    "message", "用户已存在"
+                    "message", "用户名或邮箱已存在"
             ));
         }
         return ResponseEntity.ok(Map.of(
@@ -152,6 +167,7 @@ public class AuthController {
                 "data", Map.of(
                         "token", token,
                         "username", user.getUsername(),
+                        "email", user.getEmail(),
                         "role", "user"
                 )
         ));
@@ -168,9 +184,10 @@ public class AuthController {
     /**
      * 普通用户注册请求体。
      * @param username 用户名。
+     * @param email 邮箱。
      * @param password 密码。
      */
-    public record UserRegisterRequest(String username, String password) {
+    public record UserRegisterRequest(String username, String email, String password) {
     }
 
     /**

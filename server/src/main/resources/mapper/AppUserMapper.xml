@@ -6,6 +6,7 @@
     <resultMap id="AppUserResultMap" type="AppUser">
         <id property="id" column="id"/>
         <result property="username" column="username"/>
+        <result property="email" column="email"/>
         <result property="password" column="password"/>
         <result property="avatar" column="avatar"/>
         <result property="sessionToken" column="session_token"/>
@@ -13,14 +14,20 @@
     </resultMap>
 
     <select id="selectByUsername" resultMap="AppUserResultMap">
-        SELECT id, username, password, avatar, session_token, created_at
+        SELECT id, username, email, password, avatar, session_token, created_at
         FROM app_user
         WHERE username = #{username}
     </select>
 
+    <select id="selectByEmail" resultMap="AppUserResultMap">
+        SELECT id, username, email, password, avatar, session_token, created_at
+        FROM app_user
+        WHERE email = #{email}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO app_user (username, password, avatar, created_at)
-        VALUES (#{username}, #{password}, #{avatar}, #{createdAt})
+        INSERT INTO app_user (username, email, password, avatar, created_at)
+        VALUES (#{username}, #{email}, #{password}, #{avatar}, #{createdAt})
     </insert>
 
     <update id="updateSessionToken">
