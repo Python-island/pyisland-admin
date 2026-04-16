@@ -31,6 +31,7 @@ const navItems = [
     children: [
       { label: "用户列表", path: "/app-users/list" },
       { label: "添加用户", path: "/app-users/add" },
+      { label: "修改用户", path: "/app-users/edit" },
     ],
   },
   {

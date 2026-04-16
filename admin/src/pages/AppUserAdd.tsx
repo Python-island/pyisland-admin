@@ -38,6 +38,7 @@ export default function AppUserAdd() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
+  const [submitting, setSubmitting] = useState(false);
 
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
@@ -59,10 +60,12 @@ export default function AppUserAdd() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (password !== confirmPwd) {
       showMsg("两次密码输入不一致", "err");
       return;
     }
+    setSubmitting(true);
     try {
       const extras = {
         gender,
@@ -95,6 +98,8 @@ export default function AppUserAdd() {
       }
     } catch {
       showMsg("添加失败", "err");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -264,19 +269,40 @@ export default function AppUserAdd() {
 
           <button
             type="submit"
-            className="cursor-pointer"
+            disabled={submitting}
+            className={submitting ? "" : "cursor-pointer"}
             style={{
               padding: "8px 20px",
-              backgroundColor: "var(--apple-blue)",
+              backgroundColor: submitting ? "rgba(10,132,255,0.5)" : "var(--apple-blue)",
               color: "#ffffff",
               borderRadius: 980,
               border: "none",
               fontSize: 17,
               fontWeight: 400,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: submitting ? "not-allowed" : "pointer",
+              transition: "background-color 0.15s",
             }}
           >
-            添加
+            {submitting && (
+              <span
+                aria-hidden
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.4)",
+                  borderTopColor: "#fff",
+                  animation: "spin 0.8s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+            )}
+            {submitting ? "添加中..." : "添加"}
           </button>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </form>
       </div>
     </div>

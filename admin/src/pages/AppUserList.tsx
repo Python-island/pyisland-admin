@@ -1,7 +1,18 @@
 import { useState, useEffect } from "react";
-import { appUsers, type AppUserInfo, sanitizeUrl } from "../api";
+import { useNavigate } from "react-router-dom";
+import { appUsers, type AppUserInfo, type Gender, sanitizeUrl } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
+
+function genderLabel(gender: Gender | undefined, custom: string | null | undefined): string {
+  if (gender === "male") return "男";
+  if (gender === "female") return "女";
+  if (gender === "custom") {
+    const trimmed = (custom || "").trim();
+    return trimmed ? `自定义 (${trimmed})` : "自定义";
+  }
+  return "不愿透露";
+}
 
 const cardStyle: React.CSSProperties = {
   backgroundColor: "var(--apple-surface-1)",
@@ -29,6 +40,7 @@ const tdStyle: React.CSSProperties = {
 };
 
 export default function AppUserList() {
+  const navigate = useNavigate();
   const [list, setList] = useState<AppUserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -151,7 +163,7 @@ export default function AppUserList() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["头像", "用户名", "邮箱", "创建时间", "操作"].map((h) => (
+                    {["头像", "用户名", "邮箱", "性别", "生日", "创建时间", "操作"].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -197,23 +209,42 @@ export default function AppUserList() {
                       </td>
                       <td style={tdStyle}>{u.username}</td>
                       <td style={tdStyle}>{u.email}</td>
+                      <td style={tdStyle}>{genderLabel(u.gender, u.genderCustom)}</td>
+                      <td style={tdStyle}>{u.birthday || "—"}</td>
                       <td style={tdStyle}>{u.createdAt}</td>
                       <td style={tdStyle}>
-                        <button
-                          onClick={() => requestDelete(u.username)}
-                          className="cursor-pointer"
-                          style={{
-                            padding: "2px 12px",
-                            backgroundColor: "transparent",
-                            color: "#ff453a",
-                            borderRadius: 980,
-                            border: "1px solid #ff453a",
-                            fontSize: 12,
-                            lineHeight: 1.43,
-                          }}
-                        >
-                          删除
-                        </button>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            onClick={() => navigate(`/app-users/edit?username=${encodeURIComponent(u.username)}`)}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "2px 12px",
+                              backgroundColor: "transparent",
+                              color: "var(--apple-link-dark)",
+                              borderRadius: 980,
+                              border: "1px solid var(--apple-link-dark)",
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                            }}
+                          >
+                            编辑
+                          </button>
+                          <button
+                            onClick={() => requestDelete(u.username)}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "2px 12px",
+                              backgroundColor: "transparent",
+                              color: "#ff453a",
+                              borderRadius: 980,
+                              border: "1px solid #ff453a",
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                            }}
+                          >
+                            删除
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

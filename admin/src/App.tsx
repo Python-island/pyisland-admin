@@ -17,6 +17,7 @@ import UserList from "./pages/UserList";
 import UserAdd from "./pages/UserAdd";
 import AppUserList from "./pages/AppUserList";
 import AppUserAdd from "./pages/AppUserAdd";
+import AppUserEdit from "./pages/AppUserEdit";
 import Profile from "./pages/Profile";
 import ApiStatusPage from "./pages/ApiStatus";
 import ApiStatusManage from "./pages/ApiStatusManage";
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/admin-users/add" element={<UserAdd />} />
           <Route path="/app-users/list" element={<AppUserList />} />
           <Route path="/app-users/add" element={<AppUserAdd />} />
+          <Route path="/app-users/edit" element={<AppUserEdit />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/api-status" element={<ApiStatusPage />} />
           <Route path="/api-message" element={<ApiStatusManage />} />

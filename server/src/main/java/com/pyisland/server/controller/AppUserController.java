@@ -190,7 +190,7 @@ public class AppUserController {
     }
 
     /**
-     * 更新普通用户资料。仅允许修改当前登录用户自身资料。
+     * 更新普通用户资料。接口仅开放给管理员（由全局拦截器强制 role=admin）。
      * @param request 更新请求。
      * @param http HTTP 请求上下文。
      * @return 更新结果。
@@ -204,10 +204,10 @@ public class AppUserController {
             ));
         }
         String caller = (String) http.getAttribute("username");
-        if (caller == null || !caller.equals(request.username())) {
-            return ResponseEntity.status(403).body(Map.of(
-                    "code", 403,
-                    "message", "只能修改当前登录用户的资料"
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "code", 401,
+                    "message", "未登录或登录态已失效"
             ));
         }
         AppUser user = appUserService.getByUsername(request.username());
