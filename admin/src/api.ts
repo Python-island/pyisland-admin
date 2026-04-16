@@ -126,11 +126,26 @@ export interface AdminUserInfo {
   createdAt: string;
 }
 
+export type Gender = "male" | "female" | "custom" | "undisclosed";
+
 export interface AppUserInfo {
   id: number;
   username: string;
   email: string;
   avatar: string | null;
+  gender?: Gender;
+  genderCustom?: string | null;
+  birthday?: string | null;
+  createdAt: string;
+}
+
+export interface AppUserProfileData {
+  username: string;
+  email: string;
+  avatar: string | null;
+  gender?: Gender;
+  genderCustom?: string | null;
+  birthday?: string | null;
   createdAt: string;
 }
 
@@ -169,10 +184,22 @@ export const auth = {
       body: JSON.stringify({ username, password }),
     });
   },
-  userRegister(username: string, email: string, password: string) {
+  userRegister(
+    username: string,
+    email: string,
+    password: string,
+    extras?: { gender?: Gender; genderCustom?: string | null; birthday?: string | null }
+  ) {
     return request<ApiResponse>("/auth/user/register", {
       method: "POST",
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({
+        username,
+        email,
+        password,
+        gender: extras?.gender,
+        genderCustom: extras?.genderCustom,
+        birthday: extras?.birthday,
+      }),
     });
   },
   login(username: string, password: string) {
@@ -306,10 +333,22 @@ export const appUsers = {
   count() {
     return request<ApiResponse<number>>("/v1/app-users/count");
   },
-  add(username: string, email: string, password: string) {
+  add(
+    username: string,
+    email: string,
+    password: string,
+    extras?: { gender?: Gender; genderCustom?: string | null; birthday?: string | null }
+  ) {
     return request<ApiResponse>("/v1/app-users", {
       method: "POST",
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({
+        username,
+        email,
+        password,
+        gender: extras?.gender,
+        genderCustom: extras?.genderCustom,
+        birthday: extras?.birthday,
+      }),
     });
   },
   delete(username: string) {
@@ -319,14 +358,26 @@ export const appUsers = {
     );
   },
   getProfile(username: string) {
-    return request<ApiResponse<ProfileData>>(
+    return request<ApiResponse<AppUserProfileData>>(
       `/v1/app-users/profile?username=${encodeURIComponent(username)}`
     );
   },
-  updateProfile(username: string, password: string | null, avatar: string | null) {
+  updateProfile(
+    username: string,
+    password: string | null,
+    avatar: string | null,
+    extras?: { gender?: Gender; genderCustom?: string | null; birthday?: string | null }
+  ) {
     return request<ApiResponse>("/v1/app-users/profile", {
       method: "PUT",
-      body: JSON.stringify({ username, password, avatar }),
+      body: JSON.stringify({
+        username,
+        password,
+        avatar,
+        gender: extras?.gender,
+        genderCustom: extras?.genderCustom,
+        birthday: extras?.birthday,
+      }),
     });
   },
 };

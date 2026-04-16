@@ -5,6 +5,7 @@ import com.pyisland.server.repository.AppUserMapper;
 import com.pyisland.server.security.PasswordHashService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -66,9 +67,22 @@ public class AppUserService {
         user.setUsername(username);
         user.setEmail(email);
         user.setPassword(passwordHashService.hash(password));
+        user.setGender("undisclosed");
         user.setCreatedAt(LocalDateTime.now());
         appUserMapper.insert(user);
         return user;
+    }
+
+    /**
+     * 更新普通用户性别与生日。
+     * @param username 用户名。
+     * @param gender 性别标识。
+     * @param genderCustom 自定义性别描述（仅在 gender=custom 时生效）。
+     * @param birthday 生日。
+     * @return 是否更新成功。
+     */
+    public boolean updateExtras(String username, String gender, String genderCustom, LocalDate birthday) {
+        return appUserMapper.updateExtras(username, gender, genderCustom, birthday) > 0;
     }
 
     /**

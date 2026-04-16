@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS app_user (
     email        VARCHAR(150) NOT NULL UNIQUE,
     password     VARCHAR(255) NOT NULL,
     avatar       LONGTEXT,
+    gender       VARCHAR(20) NOT NULL DEFAULT 'undisclosed',
+    gender_custom VARCHAR(64),
+    birthday     DATE,
     session_token VARCHAR(500),
     created_at   DATETIME
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -148,3 +151,51 @@ SET @app_user_session_token_sql := IF(
 PREPARE app_user_session_token_stmt FROM @app_user_session_token_sql;
 EXECUTE app_user_session_token_stmt;
 DEALLOCATE PREPARE app_user_session_token_stmt;
+
+SET @app_user_gender_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'gender'
+);
+SET @app_user_gender_sql := IF(
+    @app_user_gender_exists = 0,
+    'ALTER TABLE app_user ADD COLUMN gender VARCHAR(20) NOT NULL DEFAULT ''undisclosed'' AFTER avatar',
+    'SELECT 1'
+);
+PREPARE app_user_gender_stmt FROM @app_user_gender_sql;
+EXECUTE app_user_gender_stmt;
+DEALLOCATE PREPARE app_user_gender_stmt;
+
+SET @app_user_gender_custom_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'gender_custom'
+);
+SET @app_user_gender_custom_sql := IF(
+    @app_user_gender_custom_exists = 0,
+    'ALTER TABLE app_user ADD COLUMN gender_custom VARCHAR(64) AFTER gender',
+    'SELECT 1'
+);
+PREPARE app_user_gender_custom_stmt FROM @app_user_gender_custom_sql;
+EXECUTE app_user_gender_custom_stmt;
+DEALLOCATE PREPARE app_user_gender_custom_stmt;
+
+SET @app_user_birthday_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'birthday'
+);
+SET @app_user_birthday_sql := IF(
+    @app_user_birthday_exists = 0,
+    'ALTER TABLE app_user ADD COLUMN birthday DATE AFTER gender_custom',
+    'SELECT 1'
+);
+PREPARE app_user_birthday_stmt FROM @app_user_birthday_sql;
+EXECUTE app_user_birthday_stmt;
+DEALLOCATE PREPARE app_user_birthday_stmt;

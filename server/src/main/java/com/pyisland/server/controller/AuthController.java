@@ -6,6 +6,7 @@ import com.pyisland.server.repository.AdminUserMapper;
 import com.pyisland.server.repository.AppUserMapper;
 import com.pyisland.server.security.AuthRateLimiter;
 import com.pyisland.server.security.ClientIpUtil;
+import com.pyisland.server.security.GenderPolicy;
 import com.pyisland.server.security.PasswordPolicy;
 import com.pyisland.server.security.UsernamePolicy;
 import com.pyisland.server.service.AdminUserService;
@@ -248,6 +249,12 @@ public class AuthController {
                     "message", "用户名或邮箱已被使用"
             ));
         }
+        String gender = GenderPolicy.normalize(request.gender());
+        String genderCustom = GenderPolicy.normalizeCustom(gender, request.genderCustom());
+        java.time.LocalDate birthday = GenderPolicy.parseBirthday(request.birthday());
+        if (!GenderPolicy.DEFAULT.equals(gender) || genderCustom != null || birthday != null) {
+            appUserService.updateExtras(user.getUsername(), gender, genderCustom, birthday);
+        }
         log.info("user register success username={} ip={}", user.getUsername(), ip);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
@@ -341,8 +348,16 @@ public class AuthController {
      * @param username 用户名。
      * @param email 邮箱。
      * @param password 密码。
+     * @param gender 性别标识（可选）。
+     * @param genderCustom 自定义性别（可选）。
+     * @param birthday 生日（可选，ISO yyyy-MM-dd）。
      */
-    public record UserRegisterRequest(String username, String email, String password) {
+    public record UserRegisterRequest(String username,
+                                      String email,
+                                      String password,
+                                      String gender,
+                                      String genderCustom,
+                                      String birthday) {
     }
 
     /**

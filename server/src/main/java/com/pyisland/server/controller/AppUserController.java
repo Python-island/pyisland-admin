@@ -1,6 +1,7 @@
 package com.pyisland.server.controller;
 
 import com.pyisland.server.entity.AppUser;
+import com.pyisland.server.security.GenderPolicy;
 import com.pyisland.server.security.PasswordPolicy;
 import com.pyisland.server.security.UsernamePolicy;
 import com.pyisland.server.service.AppUserService;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -60,6 +62,9 @@ public class AppUserController {
             m.put("username", u.getUsername());
             m.put("email", u.getEmail());
             m.put("avatar", r2StorageService.rewriteLegacyUrl(u.getAvatar()));
+            m.put("gender", u.getGender() != null ? u.getGender() : GenderPolicy.DEFAULT);
+            m.put("genderCustom", u.getGenderCustom());
+            m.put("birthday", u.getBirthday() != null ? u.getBirthday().toString() : null);
             m.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
             return m;
         }).toList();
@@ -125,6 +130,10 @@ public class AppUserController {
                     "message", "用户名或邮箱已存在"
             ));
         }
+        String gender = GenderPolicy.normalize(request.gender());
+        String genderCustom = GenderPolicy.normalizeCustom(gender, request.genderCustom());
+        LocalDate birthday = GenderPolicy.parseBirthday(request.birthday());
+        appUserService.updateExtras(user.getUsername(), gender, genderCustom, birthday);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "添加成功"
@@ -169,6 +178,9 @@ public class AppUserController {
         data.put("username", user.getUsername());
         data.put("email", user.getEmail());
         data.put("avatar", r2StorageService.rewriteLegacyUrl(user.getAvatar()));
+        data.put("gender", user.getGender() != null ? user.getGender() : GenderPolicy.DEFAULT);
+        data.put("genderCustom", user.getGenderCustom());
+        data.put("birthday", user.getBirthday() != null ? user.getBirthday().toString() : null);
         data.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
         return ResponseEntity.ok(Map.of(
                 "code", 200,
@@ -217,6 +229,14 @@ public class AppUserController {
         } else {
             appUserService.updateAvatar(request.username(), request.avatar());
         }
+        if (request.gender() != null || request.birthday() != null || request.genderCustom() != null) {
+            String gender = GenderPolicy.normalize(request.gender() != null ? request.gender() : user.getGender());
+            String genderCustom = GenderPolicy.normalizeCustom(gender, request.genderCustom());
+            LocalDate birthday = request.birthday() != null
+                    ? GenderPolicy.parseBirthday(request.birthday())
+                    : user.getBirthday();
+            appUserService.updateExtras(request.username(), gender, genderCustom, birthday);
+        }
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "更新成功"
@@ -228,8 +248,16 @@ public class AppUserController {
      * @param username 用户名。
      * @param email 邮箱。
      * @param password 密码。
+     * @param gender 性别标识（可选）。
+     * @param genderCustom 自定义性别（可选）。
+     * @param birthday 生日（可选）。
      */
-    public record AddUserRequest(String username, String email, String password) {
+    public record AddUserRequest(String username,
+                                 String email,
+                                 String password,
+                                 String gender,
+                                 String genderCustom,
+                                 String birthday) {
     }
 
     /**
@@ -237,7 +265,15 @@ public class AppUserController {
      * @param username 用户名。
      * @param password 新密码。
      * @param avatar 头像地址。
+     * @param gender 性别标识（可选）。
+     * @param genderCustom 自定义性别（可选）。
+     * @param birthday 生日（可选）。
      */
-    public record UpdateProfileRequest(String username, String password, String avatar) {
+    public record UpdateProfileRequest(String username,
+                                       String password,
+                                       String avatar,
+                                       String gender,
+                                       String genderCustom,
+                                       String birthday) {
     }
 }

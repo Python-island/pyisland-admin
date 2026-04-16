@@ -1,5 +1,6 @@
 package com.pyisland.server.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -12,6 +13,9 @@ public class AppUser {
     private String email;
     private String password;
     private String avatar;
+    private String gender;
+    private String genderCustom;
+    private LocalDate birthday;
     private String sessionToken;
     private LocalDateTime createdAt;
 
@@ -93,6 +97,54 @@ public class AppUser {
      */
     public void setAvatar(String avatar) {
         this.avatar = avatar;
+    }
+
+    /**
+     * 获取性别。
+     * @return 性别标识，取值 male/female/custom/undisclosed。
+     */
+    public String getGender() {
+        return gender;
+    }
+
+    /**
+     * 设置性别。
+     * @param gender 性别标识。
+     */
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    /**
+     * 获取自定义性别描述。
+     * @return 自定义性别描述。
+     */
+    public String getGenderCustom() {
+        return genderCustom;
+    }
+
+    /**
+     * 设置自定义性别描述。
+     * @param genderCustom 自定义性别描述。
+     */
+    public void setGenderCustom(String genderCustom) {
+        this.genderCustom = genderCustom;
+    }
+
+    /**
+     * 获取生日。
+     * @return 生日。
+     */
+    public LocalDate getBirthday() {
+        return birthday;
+    }
+
+    /**
+     * 设置生日。
+     * @param birthday 生日。
+     */
+    public void setBirthday(LocalDate birthday) {
+        this.birthday = birthday;
     }
 
     /**

@@ -9,29 +9,36 @@
         <result property="email" column="email"/>
         <result property="password" column="password"/>
         <result property="avatar" column="avatar"/>
+        <result property="gender" column="gender"/>
+        <result property="genderCustom" column="gender_custom"/>
+        <result property="birthday" column="birthday"/>
         <result property="sessionToken" column="session_token"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
+    <sql id="baseColumns">
+        id, username, email, password, avatar, gender, gender_custom, birthday, session_token, created_at
+    </sql>
+
     <select id="selectByUsername" resultMap="AppUserResultMap">
-        SELECT id, username, email, password, avatar, session_token, created_at
+        SELECT <include refid="baseColumns"/>
         FROM app_user
         WHERE username = #{username}
     </select>
 
     <select id="selectByEmail" resultMap="AppUserResultMap">
-        SELECT id, username, email, password, avatar, session_token, created_at
+        SELECT <include refid="baseColumns"/>
         FROM app_user
         WHERE email = #{email}
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO app_user (username, email, password, avatar, created_at)
-        VALUES (#{username}, #{email}, #{password}, #{avatar}, #{createdAt})
+        INSERT INTO app_user (username, email, password, avatar, gender, gender_custom, birthday, created_at)
+        VALUES (#{username}, #{email}, #{password}, #{avatar}, #{gender}, #{genderCustom}, #{birthday}, #{createdAt})
     </insert>
 
     <select id="selectAll" resultMap="AppUserResultMap">
-        SELECT id, username, email, password, avatar, session_token, created_at
+        SELECT <include refid="baseColumns"/>
         FROM app_user
         ORDER BY created_at DESC
     </select>
@@ -61,6 +68,14 @@
     <update id="updateSessionToken">
         UPDATE app_user
         SET session_token = #{sessionToken}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateExtras">
+        UPDATE app_user
+        SET gender = #{gender},
+            gender_custom = #{genderCustom},
+            birthday = #{birthday}
         WHERE username = #{username}
     </update>
 

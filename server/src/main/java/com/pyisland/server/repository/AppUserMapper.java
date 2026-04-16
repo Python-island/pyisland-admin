@@ -4,6 +4,8 @@ import com.pyisland.server.entity.AppUser;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
+
 /**
  * 普通用户数据访问接口。
  */
@@ -74,4 +76,17 @@ public interface AppUserMapper {
      * @return 影响行数。
      */
     int updateSessionToken(@Param("username") String username, @Param("sessionToken") String sessionToken);
+
+    /**
+     * 更新用户扩展信息（性别与生日）。
+     * @param username 用户名。
+     * @param gender 性别标识。
+     * @param genderCustom 自定义性别描述。
+     * @param birthday 生日。
+     * @return 影响行数。
+     */
+    int updateExtras(@Param("username") String username,
+                     @Param("gender") String gender,
+                     @Param("genderCustom") String genderCustom,
+                     @Param("birthday") LocalDate birthday);
 }
