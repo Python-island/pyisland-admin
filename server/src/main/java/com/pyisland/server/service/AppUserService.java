@@ -62,6 +62,62 @@ public class AppUserService {
     }
 
     /**
+     * 查询全部普通用户。
+     * @return 普通用户列表。
+     */
+    public java.util.List<AppUser> listAll() {
+        return appUserMapper.selectAll();
+    }
+
+    /**
+     * 删除普通用户。
+     * @param username 用户名。
+     * @return 是否删除成功。
+     */
+    public boolean deleteUser(String username) {
+        return appUserMapper.deleteByUsername(username) > 0;
+    }
+
+    /**
+     * 统计普通用户数量。
+     * @return 普通用户数量。
+     */
+    public int count() {
+        return appUserMapper.count();
+    }
+
+    /**
+     * 按用户名查询普通用户。
+     * @param username 用户名。
+     * @return 普通用户信息。
+     */
+    public AppUser getByUsername(String username) {
+        return appUserMapper.selectByUsername(username);
+    }
+
+    /**
+     * 更新普通用户密码与头像。
+     * @param username 用户名。
+     * @param newPassword 新密码。
+     * @param avatar 头像地址。
+     * @return 是否更新成功。
+     */
+    public boolean updateProfile(String username, String newPassword, String avatar) {
+        String hashed = hashPassword(newPassword);
+        return appUserMapper.updateProfile(username, hashed, avatar) > 0;
+    }
+
+    /**
+     * 仅更新普通用户头像。
+     * @param username 用户名。
+     * @param avatar 头像地址。
+     * @return 是否更新成功。
+     */
+    public boolean updateAvatar(String username, String avatar) {
+        return appUserMapper.updateAvatar(username, avatar) > 0;
+    }
+
+    /**
      * 对明文密码进行 SHA-256 哈希。
      * @param password 明文密码。
      * @return 哈希结果。

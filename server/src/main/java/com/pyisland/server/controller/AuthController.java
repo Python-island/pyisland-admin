@@ -52,16 +52,6 @@ public class AuthController {
     }
 
     /**
-     * 管理员登录（兼容旧接口）。
-     * @param request 登录请求。
-     * @return 登录结果。
-     */
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AdminLoginRequest request) {
-        return adminLogin(request);
-    }
-
-    /**
      * 管理员登录。
      * @param request 登录请求。
      * @return 登录结果。
@@ -91,6 +81,39 @@ public class AuthController {
                         "username", user.getUsername(),
                         "role", "admin"
                 )
+        ));
+    }
+
+    /**
+     * 管理员注册。
+     * @param request 注册请求。
+     * @return 注册结果。
+     */
+    @PostMapping("/admin/register")
+    public ResponseEntity<?> adminRegister(@RequestBody AdminRegisterRequest request) {
+        if (request.username() == null || request.username().isBlank()
+                || request.password() == null || request.password().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "用户名和密码不能为空"
+            ));
+        }
+        if (request.password().length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "密码长度不能小于 6 位"
+            ));
+        }
+        AdminUser user = adminUserService.register(request.username(), request.password());
+        if (user == null) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 409,
+                    "message", "管理员用户名已存在"
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "管理员注册成功"
         ));
     }
 
@@ -179,6 +202,14 @@ public class AuthController {
      * @param password 密码。
      */
     public record AdminLoginRequest(String username, String password) {
+    }
+
+    /**
+     * 管理员注册请求体。
+     * @param username 用户名。
+     * @param password 密码。
+     */
+    public record AdminRegisterRequest(String username, String password) {
     }
 
     /**

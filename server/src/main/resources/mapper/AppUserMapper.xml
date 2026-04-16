@@ -30,6 +30,34 @@
         VALUES (#{username}, #{email}, #{password}, #{avatar}, #{createdAt})
     </insert>
 
+    <select id="selectAll" resultMap="AppUserResultMap">
+        SELECT id, username, email, password, avatar, session_token, created_at
+        FROM app_user
+        ORDER BY created_at DESC
+    </select>
+
+    <delete id="deleteByUsername">
+        DELETE FROM app_user
+        WHERE username = #{username}
+    </delete>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM app_user
+    </select>
+
+    <update id="updateProfile">
+        UPDATE app_user
+        SET password = #{password},
+            avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateAvatar">
+        UPDATE app_user
+        SET avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
+
     <update id="updateSessionToken">
         UPDATE app_user
         SET session_token = #{sessionToken}
