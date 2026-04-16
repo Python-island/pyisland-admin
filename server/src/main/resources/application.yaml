@@ -27,6 +27,14 @@ aliyun:
     bucket-name: ${OSS_BUCKET_NAME}
     domain: ${OSS_DOMAIN}
 
+cloudflare:
+  r2:
+    endpoint: ${R2_ENDPOINT}
+    access-key-id: ${R2_ACCESS_KEY_ID}
+    access-key-secret: ${R2_ACCESS_KEY_SECRET}
+    bucket-name: ${R2_BUCKET_NAME}
+    public-domain: ${R2_PUBLIC_DOMAIN:}
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.pyisland.server.entity

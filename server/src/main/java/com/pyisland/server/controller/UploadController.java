@@ -1,6 +1,6 @@
 package com.pyisland.server.controller;
 
-import com.pyisland.server.service.OssService;
+import com.pyisland.server.service.R2StorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,14 +17,14 @@ import java.util.Map;
 @RequestMapping("/v1/upload")
 public class UploadController {
 
-    private final OssService ossService;
+    private final R2StorageService r2StorageService;
 
     /**
      * 构造上传控制器。
-     * @param ossService OSS 服务。
+     * @param r2StorageService R2 服务。
      */
-    public UploadController(OssService ossService) {
-        this.ossService = ossService;
+    public UploadController(R2StorageService r2StorageService) {
+        this.r2StorageService = r2StorageService;
     }
 
     /**
@@ -54,7 +54,7 @@ public class UploadController {
             ));
         }
         try {
-            String url = ossService.upload(file, "avatars");
+            String url = r2StorageService.upload(file, "avatars");
             return ResponseEntity.ok(Map.of(
                     "code", 200,
                     "message", "上传成功",
