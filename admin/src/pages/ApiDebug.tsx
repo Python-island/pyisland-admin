@@ -10,8 +10,10 @@ import { useState } from "react";
 const PRESET_APIS = [
   { label: "获取所有版本", path: "/v1/version/list" },
   { label: "获取指定版本", path: "/v1/version?appName=pyisland" },
-  { label: "管理员列表", path: "/v1/users" },
-  { label: "管理员数量", path: "/v1/users/count" },
+  { label: "管理员列表", path: "/v1/admin-users" },
+  { label: "管理员数量", path: "/v1/admin-users/count" },
+  { label: "普通用户列表", path: "/v1/app-users" },
+  { label: "普通用户数量", path: "/v1/app-users/count" },
   { label: "接口状态列表", path: "/v1/service-status/list" },
 ];
 

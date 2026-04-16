@@ -25,7 +25,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const res = await auth.login(username, password);
+      const res = await auth.adminLogin(username, password);
       if (res.code === 200 && res.data) {
         setToken(res.data.token);
         setUsername(res.data.username);

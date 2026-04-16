@@ -6,7 +6,7 @@
  */
 
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { clearToken, getUsername, users, sanitizeUrl } from "../api";
+import { clearToken, getUsername, adminUsers, sanitizeUrl } from "../api";
 import { useState, useEffect } from "react";
 
 const navItems = [
@@ -20,10 +20,18 @@ const navItems = [
     ],
   },
   {
-    label: "人员管理",
+    label: "管理员管理",
     children: [
-      { label: "管理员列表", path: "/users/list" },
-      { label: "添加管理员", path: "/users/add" },
+      { label: "管理员列表", path: "/admin-users/list" },
+      { label: "添加管理员", path: "/admin-users/add" },
+    ],
+  },
+  {
+    label: "用户管理",
+    children: [
+      { label: "用户列表", path: "/app-users/list" },
+      { label: "添加用户", path: "/app-users/add" },
+      { label: "修改用户", path: "/app-users/edit" },
     ],
   },
   {
@@ -72,14 +80,14 @@ const subLinkActive: React.CSSProperties = {
 export default function Layout() {
   const navigate = useNavigate();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["版本管理", "人员管理", "接口管理"])
+    new Set(["版本管理", "管理员管理", "用户管理", "接口管理"])
   );
   const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     const username = getUsername();
     if (username) {
-      users.getProfile(username).then((res) => {
+      adminUsers.getProfile(username).then((res) => {
         if (res.code === 200 && res.data?.avatar) {
           setAvatar(res.data.avatar);
         }

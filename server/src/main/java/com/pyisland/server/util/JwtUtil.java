@@ -36,8 +36,19 @@ public class JwtUtil {
      * @return token 字符串。
      */
     public String generateToken(String username) {
+        return generateToken(username, "admin");
+    }
+
+    /**
+     * 生成带角色信息的 JWT token。
+     * @param username 用户名。
+     * @param role 角色。
+     * @return token 字符串。
+     */
+    public String generateToken(String username, String role) {
         return Jwts.builder()
                 .subject(username)
+                .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key)
@@ -51,6 +62,20 @@ public class JwtUtil {
      */
     public String getUsernameFromToken(String token) {
         return parseClaims(token).getSubject();
+    }
+
+    /**
+     * 从 token 提取角色。
+     * @param token token 字符串。
+     * @return 角色，缺失时默认 admin。
+     */
+    public String getRoleFromToken(String token) {
+        Claims claims = parseClaims(token);
+        Object role = claims.get("role");
+        if (role instanceof String roleStr && !roleStr.isBlank()) {
+            return roleStr;
+        }
+        return "admin";
     }
 
     /**

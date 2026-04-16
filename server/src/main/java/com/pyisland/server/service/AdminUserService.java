@@ -2,12 +2,10 @@ package com.pyisland.server.service;
 
 import com.pyisland.server.entity.AdminUser;
 import com.pyisland.server.repository.AdminUserMapper;
+import com.pyisland.server.security.PasswordHashService;
 import org.springframework.stereotype.Service;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
 
 /**
  * 管理员用户服务。
@@ -16,27 +14,39 @@ import java.util.HexFormat;
 public class AdminUserService {
 
     private final AdminUserMapper adminUserMapper;
+    private final PasswordHashService passwordHashService;
 
     /**
      * 构造管理员服务。
      * @param adminUserMapper 管理员数据访问接口。
+     * @param passwordHashService 密码哈希服务。
      */
-    public AdminUserService(AdminUserMapper adminUserMapper) {
+    public AdminUserService(AdminUserMapper adminUserMapper,
+                            PasswordHashService passwordHashService) {
         this.adminUserMapper = adminUserMapper;
+        this.passwordHashService = passwordHashService;
     }
 
     /**
-     * 校验管理员登录。
+     * 校验管理员登录。登录成功时若仍是旧 SHA-256 哈希则自动升级为 BCrypt。
      * @param username 用户名。
      * @param password 明文密码。
      * @return 认证成功返回用户，否则返回 null。
      */
     public AdminUser authenticate(String username, String password) {
         AdminUser user = adminUserMapper.selectByUsername(username);
-        if (user != null && user.getPassword().equals(hashPassword(password))) {
-            return user;
+        if (user == null) {
+            return null;
         }
-        return null;
+        if (!passwordHashService.matches(password, user.getPassword())) {
+            return null;
+        }
+        if (!passwordHashService.isBcrypt(user.getPassword())) {
+            String upgraded = passwordHashService.hash(password);
+            adminUserMapper.updateProfile(user.getUsername(), upgraded, user.getAvatar());
+            user.setPassword(upgraded);
+        }
+        return user;
     }
 
     /**
@@ -52,7 +62,7 @@ public class AdminUserService {
         }
         AdminUser user = new AdminUser();
         user.setUsername(username);
-        user.setPassword(hashPassword(password));
+        user.setPassword(passwordHashService.hash(password));
         user.setCreatedAt(LocalDateTime.now());
         adminUserMapper.insert(user);
         return user;
@@ -100,7 +110,7 @@ public class AdminUserService {
      * @return 是否更新成功。
      */
     public boolean updateProfile(String username, String newPassword, String avatar) {
-        String hashed = hashPassword(newPassword);
+        String hashed = passwordHashService.hash(newPassword);
         return adminUserMapper.updateProfile(username, hashed, avatar) > 0;
     }
 
@@ -112,20 +122,5 @@ public class AdminUserService {
      */
     public boolean updateAvatar(String username, String avatar) {
         return adminUserMapper.updateAvatar(username, avatar) > 0;
-    }
-
-    /**
-     * 对明文密码进行 SHA-256 哈希。
-     * @param password 明文密码。
-     * @return 哈希结果。
-     */
-    private String hashPassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(password.getBytes());
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

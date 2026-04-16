@@ -116,6 +116,7 @@ export interface AppVersion {
 export interface LoginData {
   token: string;
   username: string;
+  role: "admin" | "user";
 }
 
 export interface AdminUserInfo {
@@ -125,8 +126,32 @@ export interface AdminUserInfo {
   createdAt: string;
 }
 
+export type Gender = "male" | "female" | "custom" | "undisclosed";
+
+export interface AppUserInfo {
+  id: number;
+  username: string;
+  email: string;
+  avatar: string | null;
+  gender?: Gender;
+  genderCustom?: string | null;
+  birthday?: string | null;
+  createdAt: string;
+}
+
+export interface AppUserProfileData {
+  username: string;
+  email: string;
+  avatar: string | null;
+  gender?: Gender;
+  genderCustom?: string | null;
+  birthday?: string | null;
+  createdAt: string;
+}
+
 export interface ProfileData {
   username: string;
+  email?: string;
   avatar: string | null;
   createdAt: string;
 }
@@ -141,11 +166,44 @@ export interface ApiStatus {
 }
 
 export const auth = {
-  login(username: string, password: string) {
-    return request<ApiResponse<LoginData>>("/auth/login", {
+  adminLogin(username: string, password: string) {
+    return request<ApiResponse<LoginData>>("/auth/admin/login", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
+  },
+  userLogin(username: string, password: string) {
+    return request<ApiResponse<LoginData>>("/auth/user/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+  },
+  adminRegister(username: string, password: string) {
+    return request<ApiResponse>("/auth/admin/register", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+  },
+  userRegister(
+    username: string,
+    email: string,
+    password: string,
+    extras?: { gender?: Gender; genderCustom?: string | null; birthday?: string | null }
+  ) {
+    return request<ApiResponse>("/auth/user/register", {
+      method: "POST",
+      body: JSON.stringify({
+        username,
+        email,
+        password,
+        gender: extras?.gender,
+        genderCustom: extras?.genderCustom,
+        birthday: extras?.birthday,
+      }),
+    });
+  },
+  login(username: string, password: string) {
+    return this.adminLogin(username, password);
   },
 };
 
@@ -179,17 +237,17 @@ export const version = {
 };
 
 /**
- * 上传用户头像文件。
+ * 上传管理员头像文件（OSS）。
  * @param file - 待上传的头像文件。
  * @returns 上传接口响应，成功时 data 为头像 URL。
  */
-export async function uploadAvatar(file: File): Promise<ApiResponse<string>> {
+export async function uploadAdminAvatar(file: File): Promise<ApiResponse<string>> {
   const token = getToken();
   const formData = new FormData();
   formData.append("file", file);
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/v1/upload/avatar`, {
+  const res = await fetch(`${BASE}/v1/upload/admin-avatar`, {
     method: "POST",
     headers,
     body: formData,
@@ -207,34 +265,119 @@ export async function uploadAvatar(file: File): Promise<ApiResponse<string>> {
   return res.json();
 }
 
-export const users = {
+/**
+ * 上传普通用户头像文件（R2）。
+ * @param file - 待上传的头像文件。
+ * @returns 上传接口响应，成功时 data 为头像 URL。
+ */
+export async function uploadUserAvatar(file: File): Promise<ApiResponse<string>> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}/v1/upload/user-avatar`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+  if (res.status === 401) {
+    const body = await res.json().catch(() => null);
+    clearToken();
+    if (body?.code === 4011) {
+      showKickedModal(() => { window.location.href = "/login"; });
+      throw new Error(body?.message || "账号已在其他设备登录");
+    }
+    window.location.href = "/login";
+    throw new Error(body?.message || "未登录或token已过期");
+  }
+  return res.json();
+}
+
+export const adminUsers = {
   list() {
-    return request<ApiResponse<AdminUserInfo[]>>("/v1/users");
+    return request<ApiResponse<AdminUserInfo[]>>("/v1/admin-users");
   },
   count() {
-    return request<ApiResponse<number>>("/v1/users/count");
+    return request<ApiResponse<number>>("/v1/admin-users/count");
   },
   add(username: string, password: string) {
-    return request<ApiResponse>("/v1/users", {
+    return request<ApiResponse>("/v1/admin-users", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
   },
   delete(username: string) {
     return request<ApiResponse>(
-      `/v1/users?username=${encodeURIComponent(username)}`,
+      `/v1/admin-users?username=${encodeURIComponent(username)}`,
       { method: "DELETE" }
     );
   },
   getProfile(username: string) {
     return request<ApiResponse<ProfileData>>(
-      `/v1/users/profile?username=${encodeURIComponent(username)}`
+      `/v1/admin-users/profile?username=${encodeURIComponent(username)}`
     );
   },
   updateProfile(username: string, password: string | null, avatar: string | null) {
-    return request<ApiResponse>("/v1/users/profile", {
+    return request<ApiResponse>("/v1/admin-users/profile", {
       method: "PUT",
       body: JSON.stringify({ username, password, avatar }),
+    });
+  },
+};
+
+export const appUsers = {
+  list() {
+    return request<ApiResponse<AppUserInfo[]>>("/v1/app-users");
+  },
+  count() {
+    return request<ApiResponse<number>>("/v1/app-users/count");
+  },
+  add(
+    username: string,
+    email: string,
+    password: string,
+    extras?: { gender?: Gender; genderCustom?: string | null; birthday?: string | null }
+  ) {
+    return request<ApiResponse>("/v1/app-users", {
+      method: "POST",
+      body: JSON.stringify({
+        username,
+        email,
+        password,
+        gender: extras?.gender,
+        genderCustom: extras?.genderCustom,
+        birthday: extras?.birthday,
+      }),
+    });
+  },
+  delete(username: string) {
+    return request<ApiResponse>(
+      `/v1/app-users?username=${encodeURIComponent(username)}`,
+      { method: "DELETE" }
+    );
+  },
+  getProfile(username: string) {
+    return request<ApiResponse<AppUserProfileData>>(
+      `/v1/app-users/profile?username=${encodeURIComponent(username)}`
+    );
+  },
+  updateProfile(
+    username: string,
+    password: string | null,
+    avatar: string | null,
+    extras?: { gender?: Gender; genderCustom?: string | null; birthday?: string | null }
+  ) {
+    return request<ApiResponse>("/v1/app-users/profile", {
+      method: "PUT",
+      body: JSON.stringify({
+        username,
+        password,
+        avatar,
+        gender: extras?.gender,
+        genderCustom: extras?.genderCustom,
+        birthday: extras?.birthday,
+      }),
     });
   },
 };

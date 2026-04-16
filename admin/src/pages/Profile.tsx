@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { users, getUsername, uploadAvatar, sanitizeUrl } from "../api";
+import { adminUsers, getUsername, uploadAdminAvatar, sanitizeUrl } from "../api";
 import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
@@ -57,7 +57,7 @@ export default function Profile() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await users.getProfile(username);
+        const res = await adminUsers.getProfile(username);
         if (res.code === 200 && res.data) {
           setAvatar(res.data.avatar);
           setAvatarPreview(res.data.avatar);
@@ -93,7 +93,7 @@ export default function Profile() {
     try {
       let avatarUrl = avatar;
       if (avatarFile) {
-        const upRes = await uploadAvatar(avatarFile);
+        const upRes = await uploadAdminAvatar(avatarFile);
         if (upRes.code === 200 && upRes.data) {
           avatarUrl = upRes.data;
         } else {
@@ -101,7 +101,7 @@ export default function Profile() {
           return;
         }
       }
-      const res = await users.updateProfile(
+      const res = await adminUsers.updateProfile(
         username,
         newPassword || null,
         avatarUrl

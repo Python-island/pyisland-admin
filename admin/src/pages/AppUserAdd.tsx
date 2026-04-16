@@ -1,12 +1,5 @@
-/**
- * @file UserAdd.tsx
- * @description 添加管理员页面。
- * @description 支持新管理员创建并可选上传头像。
- * @author 鸡哥
- */
-
 import { useState, useRef } from "react";
-import { adminUsers, uploadAdminAvatar, sanitizeUrl } from "../api";
+import { appUsers, uploadUserAvatar, sanitizeUrl, type Gender } from "../api";
 import MessageDialog from "../components/MessageDialog";
 
 const inputStyle: React.CSSProperties = {
@@ -32,19 +25,20 @@ const labelStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.64)",
 };
 
-/**
- * 添加管理员组件。
- * @returns 渲染管理员新增表单。
- */
-export default function UserAdd() {
+export default function AppUserAdd() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+  const [gender, setGender] = useState<Gender>("undisclosed");
+  const [genderCustom, setGenderCustom] = useState("");
+  const [birthday, setBirthday] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
+  const [submitting, setSubmitting] = useState(false);
 
   const showMsg = (text: string, type: "ok" | "err" = "ok") => {
     setMsg(text);
@@ -66,23 +60,37 @@ export default function UserAdd() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (password !== confirmPwd) {
       showMsg("两次密码输入不一致", "err");
       return;
     }
+    setSubmitting(true);
     try {
-      const res = await adminUsers.add(username, password);
+      const extras = {
+        gender,
+        genderCustom: gender === "custom" ? genderCustom.trim() || null : null,
+        birthday: birthday || null,
+      };
+      const res = await appUsers.add(username, email, password, extras);
       if (res.code === 200) {
         if (avatarFile) {
-          const upRes = await uploadAdminAvatar(avatarFile);
+          const upRes = await uploadUserAvatar(avatarFile);
           if (upRes.code === 200 && upRes.data) {
-            await adminUsers.updateProfile(username, null, upRes.data);
+            await appUsers.updateProfile(username, null, upRes.data);
+          } else {
+            showMsg(upRes.message || "头像上传失败", "err");
+            return;
           }
         }
-        showMsg("添加管理员成功");
+        showMsg("添加用户成功");
         setUsername("");
+        setEmail("");
         setPassword("");
         setConfirmPwd("");
+        setGender("undisclosed");
+        setGenderCustom("");
+        setBirthday("");
         setAvatarPreview(null);
         setAvatarFile(null);
       } else {
@@ -90,6 +98,8 @@ export default function UserAdd() {
       }
     } catch {
       showMsg("添加失败", "err");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -105,7 +115,7 @@ export default function UserAdd() {
           margin: "0 0 8px",
         }}
       >
-        添加管理员
+        添加用户
       </h1>
       <p
         style={{
@@ -117,7 +127,7 @@ export default function UserAdd() {
           marginBottom: 40,
         }}
       >
-        注册新的管理员账号
+        创建新的普通用户账号
       </p>
 
       <MessageDialog
@@ -135,7 +145,6 @@ export default function UserAdd() {
         }}
       >
         <form onSubmit={handleSubmit}>
-          {/* Avatar */}
           <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 20 }}>
             <div
               onClick={() => fileRef.current?.click()}
@@ -160,7 +169,7 @@ export default function UserAdd() {
             </div>
             <div>
               <label style={labelStyle}>头像</label>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>点击圆圈上传，支持 JPG/PNG，最大 5MB</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>点击圆圈上传，使用 R2 存储，支持 JPG/PNG，最大 5MB</div>
             </div>
             <input
               ref={fileRef}
@@ -177,11 +186,24 @@ export default function UserAdd() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="新管理员用户名"
+              placeholder="新用户用户名"
               required
               style={inputStyle}
             />
           </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>邮箱</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="用户邮箱"
+              required
+              style={inputStyle}
+            />
+          </div>
+
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>密码</label>
             <input
@@ -193,7 +215,8 @@ export default function UserAdd() {
               style={inputStyle}
             />
           </div>
-          <div style={{ marginBottom: 24 }}>
+
+          <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>确认密码</label>
             <input
               type="password"
@@ -204,21 +227,82 @@ export default function UserAdd() {
               style={inputStyle}
             />
           </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>性别</label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value as Gender)}
+              style={{ ...inputStyle, appearance: "auto" }}
+            >
+              <option value="male">男</option>
+              <option value="female">女</option>
+              <option value="custom">自定义</option>
+              <option value="undisclosed">不愿透露</option>
+            </select>
+          </div>
+
+          {gender === "custom" && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>自定义性别</label>
+              <input
+                type="text"
+                value={genderCustom}
+                onChange={(e) => setGenderCustom(e.target.value)}
+                placeholder="最多 64 个字符"
+                maxLength={64}
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          <div style={{ marginBottom: 24 }}>
+            <label style={labelStyle}>生日</label>
+            <input
+              type="date"
+              value={birthday}
+              onChange={(e) => setBirthday(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              style={inputStyle}
+            />
+          </div>
+
           <button
             type="submit"
-            className="cursor-pointer"
+            disabled={submitting}
+            className={submitting ? "" : "cursor-pointer"}
             style={{
               padding: "8px 20px",
-              backgroundColor: "var(--apple-blue)",
+              backgroundColor: submitting ? "rgba(10,132,255,0.5)" : "var(--apple-blue)",
               color: "#ffffff",
               borderRadius: 980,
               border: "none",
               fontSize: 17,
               fontWeight: 400,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: submitting ? "not-allowed" : "pointer",
+              transition: "background-color 0.15s",
             }}
           >
-            添加
+            {submitting && (
+              <span
+                aria-hidden
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.4)",
+                  borderTopColor: "#fff",
+                  animation: "spin 0.8s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+            )}
+            {submitting ? "添加中..." : "添加"}
           </button>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </form>
       </div>
     </div>

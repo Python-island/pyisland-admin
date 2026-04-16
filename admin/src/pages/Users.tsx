@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { users, type AdminUserInfo } from "../api";
+import { adminUsers, type AdminUserInfo } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -70,7 +70,7 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await users.list();
+      const res = await adminUsers.list();
       if (res.code === 200 && res.data) setList(res.data);
     } catch {
       /* ignore */
@@ -86,7 +86,7 @@ export default function UsersPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await users.add(newUsername, newPassword);
+      const res = await adminUsers.add(newUsername, newPassword);
       if (res.code === 200) {
         showMsg("添加管理员成功");
         setNewUsername("");
@@ -109,7 +109,7 @@ export default function UsersPage() {
     setConfirmVisible(false);
     if (!deleteTarget) return;
     try {
-      const res = await users.delete(deleteTarget);
+      const res = await adminUsers.delete(deleteTarget);
       if (res.code === 200) {
         showMsg("删除成功");
         fetchUsers();

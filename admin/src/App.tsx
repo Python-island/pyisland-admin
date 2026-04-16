@@ -15,6 +15,9 @@ import VersionCreate from "./pages/VersionCreate";
 import VersionDelete from "./pages/VersionDelete";
 import UserList from "./pages/UserList";
 import UserAdd from "./pages/UserAdd";
+import AppUserList from "./pages/AppUserList";
+import AppUserAdd from "./pages/AppUserAdd";
+import AppUserEdit from "./pages/AppUserEdit";
 import Profile from "./pages/Profile";
 import ApiStatusPage from "./pages/ApiStatus";
 import ApiStatusManage from "./pages/ApiStatusManage";
@@ -49,8 +52,11 @@ export default function App() {
           <Route path="/version/update" element={<VersionUpdate />} />
           <Route path="/version/create" element={<VersionCreate />} />
           <Route path="/version/delete" element={<VersionDelete />} />
-          <Route path="/users/list" element={<UserList />} />
-          <Route path="/users/add" element={<UserAdd />} />
+          <Route path="/admin-users/list" element={<UserList />} />
+          <Route path="/admin-users/add" element={<UserAdd />} />
+          <Route path="/app-users/list" element={<AppUserList />} />
+          <Route path="/app-users/add" element={<AppUserAdd />} />
+          <Route path="/app-users/edit" element={<AppUserEdit />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/api-status" element={<ApiStatusPage />} />
           <Route path="/api-message" element={<ApiStatusManage />} />

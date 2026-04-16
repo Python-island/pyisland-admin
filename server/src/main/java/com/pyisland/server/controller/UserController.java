@@ -1,7 +1,10 @@
 package com.pyisland.server.controller;
 
 import com.pyisland.server.entity.AdminUser;
+import com.pyisland.server.security.PasswordPolicy;
+import com.pyisland.server.security.UsernamePolicy;
 import com.pyisland.server.service.AdminUserService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +23,7 @@ import java.util.Map;
  * 管理员用户控制器。
  */
 @RestController
-@RequestMapping("/v1/users")
+@RequestMapping("/v1/admin-users")
 public class UserController {
 
     private final AdminUserService adminUserService;
@@ -76,16 +79,23 @@ public class UserController {
      */
     @PostMapping
     public ResponseEntity<?> addUser(@RequestBody AddUserRequest request) {
-        if (request.username() == null || request.username().isBlank()
-                || request.password() == null || request.password().isBlank()) {
+        String usernameError = UsernamePolicy.validate(request.username());
+        if (usernameError != null) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", 400,
-                    "message", "用户名和密码不能为空"
+                    "message", usernameError
+            ));
+        }
+        String passwordError = PasswordPolicy.validate(request.password());
+        if (passwordError != null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", passwordError
             ));
         }
         AdminUser user = adminUserService.register(request.username(), request.password());
         if (user == null) {
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(409).body(Map.of(
                     "code", 409,
                     "message", "用户名已存在"
             ));
@@ -99,13 +109,21 @@ public class UserController {
     /**
      * 删除管理员。
      * @param username 用户名。
+     * @param http HTTP 请求上下文。
      * @return 删除结果。
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteUser(@RequestParam String username) {
+    public ResponseEntity<?> deleteUser(@RequestParam String username, HttpServletRequest http) {
+        String caller = (String) http.getAttribute("username");
+        if (caller != null && caller.equals(username)) {
+            return ResponseEntity.status(400).body(Map.of(
+                    "code", 400,
+                    "message", "不能删除当前登录的管理员"
+            ));
+        }
         boolean deleted = adminUserService.deleteUser(username);
         if (!deleted) {
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
                     "message", "用户不存在"
             ));
@@ -142,26 +160,41 @@ public class UserController {
     }
 
     /**
-     * 更新管理员资料。
+     * 更新管理员资料。仅允许修改当前登录管理员自身资料。
      * @param request 更新请求。
+     * @param http HTTP 请求上下文。
      * @return 更新结果。
      */
     @PutMapping("/profile")
-    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, HttpServletRequest http) {
         if (request.username() == null || request.username().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", 400,
                     "message", "用户名不能为空"
             ));
         }
+        String caller = (String) http.getAttribute("username");
+        if (caller == null || !caller.equals(request.username())) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "code", 403,
+                    "message", "只能修改当前登录管理员的资料"
+            ));
+        }
         AdminUser user = adminUserService.getByUsername(request.username());
         if (user == null) {
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
                     "message", "用户不存在"
             ));
         }
         if (request.password() != null && !request.password().isBlank()) {
+            String passwordError = PasswordPolicy.validate(request.password());
+            if (passwordError != null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "code", 400,
+                        "message", passwordError
+                ));
+            }
             adminUserService.updateProfile(request.username(), request.password(), request.avatar());
         } else {
             adminUserService.updateAvatar(request.username(), request.avatar());

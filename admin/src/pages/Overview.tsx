@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { version, users, apiStatus, type AppVersion } from "../api";
+import { version, adminUsers, apiStatus, type AppVersion } from "../api";
 
 const headingStyle: React.CSSProperties = {
   fontFamily: "var(--font-display)",
@@ -34,7 +34,7 @@ export default function Overview() {
       try {
         const [vRes, cRes, sRes] = await Promise.all([
           version.list(),
-          users.count(),
+          adminUsers.count(),
           apiStatus.list(),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
