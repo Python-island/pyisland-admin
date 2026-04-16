@@ -56,6 +56,13 @@ public class JwtInterceptor implements HandlerInterceptor {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             if (jwtUtil.validateToken(token)) {
+                String role = jwtUtil.getRoleFromToken(token);
+                if (!"admin".equals(role)) {
+                    response.setStatus(403);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"code\":403,\"message\":\"无管理员权限\"}");
+                    return false;
+                }
                 String username = jwtUtil.getUsernameFromToken(token);
                 var user = adminUserMapper.selectByUsername(username);
                 if (user == null) {

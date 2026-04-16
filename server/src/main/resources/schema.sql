@@ -35,6 +35,15 @@ CREATE TABLE IF NOT EXISTS admin_user (
     created_at  DATETIME
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS app_user (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username     VARCHAR(100) NOT NULL UNIQUE,
+    password     VARCHAR(255) NOT NULL,
+    avatar       LONGTEXT,
+    session_token VARCHAR(500),
+    created_at   DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET @admin_user_avatar_exists := (
     SELECT COUNT(*)
     FROM information_schema.COLUMNS
@@ -51,4 +60,52 @@ PREPARE admin_user_avatar_stmt FROM @admin_user_avatar_sql;
 EXECUTE admin_user_avatar_stmt;
 DEALLOCATE PREPARE admin_user_avatar_stmt;
 ALTER TABLE admin_user MODIFY COLUMN avatar LONGTEXT;
--- ALTER TABLE admin_user ADD COLUMN session_token VARCHAR(500) AFTER avatar;
+
+SET @admin_user_session_token_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'admin_user'
+      AND COLUMN_NAME = 'session_token'
+);
+SET @admin_user_session_token_sql := IF(
+    @admin_user_session_token_exists = 0,
+    'ALTER TABLE admin_user ADD COLUMN session_token VARCHAR(500) AFTER avatar',
+    'SELECT 1'
+);
+PREPARE admin_user_session_token_stmt FROM @admin_user_session_token_sql;
+EXECUTE admin_user_session_token_stmt;
+DEALLOCATE PREPARE admin_user_session_token_stmt;
+
+SET @app_user_avatar_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'avatar'
+);
+SET @app_user_avatar_sql := IF(
+    @app_user_avatar_exists = 0,
+    'ALTER TABLE app_user ADD COLUMN avatar LONGTEXT AFTER password',
+    'SELECT 1'
+);
+PREPARE app_user_avatar_stmt FROM @app_user_avatar_sql;
+EXECUTE app_user_avatar_stmt;
+DEALLOCATE PREPARE app_user_avatar_stmt;
+ALTER TABLE app_user MODIFY COLUMN avatar LONGTEXT;
+
+SET @app_user_session_token_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'session_token'
+);
+SET @app_user_session_token_sql := IF(
+    @app_user_session_token_exists = 0,
+    'ALTER TABLE app_user ADD COLUMN session_token VARCHAR(500) AFTER avatar',
+    'SELECT 1'
+);
+PREPARE app_user_session_token_stmt FROM @app_user_session_token_sql;
+EXECUTE app_user_session_token_stmt;
+DEALLOCATE PREPARE app_user_session_token_stmt;
