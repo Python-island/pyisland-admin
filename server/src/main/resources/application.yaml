@@ -19,6 +19,12 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
+admin:
+  bootstrap:
+    username: ${ADMIN_BOOTSTRAP_USERNAME:}
+    email: ${ADMIN_BOOTSTRAP_EMAIL:}
+    password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+
 aliyun:
   oss:
     endpoint: ${OSS_ENDPOINT}
