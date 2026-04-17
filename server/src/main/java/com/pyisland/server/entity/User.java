@@ -4,18 +4,25 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 普通用户实体。
+ * 统一用户实体：合并了原 admin_user 与 app_user，通过 role 字段区分角色。
  */
-public class AppUser {
+public class User {
+
+    /** 普通用户角色。 */
+    public static final String ROLE_USER = "user";
+    /** 管理员角色。 */
+    public static final String ROLE_ADMIN = "admin";
 
     private Long id;
     private String username;
     private String email;
     private String password;
+    private String role;
     private String avatar;
     private String gender;
     private String genderCustom;
     private LocalDate birthday;
+    private Boolean enabled;
     private String sessionToken;
     private LocalDateTime createdAt;
 
@@ -84,8 +91,24 @@ public class AppUser {
     }
 
     /**
+     * 获取角色。
+     * @return 角色，取值 admin/user。
+     */
+    public String getRole() {
+        return role;
+    }
+
+    /**
+     * 设置角色。
+     * @param role 角色。
+     */
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    /**
      * 获取头像地址。
-     * @return 头像地址。
+     * @return 头像 URL。
      */
     public String getAvatar() {
         return avatar;
@@ -93,7 +116,7 @@ public class AppUser {
 
     /**
      * 设置头像地址。
-     * @param avatar 头像地址。
+     * @param avatar 头像 URL。
      */
     public void setAvatar(String avatar) {
         this.avatar = avatar;
@@ -101,7 +124,7 @@ public class AppUser {
 
     /**
      * 获取性别。
-     * @return 性别标识，取值 male/female/custom/undisclosed。
+     * @return 性别标识。
      */
     public String getGender() {
         return gender;
@@ -148,8 +171,24 @@ public class AppUser {
     }
 
     /**
+     * 获取账号是否启用。
+     * @return 启用时为 true。
+     */
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    /**
+     * 设置账号启用状态。
+     * @param enabled 启用时为 true。
+     */
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    /**
      * 获取会话 token。
-     * @return 会话 token。
+     * @return 当前生效的 JWT。
      */
     public String getSessionToken() {
         return sessionToken;
@@ -157,7 +196,7 @@ public class AppUser {
 
     /**
      * 设置会话 token。
-     * @param sessionToken 会话 token。
+     * @param sessionToken 当前生效的 JWT。
      */
     public void setSessionToken(String sessionToken) {
         this.sessionToken = sessionToken;
@@ -177,5 +216,13 @@ public class AppUser {
      */
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    /**
+     * 判断是否为管理员。
+     * @return true 表示 admin 角色。
+     */
+    public boolean isAdmin() {
+        return ROLE_ADMIN.equals(role);
     }
 }

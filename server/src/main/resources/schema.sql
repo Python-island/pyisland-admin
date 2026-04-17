@@ -199,3 +199,67 @@ SET @app_user_birthday_sql := IF(
 PREPARE app_user_birthday_stmt FROM @app_user_birthday_sql;
 EXECUTE app_user_birthday_stmt;
 DEALLOCATE PREPARE app_user_birthday_stmt;
+
+-- ========================================================================
+-- 2026-04 统一用户表迁移：合并 admin_user + app_user 到 user_account
+-- 旧表暂不删除，便于回滚；确认稳定运行 30 天后可手动 DROP。
+-- ========================================================================
+
+CREATE TABLE IF NOT EXISTS user_account (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(100) NOT NULL,
+    email         VARCHAR(150) NOT NULL,
+    password      VARCHAR(255) NOT NULL,
+    role          VARCHAR(20)  NOT NULL DEFAULT 'user',
+    avatar        LONGTEXT,
+    gender        VARCHAR(20)  NOT NULL DEFAULT 'undisclosed',
+    gender_custom VARCHAR(64),
+    birthday      DATE,
+    enabled       TINYINT(1)   NOT NULL DEFAULT 1,
+    session_token VARCHAR(500),
+    created_at    DATETIME,
+    UNIQUE KEY uk_user_account_username (username),
+    UNIQUE KEY uk_user_account_email (email),
+    KEY idx_user_account_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 仅当 user_account 为空且源表存在时才执行数据拷贝。
+SET @user_account_count := (SELECT COUNT(*) FROM user_account);
+
+SET @legacy_admin_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'admin_user'
+);
+
+SET @legacy_app_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+);
+
+-- admin 先迁入：admin_user 没有 email，用 {username}@admin.local 作为占位符。
+SET @migrate_admin_sql := IF(
+    @user_account_count = 0 AND @legacy_admin_exists = 1,
+    'INSERT IGNORE INTO user_account (username, email, password, role, avatar, gender, gender_custom, birthday, enabled, session_token, created_at)
+     SELECT username, CONCAT(username, ''@admin.local''), password, ''admin'', avatar, ''undisclosed'', NULL, NULL, 1, session_token, created_at
+     FROM admin_user',
+    'SELECT 1'
+);
+PREPARE migrate_admin_stmt FROM @migrate_admin_sql;
+EXECUTE migrate_admin_stmt;
+DEALLOCATE PREPARE migrate_admin_stmt;
+
+-- 再迁 app_user；与 admin_user 重名的账号通过 INSERT IGNORE 保留 admin 版本。
+SET @migrate_app_sql := IF(
+    @user_account_count = 0 AND @legacy_app_exists = 1,
+    'INSERT IGNORE INTO user_account (username, email, password, role, avatar, gender, gender_custom, birthday, enabled, session_token, created_at)
+     SELECT username, email, password, ''user'', avatar, COALESCE(gender, ''undisclosed''), gender_custom, birthday, 1, session_token, created_at
+     FROM app_user',
+    'SELECT 1'
+);
+PREPARE migrate_app_stmt FROM @migrate_app_sql;
+EXECUTE migrate_app_stmt;
+DEALLOCATE PREPARE migrate_app_stmt;

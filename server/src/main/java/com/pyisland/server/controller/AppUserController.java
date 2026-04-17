@@ -1,12 +1,11 @@
 package com.pyisland.server.controller;
 
-import com.pyisland.server.entity.AppUser;
+import com.pyisland.server.entity.User;
 import com.pyisland.server.security.GenderPolicy;
 import com.pyisland.server.security.PasswordPolicy;
 import com.pyisland.server.security.UsernamePolicy;
-import com.pyisland.server.service.AppUserService;
 import com.pyisland.server.service.R2StorageService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.pyisland.server.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,10 +23,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-
-
 /**
- * 普通用户控制器。
+ * 普通用户管理控制器（保留旧路径 /v1/app-users 兼容 admin React 前端）。
+ * 由 SecurityFilterChain 强制要求 role=ADMIN 才能访问。
  */
 @RestController
 @RequestMapping("/v1/app-users")
@@ -35,17 +33,17 @@ public class AppUserController {
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
-    private final AppUserService appUserService;
+    private final UserService userService;
     private final R2StorageService r2StorageService;
 
     /**
      * 构造普通用户控制器。
-     * @param appUserService 普通用户服务。
+     * @param userService 用户服务。
      * @param r2StorageService R2 存储服务，用于改写历史 URL。
      */
-    public AppUserController(AppUserService appUserService,
+    public AppUserController(UserService userService,
                              R2StorageService r2StorageService) {
-        this.appUserService = appUserService;
+        this.userService = userService;
         this.r2StorageService = r2StorageService;
     }
 
@@ -55,7 +53,7 @@ public class AppUserController {
      */
     @GetMapping
     public ResponseEntity<?> listUsers() {
-        List<AppUser> users = appUserService.listAll();
+        List<User> users = userService.listByRole(User.ROLE_USER);
         var safeList = users.stream().map(u -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", u.getId());
@@ -81,7 +79,7 @@ public class AppUserController {
      */
     @GetMapping("/count")
     public ResponseEntity<?> countUsers() {
-        int count = appUserService.count();
+        int count = userService.countByRole(User.ROLE_USER);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
@@ -123,7 +121,7 @@ public class AppUserController {
                     "message", passwordError
             ));
         }
-        AppUser user = appUserService.register(request.username(), normalizedEmail, request.password());
+        User user = userService.register(request.username(), normalizedEmail, request.password(), User.ROLE_USER);
         if (user == null) {
             return ResponseEntity.status(409).body(Map.of(
                     "code", 409,
@@ -133,7 +131,7 @@ public class AppUserController {
         String gender = GenderPolicy.normalize(request.gender());
         String genderCustom = GenderPolicy.normalizeCustom(gender, request.genderCustom());
         LocalDate birthday = GenderPolicy.parseBirthday(request.birthday());
-        appUserService.updateExtras(user.getUsername(), gender, genderCustom, birthday);
+        userService.updateExtras(user.getUsername(), gender, genderCustom, birthday);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "添加成功"
@@ -147,7 +145,14 @@ public class AppUserController {
      */
     @DeleteMapping
     public ResponseEntity<?> deleteUser(@RequestParam String username) {
-        boolean deleted = appUserService.deleteUser(username);
+        User target = userService.getByUsername(username);
+        if (target == null || !User.ROLE_USER.equals(target.getRole())) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "code", 404,
+                    "message", "普通用户不存在"
+            ));
+        }
+        boolean deleted = userService.deleteByUsername(username);
         if (!deleted) {
             return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
@@ -167,8 +172,8 @@ public class AppUserController {
      */
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(@RequestParam String username) {
-        AppUser user = appUserService.getByUsername(username);
-        if (user == null) {
+        User user = userService.getByUsername(username);
+        if (user == null || !User.ROLE_USER.equals(user.getRole())) {
             return ResponseEntity.ok(Map.of(
                     "code", 404,
                     "message", "用户不存在"
@@ -190,28 +195,20 @@ public class AppUserController {
     }
 
     /**
-     * 更新普通用户资料。接口仅开放给管理员（由全局拦截器强制 role=admin）。
+     * 更新普通用户资料。仅管理员可调用（Security 层强制）。
      * @param request 更新请求。
-     * @param http HTTP 请求上下文。
      * @return 更新结果。
      */
     @PutMapping("/profile")
-    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, HttpServletRequest http) {
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         if (request.username() == null || request.username().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", 400,
                     "message", "用户名不能为空"
             ));
         }
-        String caller = (String) http.getAttribute("username");
-        if (caller == null) {
-            return ResponseEntity.status(401).body(Map.of(
-                    "code", 401,
-                    "message", "未登录或登录态已失效"
-            ));
-        }
-        AppUser user = appUserService.getByUsername(request.username());
-        if (user == null) {
+        User user = userService.getByUsername(request.username());
+        if (user == null || !User.ROLE_USER.equals(user.getRole())) {
             return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
                     "message", "用户不存在"
@@ -225,9 +222,9 @@ public class AppUserController {
                         "message", passwordError
                 ));
             }
-            appUserService.updateProfile(request.username(), request.password(), request.avatar());
-        } else {
-            appUserService.updateAvatar(request.username(), request.avatar());
+            userService.updateProfile(request.username(), request.password(), request.avatar());
+        } else if (request.avatar() != null) {
+            userService.updateAvatar(request.username(), request.avatar());
         }
         if (request.gender() != null || request.birthday() != null || request.genderCustom() != null) {
             String gender = GenderPolicy.normalize(request.gender() != null ? request.gender() : user.getGender());
@@ -235,7 +232,7 @@ public class AppUserController {
             LocalDate birthday = request.birthday() != null
                     ? GenderPolicy.parseBirthday(request.birthday())
                     : user.getBirthday();
-            appUserService.updateExtras(request.username(), gender, genderCustom, birthday);
+            userService.updateExtras(request.username(), gender, genderCustom, birthday);
         }
         return ResponseEntity.ok(Map.of(
                 "code", 200,

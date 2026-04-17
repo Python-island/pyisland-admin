@@ -1,11 +1,11 @@
 package com.pyisland.server.controller;
 
-import com.pyisland.server.entity.AdminUser;
+import com.pyisland.server.entity.User;
 import com.pyisland.server.security.PasswordPolicy;
 import com.pyisland.server.security.UsernamePolicy;
-import com.pyisland.server.service.AdminUserService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.pyisland.server.service.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,23 +17,25 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * 管理员用户控制器。
+ * 管理员用户控制器（保留旧路径 /v1/admin-users 兼容 admin React 前端）。
+ * 由 SecurityFilterChain 强制要求 role=ADMIN 才能访问。
  */
 @RestController
 @RequestMapping("/v1/admin-users")
 public class UserController {
 
-    private final AdminUserService adminUserService;
+    private final UserService userService;
 
     /**
      * 构造用户控制器。
-     * @param adminUserService 管理员服务。
+     * @param userService 用户服务。
      */
-    public UserController(AdminUserService adminUserService) {
-        this.adminUserService = adminUserService;
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
     /**
@@ -42,11 +44,12 @@ public class UserController {
      */
     @GetMapping
     public ResponseEntity<?> listUsers() {
-        List<AdminUser> users = adminUserService.listAll();
+        List<User> users = userService.listByRole(User.ROLE_ADMIN);
         var safeList = users.stream().map(u -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", u.getId());
             m.put("username", u.getUsername());
+            m.put("email", u.getEmail());
             m.put("avatar", u.getAvatar());
             m.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
             return m;
@@ -64,7 +67,7 @@ public class UserController {
      */
     @GetMapping("/count")
     public ResponseEntity<?> countUsers() {
-        int count = adminUserService.count();
+        int count = userService.countByRole(User.ROLE_ADMIN);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
@@ -93,11 +96,12 @@ public class UserController {
                     "message", passwordError
             ));
         }
-        AdminUser user = adminUserService.register(request.username(), request.password());
+        String email = normalizeAdminEmail(request.email(), request.username());
+        User user = userService.register(request.username(), email, request.password(), User.ROLE_ADMIN);
         if (user == null) {
             return ResponseEntity.status(409).body(Map.of(
                     "code", 409,
-                    "message", "用户名已存在"
+                    "message", "用户名或邮箱已存在"
             ));
         }
         return ResponseEntity.ok(Map.of(
@@ -109,19 +113,26 @@ public class UserController {
     /**
      * 删除管理员。
      * @param username 用户名。
-     * @param http HTTP 请求上下文。
+     * @param authentication 当前登录管理员。
      * @return 删除结果。
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteUser(@RequestParam String username, HttpServletRequest http) {
-        String caller = (String) http.getAttribute("username");
+    public ResponseEntity<?> deleteUser(@RequestParam String username, Authentication authentication) {
+        String caller = authentication != null ? authentication.getName() : null;
         if (caller != null && caller.equals(username)) {
             return ResponseEntity.status(400).body(Map.of(
                     "code", 400,
                     "message", "不能删除当前登录的管理员"
             ));
         }
-        boolean deleted = adminUserService.deleteUser(username);
+        User target = userService.getByUsername(username);
+        if (target == null || !User.ROLE_ADMIN.equals(target.getRole())) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "code", 404,
+                    "message", "管理员不存在"
+            ));
+        }
+        boolean deleted = userService.deleteByUsername(username);
         if (!deleted) {
             return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
@@ -141,8 +152,8 @@ public class UserController {
      */
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(@RequestParam String username) {
-        AdminUser user = adminUserService.getByUsername(username);
-        if (user == null) {
+        User user = userService.getByUsername(username);
+        if (user == null || !User.ROLE_ADMIN.equals(user.getRole())) {
             return ResponseEntity.ok(Map.of(
                     "code", 404,
                     "message", "用户不存在"
@@ -150,6 +161,7 @@ public class UserController {
         }
         Map<String, Object> data = new HashMap<>();
         data.put("username", user.getUsername());
+        data.put("email", user.getEmail());
         data.put("avatar", user.getAvatar());
         data.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
         return ResponseEntity.ok(Map.of(
@@ -162,26 +174,26 @@ public class UserController {
     /**
      * 更新管理员资料。仅允许修改当前登录管理员自身资料。
      * @param request 更新请求。
-     * @param http HTTP 请求上下文。
+     * @param authentication 当前登录管理员。
      * @return 更新结果。
      */
     @PutMapping("/profile")
-    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, HttpServletRequest http) {
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Authentication authentication) {
         if (request.username() == null || request.username().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", 400,
                     "message", "用户名不能为空"
             ));
         }
-        String caller = (String) http.getAttribute("username");
+        String caller = authentication != null ? authentication.getName() : null;
         if (caller == null || !caller.equals(request.username())) {
             return ResponseEntity.status(403).body(Map.of(
                     "code", 403,
                     "message", "只能修改当前登录管理员的资料"
             ));
         }
-        AdminUser user = adminUserService.getByUsername(request.username());
-        if (user == null) {
+        User user = userService.getByUsername(request.username());
+        if (user == null || !User.ROLE_ADMIN.equals(user.getRole())) {
             return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
                     "message", "用户不存在"
@@ -195,9 +207,9 @@ public class UserController {
                         "message", passwordError
                 ));
             }
-            adminUserService.updateProfile(request.username(), request.password(), request.avatar());
+            userService.updateProfile(request.username(), request.password(), request.avatar());
         } else {
-            adminUserService.updateAvatar(request.username(), request.avatar());
+            userService.updateAvatar(request.username(), request.avatar());
         }
         return ResponseEntity.ok(Map.of(
                 "code", 200,
@@ -205,12 +217,20 @@ public class UserController {
         ));
     }
 
+    private String normalizeAdminEmail(String rawEmail, String username) {
+        if (rawEmail == null || rawEmail.isBlank()) {
+            return username + "@admin.local";
+        }
+        return rawEmail.trim().toLowerCase(Locale.ROOT);
+    }
+
     /**
      * 新增管理员请求体。
      * @param username 用户名。
+     * @param email 邮箱（可为空，自动填充 {username}@admin.local）。
      * @param password 密码。
      */
-    public record AddUserRequest(String username, String password) {
+    public record AddUserRequest(String username, String email, String password) {
     }
 
     /**

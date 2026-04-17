@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.repository.UserMapper">
+
+    <resultMap id="UserResultMap" type="User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <result property="password" column="password"/>
+        <result property="role" column="role"/>
+        <result property="avatar" column="avatar"/>
+        <result property="gender" column="gender"/>
+        <result property="genderCustom" column="gender_custom"/>
+        <result property="birthday" column="birthday"/>
+        <result property="enabled" column="enabled"/>
+        <result property="sessionToken" column="session_token"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="baseColumns">
+        id, username, email, password, role, avatar, gender, gender_custom,
+        birthday, enabled, session_token, created_at
+    </sql>
+
+    <select id="selectByUsername" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM user_account
+        WHERE username = #{username}
+    </select>
+
+    <select id="selectByEmail" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM user_account
+        WHERE email = #{email}
+    </select>
+
+    <select id="selectById" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM user_account
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_account
+            (username, email, password, role, avatar, gender, gender_custom,
+             birthday, enabled, session_token, created_at)
+        VALUES
+            (#{username}, #{email}, #{password}, #{role}, #{avatar}, #{gender},
+             #{genderCustom}, #{birthday}, #{enabled}, #{sessionToken}, #{createdAt})
+    </insert>
+
+    <select id="selectByRole" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM user_account
+        <where>
+            <if test="role != null">role = #{role}</if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <delete id="deleteByUsername">
+        DELETE FROM user_account WHERE username = #{username}
+    </delete>
+
+    <select id="countByRole" resultType="int">
+        SELECT COUNT(*) FROM user_account
+        <where>
+            <if test="role != null">role = #{role}</if>
+        </where>
+    </select>
+
+    <update id="updateProfile">
+        UPDATE user_account
+        SET password = #{password},
+            avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateAvatar">
+        UPDATE user_account
+        SET avatar = #{avatar}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateExtras">
+        UPDATE user_account
+        SET gender = #{gender},
+            gender_custom = #{genderCustom},
+            birthday = #{birthday}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateSessionToken">
+        UPDATE user_account
+        SET session_token = #{sessionToken}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateRole">
+        UPDATE user_account
+        SET role = #{role}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateEnabled">
+        UPDATE user_account
+        SET enabled = #{enabled}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateEmail">
+        UPDATE user_account
+        SET email = #{email}
+        WHERE username = #{username}
+    </update>
+
+</mapper>
