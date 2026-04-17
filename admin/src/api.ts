@@ -393,3 +393,52 @@ export const apiStatus = {
     });
   },
 };
+
+/**
+ * 统一用户管理视图的数据结构（合表后）。
+ */
+export interface UserAccountItem {
+  id: number;
+  username: string;
+  email: string;
+  role: "admin" | "user";
+  avatar: string | null;
+  gender?: Gender;
+  genderCustom?: string | null;
+  birthday?: string | null;
+  enabled: boolean;
+  createdAt: string;
+}
+
+/**
+ * 合表后的统一用户管理接口（`/v1/admin/users`）。
+ * 旧 `adminUsers` / `appUsers` 仍保留，便于按角色分区展示。
+ */
+export const userAccounts = {
+  /**
+   * 列表查询，可按 role 过滤（空表示全部）。
+   * @param role - 可选角色过滤。
+   */
+  list(role?: "admin" | "user" | "") {
+    const qs = role ? `?role=${encodeURIComponent(role)}` : "";
+    return request<ApiResponse<UserAccountItem[]>>(`/v1/admin/users${qs}`);
+  },
+  /**
+   * 更新角色（admin/user 互相切换，切换后对方会被强制重新登录）。
+   */
+  updateRole(username: string, role: "admin" | "user") {
+    return request<ApiResponse>("/v1/admin/users/role", {
+      method: "PUT",
+      body: JSON.stringify({ username, role }),
+    });
+  },
+  /**
+   * 启用或禁用账号。禁用会同时清空 session_token。
+   */
+  updateEnabled(username: string, enabled: boolean) {
+    return request<ApiResponse>("/v1/admin/users/enabled", {
+      method: "PUT",
+      body: JSON.stringify({ username, enabled }),
+    });
+  },
+};

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { appUsers, type AppUserInfo, type Gender, sanitizeUrl } from "../api";
+import { appUsers, userAccounts, type AppUserInfo, type Gender, sanitizeUrl } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -49,6 +49,8 @@ export default function AppUserList() {
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState("");
+  const [promoteVisible, setPromoteVisible] = useState(false);
+  const [promoteTarget, setPromoteTarget] = useState("");
 
   const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -101,6 +103,34 @@ export default function AppUserList() {
       }
     } catch {
       showMsg("删除失败", "err");
+    }
+  };
+
+  /**
+   * 发起"设为管理员"二次确认。
+   * @param username - 目标用户名。
+   */
+  const requestPromote = (username: string) => {
+    setPromoteTarget(username);
+    setPromoteVisible(true);
+  };
+
+  /**
+   * 执行角色升级。成功后该用户将从普通用户列表消失。
+   */
+  const handlePromote = async () => {
+    setPromoteVisible(false);
+    if (!promoteTarget) return;
+    try {
+      const res = await userAccounts.updateRole(promoteTarget, "admin");
+      if (res.code === 200) {
+        showMsg(`已将 ${promoteTarget} 设为管理员`);
+        fetchUsers();
+      } else {
+        showMsg(res.message, "err");
+      }
+    } catch {
+      showMsg("操作失败", "err");
     }
   };
 
@@ -230,6 +260,21 @@ export default function AppUserList() {
                             编辑
                           </button>
                           <button
+                            onClick={() => requestPromote(u.username)}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "2px 12px",
+                              backgroundColor: "transparent",
+                              color: "#30d158",
+                              borderRadius: 980,
+                              border: "1px solid #30d158",
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                            }}
+                          >
+                            设为管理员
+                          </button>
+                          <button
                             onClick={() => requestDelete(u.username)}
                             className="cursor-pointer"
                             style={{
@@ -330,6 +375,15 @@ export default function AppUserList() {
         danger
         onConfirm={handleDelete}
         onCancel={() => setConfirmVisible(false)}
+      />
+
+      <ConfirmDialog
+        visible={promoteVisible}
+        title="授予管理员权限"
+        message={`确定要将 ${promoteTarget} 设为管理员吗？提升后其当前登录态会被清除，需重新登录。`}
+        confirmText="设为管理员"
+        onConfirm={handlePromote}
+        onCancel={() => setPromoteVisible(false)}
       />
     </div>
   );

@@ -23,7 +23,6 @@ const navItems = [
     label: "管理员管理",
     children: [
       { label: "管理员列表", path: "/admin-users/list" },
-      { label: "添加管理员", path: "/admin-users/add" },
     ],
   },
   {

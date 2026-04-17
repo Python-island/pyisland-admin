@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { adminUsers, getUsername, sanitizeUrl, type AdminUserInfo } from "../api";
+import { adminUsers, userAccounts, getUsername, sanitizeUrl, type AdminUserInfo } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -49,6 +49,8 @@ export default function UserList() {
   const currentUser = getUsername();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState("");
+  const [demoteVisible, setDemoteVisible] = useState(false);
+  const [demoteTarget, setDemoteTarget] = useState("");
 
   const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -105,6 +107,38 @@ export default function UserList() {
       }
     } catch {
       showMsg("删除失败", "err");
+    }
+  };
+
+  /**
+   * 发起"降为普通用户"二次确认，自身禁止降级。
+   * @param username - 目标管理员用户名。
+   */
+  const requestDemote = (username: string) => {
+    if (username === currentUser) {
+      showMsg("不能将当前登录管理员降为普通用户", "err");
+      return;
+    }
+    setDemoteTarget(username);
+    setDemoteVisible(true);
+  };
+
+  /**
+   * 执行角色降级。成功后该用户从管理员列表消失。
+   */
+  const handleDemote = async () => {
+    setDemoteVisible(false);
+    if (!demoteTarget) return;
+    try {
+      const res = await userAccounts.updateRole(demoteTarget, "user");
+      if (res.code === 200) {
+        showMsg(`已将 ${demoteTarget} 降为普通用户`);
+        fetchUsers();
+      } else {
+        showMsg(res.message, "err");
+      }
+    } catch {
+      showMsg("操作失败", "err");
     }
   };
 
@@ -232,21 +266,38 @@ export default function UserList() {
                             —
                           </span>
                         ) : (
-                          <button
-                            onClick={() => requestDelete(u.username)}
-                            className="cursor-pointer"
-                            style={{
-                              padding: "2px 12px",
-                              backgroundColor: "transparent",
-                              color: "#ff453a",
-                              borderRadius: 980,
-                              border: "1px solid #ff453a",
-                              fontSize: 12,
-                              lineHeight: 1.43,
-                            }}
-                          >
-                            删除
-                          </button>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              onClick={() => requestDemote(u.username)}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#ff9f0a",
+                                borderRadius: 980,
+                                border: "1px solid #ff9f0a",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              降为普通用户
+                            </button>
+                            <button
+                              onClick={() => requestDelete(u.username)}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#ff453a",
+                                borderRadius: 980,
+                                border: "1px solid #ff453a",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              删除
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -332,6 +383,15 @@ export default function UserList() {
         danger
         onConfirm={handleDelete}
         onCancel={() => setConfirmVisible(false)}
+      />
+
+      <ConfirmDialog
+        visible={demoteVisible}
+        title="撤销管理员权限"
+        message={`确定要将 ${demoteTarget} 降为普通用户吗？其当前登录态会被清除，需重新登录。`}
+        confirmText="降为普通用户"
+        onConfirm={handleDemote}
+        onCancel={() => setDemoteVisible(false)}
       />
     </div>
   );

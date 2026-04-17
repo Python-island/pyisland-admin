@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.pyisland</groupId>
+        <artifactId>server</artifactId>
+        <version>26.0.2</version>
+    </parent>
+
+    <artifactId>server-user</artifactId>
+    <packaging>jar</packaging>
+    <description>用户域：实体 / Mapper / Service / Controller / 首任 admin 引导</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.pyisland</groupId>
+            <artifactId>server-common</artifactId>
+        </dependency>
+        <!-- 用户控制器在更新资料时会调用 R2 头像上传服务 -->
+        <dependency>
+            <groupId>com.pyisland</groupId>
+            <artifactId>server-upload</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+</project>

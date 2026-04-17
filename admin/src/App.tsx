@@ -14,7 +14,6 @@ import VersionUpdate from "./pages/VersionUpdate";
 import VersionCreate from "./pages/VersionCreate";
 import VersionDelete from "./pages/VersionDelete";
 import UserList from "./pages/UserList";
-import UserAdd from "./pages/UserAdd";
 import AppUserList from "./pages/AppUserList";
 import AppUserAdd from "./pages/AppUserAdd";
 import AppUserEdit from "./pages/AppUserEdit";
@@ -53,7 +52,6 @@ export default function App() {
           <Route path="/version/create" element={<VersionCreate />} />
           <Route path="/version/delete" element={<VersionDelete />} />
           <Route path="/admin-users/list" element={<UserList />} />
-          <Route path="/admin-users/add" element={<UserAdd />} />
           <Route path="/app-users/list" element={<AppUserList />} />
           <Route path="/app-users/add" element={<AppUserAdd />} />
           <Route path="/app-users/edit" element={<AppUserEdit />} />

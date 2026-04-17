@@ -1,12 +1,12 @@
 /**
  * @file Overview.tsx
  * @description 总览页面。
- * @description 展示管理员数量、接口状态和版本信息统计。
+ * @description 展示用户/管理员数量、接口状态和版本信息统计。
  * @author 鸡哥
  */
 
 import { useState, useEffect } from "react";
-import { version, adminUsers, apiStatus, type AppVersion } from "../api";
+import { version, adminUsers, appUsers, apiStatus, type AppVersion } from "../api";
 
 const headingStyle: React.CSSProperties = {
   fontFamily: "var(--font-display)",
@@ -25,6 +25,7 @@ const headingStyle: React.CSSProperties = {
 export default function Overview() {
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [adminCount, setAdminCount] = useState(0);
+  const [userCount, setUserCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(0);
   const [apiUnavailable, setApiUnavailable] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -32,13 +33,15 @@ export default function Overview() {
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, cRes, sRes] = await Promise.all([
+        const [vRes, adminRes, userRes, sRes] = await Promise.all([
           version.list(),
           adminUsers.count(),
+          appUsers.count(),
           apiStatus.list(),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
-        if (cRes.code === 200 && cRes.data !== undefined) setAdminCount(cRes.data);
+        if (adminRes.code === 200 && adminRes.data !== undefined) setAdminCount(adminRes.data);
+        if (userRes.code === 200 && userRes.data !== undefined) setUserCount(userRes.data);
         if (sRes.code === 200 && sRes.data) {
           setApiAvailable(sRes.data.filter((x) => x.status).length);
           setApiUnavailable(sRes.data.filter((x) => !x.status).length);
@@ -91,7 +94,7 @@ export default function Overview() {
 
       {/* Stats */}
       <div className="flex" style={{ gap: 20, marginBottom: 32 }}>
-        <StatCard label="管理员数量" value={adminCount} />
+        <UserCountCard userCount={userCount} adminCount={adminCount} />
         <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
         <StatCard label="应用版本数" value={versions.length} />
         <VersionUpdateCard versions={versions} />
@@ -279,6 +282,86 @@ function StatCard({ label, value }: { label: string; value: number }) {
         }}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 用户数量卡片：展示当前普通用户与管理员人数。
+ * @param userCount - 普通用户数量。
+ * @param adminCount - 管理员数量。
+ */
+function UserCountCard({ userCount, adminCount }: { userCount: number; adminCount: number }) {
+  const total = userCount + adminCount;
+  return (
+    <div
+      style={{
+        flex: 1,
+        backgroundColor: "var(--apple-surface-1)",
+        borderRadius: 12,
+        padding: "24px 28px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          lineHeight: 1.33,
+          letterSpacing: "-0.12px",
+          color: "rgba(255,255,255,0.48)",
+          textTransform: "uppercase",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <span>用户数量</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.56)",
+            textTransform: "none",
+            letterSpacing: 0,
+          }}
+          title="总计"
+        >
+          总 {total}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "#ffffff",
+            }}
+          >
+            {userCount}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>普通用户</div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "var(--apple-link-dark)",
+            }}
+          >
+            {adminCount}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>管理员</div>
+        </div>
       </div>
     </div>
   );
