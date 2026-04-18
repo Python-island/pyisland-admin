@@ -1,7 +1,10 @@
 package com.pyisland.server.auth.service;
 
+import com.pyisland.server.auth.config.EmailVerificationMqConfig;
+import com.pyisland.server.auth.mq.EmailCodeDispatchMessage;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +15,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -28,13 +32,16 @@ public class EmailVerificationService {
     private static final int MAX_EMAIL_SENDS_PER_DAY = 30;
 
     private final StringRedisTemplate verificationRedisTemplate;
+    private final RabbitTemplate rabbitTemplate;
     private final String verifyCodePepper;
 
     public EmailVerificationService(
             @Qualifier("verificationRedisTemplate") StringRedisTemplate verificationRedisTemplate,
+            RabbitTemplate rabbitTemplate,
             @Value("${VERIFY_CODE_PEPPER:pyisland-verify-pepper}") String verifyCodePepper
     ) {
         this.verificationRedisTemplate = verificationRedisTemplate;
+        this.rabbitTemplate = rabbitTemplate;
         this.verifyCodePepper = verifyCodePepper;
     }
 
@@ -135,6 +142,17 @@ public class EmailVerificationService {
             verificationRedisTemplate.opsForValue().set(keyCode(scene, email), hashedCode, Duration.ofSeconds(CODE_TTL_SECONDS));
             verificationRedisTemplate.delete(keyAttempts(scene, email));
             verificationRedisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(SEND_COOLDOWN_SECONDS));
+            rabbitTemplate.convertAndSend(
+                    EmailVerificationMqConfig.EMAIL_CODE_EXCHANGE,
+                    EmailVerificationMqConfig.EMAIL_CODE_ROUTING_KEY,
+                    new EmailCodeDispatchMessage(
+                            UUID.randomUUID().toString(),
+                            email,
+                            scene,
+                            plainCode,
+                            System.currentTimeMillis() / 1000
+                    )
+            );
 
             return new SendCodeResult(true, 200, "验证码已发送", SEND_COOLDOWN_SECONDS);
         } catch (Exception ex) {
