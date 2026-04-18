@@ -45,6 +45,7 @@ const navItems = [
     label: "内容管理",
     children: [
       { label: "壁纸审核", path: "/wallpapers/review" },
+      { label: "标签管理", path: "/tags" },
     ],
   },
 ];

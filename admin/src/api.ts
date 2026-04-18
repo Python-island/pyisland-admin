@@ -434,6 +434,51 @@ export const wallpaperAdmin = {
   },
 };
 
+export interface WallpaperTagAdminItem {
+  id: number;
+  name: string;
+  slug: string;
+  creatorUsername?: string;
+  enabled: number | boolean;
+  usageCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WallpaperTagAdminListResponse {
+  items: WallpaperTagAdminItem[];
+  total: number;
+}
+
+export const wallpaperTagAdmin = {
+  list(params?: { keyword?: string; enabled?: number; page?: number; pageSize?: number }) {
+    const query = new URLSearchParams();
+    if (params?.keyword) query.set("keyword", params.keyword);
+    if (params?.enabled !== undefined) query.set("enabled", String(params.enabled));
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+    const qs = query.toString();
+    return request<ApiResponse<WallpaperTagAdminListResponse>>(`/v1/admin/tags/list${qs ? `?${qs}` : ""}`);
+  },
+  updateName(id: number, name: string) {
+    return request<ApiResponse>("/v1/admin/tags/update", {
+      method: "PUT",
+      body: JSON.stringify({ id, name }),
+    });
+  },
+  setEnabled(id: number, enabled: boolean) {
+    return request<ApiResponse>("/v1/admin/tags/enable", {
+      method: "PUT",
+      body: JSON.stringify({ id, enabled }),
+    });
+  },
+  deleteTag(id: number) {
+    return request<ApiResponse>(`/v1/admin/tags/delete?id=${encodeURIComponent(String(id))}`, {
+      method: "DELETE",
+    });
+  },
+};
+
 export const appUsers = {
   list() {
     return request<ApiResponse<AppUserInfo[]>>("/v1/app-users");
