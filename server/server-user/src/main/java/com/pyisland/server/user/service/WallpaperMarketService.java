@@ -253,6 +253,18 @@ public class WallpaperMarketService {
         @CacheEvict(cacheNames = "wallpaper-detail", key = "#id", cacheManager = "wallpaperCacheManager"),
         @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
     })
+    public boolean adminDeleteWallpaper(Long id) {
+        boolean removed = mapper.markAdminDeleted(id, LocalDateTime.now()) > 0;
+        if (removed) {
+            tagService.clearWallpaperTags(id);
+        }
+        return removed;
+    }
+
+    @Caching(evict = {
+        @CacheEvict(cacheNames = "wallpaper-detail", key = "#id", cacheManager = "wallpaperCacheManager"),
+        @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
+    })
     public boolean apply(Long id, String username, String ip, String userAgent) {
         if (!checkRateLimit("wallpaper:apply:" + username, 60, 20)) {
             return false;

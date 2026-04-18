@@ -96,6 +96,7 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     ('admin.wallpapers.reports.resolve', 1, '', 'PUT /v1/admin/wallpapers/reports/resolve - 处理举报'),
     ('admin.wallpapers.ratings',    1, '', 'GET /v1/admin/wallpapers/ratings - 获取评分列表'),
     ('admin.wallpapers.ratings.delete', 1, '', 'DELETE /v1/admin/wallpapers/ratings - 删除评分记录'),
+    ('admin.wallpapers.delete',     1, '', 'DELETE /v1/admin/wallpapers/delete - 管理端删除壁纸'),
 
     -- --------------------------------------------------------
     --  标签管理（用户/管理员）

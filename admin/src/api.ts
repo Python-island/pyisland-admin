@@ -432,6 +432,12 @@ export const wallpaperAdmin = {
       { method: "DELETE" }
     );
   },
+  delete(id: number) {
+    return request<ApiResponse>(
+      `/v1/admin/wallpapers/delete?id=${encodeURIComponent(String(id))}`,
+      { method: "DELETE" }
+    );
+  },
 };
 
 export interface WallpaperTagAdminItem {

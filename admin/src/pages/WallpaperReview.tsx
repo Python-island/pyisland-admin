@@ -100,6 +100,24 @@ export default function WallpaperReview() {
     }
   };
 
+  const deleteWallpaper = async () => {
+    if (!selectedWallpaper) return;
+    const confirmed = window.confirm(`确认删除壁纸「${selectedWallpaper.title || selectedWallpaper.id}」吗？`);
+    if (!confirmed) return;
+    try {
+      const res = await wallpaperAdmin.delete(selectedWallpaper.id);
+      if (res.code === 200) {
+        showMsg("壁纸删除成功");
+        setSelectedId(null);
+        await loadWallpapers();
+      } else {
+        showMsg(res.message || "壁纸删除失败", "err");
+      }
+    } catch {
+      showMsg("壁纸删除失败", "err");
+    }
+  };
+
   useEffect(() => {
     loadWallpapers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -287,6 +305,13 @@ export default function WallpaperReview() {
               onClick={saveMetadata}
             >
               保存元数据
+            </button>
+            <button
+              className="cursor-pointer"
+              style={{ borderRadius: 8, border: "none", padding: "8px 14px", backgroundColor: "rgba(255,69,58,0.16)", color: "#ff453a" }}
+              onClick={deleteWallpaper}
+            >
+              删除壁纸
             </button>
           </div>
 

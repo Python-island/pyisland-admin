@@ -71,6 +71,9 @@ public interface WallpaperMarketMapper {
                          @Param("ownerUsername") String ownerUsername,
                          @Param("updatedAt") LocalDateTime updatedAt);
 
+    int markAdminDeleted(@Param("id") Long id,
+                         @Param("updatedAt") LocalDateTime updatedAt);
+
     int replaceOwnerSource(@Param("id") Long id,
                            @Param("ownerUsername") String ownerUsername,
                            @Param("originalUrl") String originalUrl,

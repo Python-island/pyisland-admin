@@ -110,6 +110,15 @@ public class WallpaperAdminController {
         return ResponseEntity.ok(Map.of("code", 200, "message", "删除成功"));
     }
 
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteWallpaper(@RequestParam("id") Long id) {
+        boolean ok = wallpaperMarketService.adminDeleteWallpaper(id);
+        if (!ok) {
+            return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在或已删除"));
+        }
+        return ResponseEntity.ok(Map.of("code", 200, "message", "删除成功"));
+    }
+
     public record AdminMetadataRequest(Long id,
                                        String title,
                                        String description,

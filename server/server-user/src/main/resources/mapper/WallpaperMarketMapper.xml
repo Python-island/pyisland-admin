@@ -246,6 +246,15 @@
           AND deleted = 0
     </update>
 
+    <update id="markAdminDeleted">
+        UPDATE wallpaper_asset
+        SET deleted = 1,
+            status = 'deleted',
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
     <update id="replaceOwnerSource">
         UPDATE wallpaper_asset
         SET original_url = #{originalUrl},
