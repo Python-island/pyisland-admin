@@ -2,6 +2,9 @@ package com.pyisland.server.servicestatus.service;
 
 import com.pyisland.server.servicestatus.entity.ServiceStatus;
 import com.pyisland.server.servicestatus.mapper.ServiceStatusMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,6 +31,7 @@ public class ServiceStatusService {
      * @param apiName 接口名称。
      * @return 接口状态。
      */
+    @Cacheable(cacheNames = "service-status", key = "#apiName")
     public ServiceStatus getByApiName(String apiName) {
         return serviceStatusMapper.selectByApiName(apiName);
     }
@@ -36,6 +40,7 @@ public class ServiceStatusService {
      * 查询全部接口状态。
      * @return 接口状态列表。
      */
+    @Cacheable(cacheNames = "service-status-list", key = "'all'")
     public List<ServiceStatus> listAll() {
         return serviceStatusMapper.selectAll();
     }
@@ -48,6 +53,10 @@ public class ServiceStatusService {
      * @param remark 备注信息。
      * @return 更新后的状态实体。
      */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "service-status", key = "#apiName"),
+            @CacheEvict(cacheNames = "service-status-list", key = "'all'")
+    })
     public ServiceStatus updateStatus(String apiName, Boolean status, String message, String remark) {
         ServiceStatus existing = serviceStatusMapper.selectByApiName(apiName);
         if (existing != null) {

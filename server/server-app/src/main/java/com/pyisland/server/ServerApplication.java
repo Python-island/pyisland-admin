@@ -2,6 +2,7 @@ package com.pyisland.server;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cache.annotation.EnableCaching;
 
 /**
  * 后端服务启动入口。
@@ -9,6 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * {@code @Mapper} 注解由 mybatis-spring-boot-starter 自动发现并注册。
  */
 @SpringBootApplication
+@EnableCaching
 public class ServerApplication {
 
     /**

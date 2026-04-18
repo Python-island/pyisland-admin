@@ -3,6 +3,8 @@ package com.pyisland.server.user.service;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.mapper.UserMapper;
 import com.pyisland.server.user.policy.PasswordHashService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -102,6 +104,17 @@ public class UserService {
     }
 
     /**
+     * 按用户名查询头像（Redis DB1 缓存）。
+     * @param username 用户名。
+     * @return 头像 URL；用户不存在时返回 null。
+     */
+    @Cacheable(cacheNames = "avatar-data", key = "#username", cacheManager = "avatarCacheManager", unless = "#result == null")
+    public String getAvatarByUsername(String username) {
+        User user = userMapper.selectByUsername(username);
+        return user == null ? null : user.getAvatar();
+    }
+
+    /**
      * 按邮箱查询。
      * @param email 邮箱。
      * @return 用户实体或 null。
@@ -160,6 +173,7 @@ public class UserService {
      * @param username 用户名。
      * @return 是否成功。
      */
+    @CacheEvict(cacheNames = "avatar-data", key = "#username", cacheManager = "avatarCacheManager", condition = "#result")
     public boolean deleteByUsername(String username) {
         return userMapper.deleteByUsername(username) > 0;
     }
@@ -171,6 +185,7 @@ public class UserService {
      * @param avatar 头像 URL。
      * @return 是否成功。
      */
+    @CacheEvict(cacheNames = "avatar-data", key = "#username", cacheManager = "avatarCacheManager", condition = "#result")
     public boolean updateProfile(String username, String rawPassword, String avatar) {
         String hashed = passwordHashService.hash(rawPassword);
         return userMapper.updateProfile(username, hashed, avatar) > 0;
@@ -182,6 +197,7 @@ public class UserService {
      * @param avatar 头像 URL。
      * @return 是否成功。
      */
+    @CacheEvict(cacheNames = "avatar-data", key = "#username", cacheManager = "avatarCacheManager", condition = "#result")
     public boolean updateAvatar(String username, String avatar) {
         return userMapper.updateAvatar(username, avatar) > 0;
     }

@@ -162,7 +162,7 @@ public class UserController {
         Map<String, Object> data = new HashMap<>();
         data.put("username", user.getUsername());
         data.put("email", user.getEmail());
-        data.put("avatar", user.getAvatar());
+        data.put("avatar", userService.getAvatarByUsername(user.getUsername()));
         data.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
         return ResponseEntity.ok(Map.of(
                 "code", 200,

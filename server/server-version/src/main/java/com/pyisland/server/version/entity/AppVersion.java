@@ -1,11 +1,16 @@
 package com.pyisland.server.version.entity;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
  * 应用版本实体。
  */
-public class AppVersion {
+public class AppVersion implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     private Long id;
     private String appName;

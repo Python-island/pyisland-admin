@@ -2,6 +2,9 @@ package com.pyisland.server.version.service;
 
 import com.pyisland.server.version.entity.AppVersion;
 import com.pyisland.server.version.mapper.AppVersionMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +30,7 @@ public class AppVersionService {
      * @param appName 应用名称。
      * @return 版本信息。
      */
+    @Cacheable(cacheNames = "app-version", key = "#appName")
     public AppVersion getVersion(String appName) {
         return appVersionMapper.selectByAppName(appName);
     }
@@ -35,6 +39,7 @@ public class AppVersionService {
      * 查询全部应用版本。
      * @return 版本列表。
      */
+    @Cacheable(cacheNames = "app-version-list", key = "'all'")
     public java.util.List<AppVersion> listAll() {
         return appVersionMapper.selectAll();
     }
@@ -44,6 +49,10 @@ public class AppVersionService {
      * @param appName 应用名称。
      * @return 是否删除成功。
      */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "app-version", key = "#appName", condition = "#result"),
+            @CacheEvict(cacheNames = "app-version-list", key = "'all'", condition = "#result")
+    })
     public boolean deleteVersion(String appName) {
         return appVersionMapper.deleteByAppName(appName) > 0;
     }
@@ -56,6 +65,10 @@ public class AppVersionService {
      * @param downloadUrl 下载地址。
      * @return 创建后的版本；若应用已存在返回 null。
      */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "app-version", key = "#appName", condition = "#result != null"),
+            @CacheEvict(cacheNames = "app-version-list", key = "'all'", condition = "#result != null")
+    })
     public AppVersion createVersion(String appName, String version, String description, String downloadUrl) {
         AppVersion existing = appVersionMapper.selectByAppName(appName);
         if (existing != null) {
@@ -74,6 +87,10 @@ public class AppVersionService {
      * @param downloadUrl 下载地址。
      * @return 更新后的版本信息。
      */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "app-version", key = "#appName"),
+            @CacheEvict(cacheNames = "app-version-list", key = "'all'")
+    })
     public AppVersion updateVersion(String appName, String version, String description, String downloadUrl) {
         AppVersion existing = appVersionMapper.selectByAppName(appName);
         if (existing != null) {
@@ -96,6 +113,10 @@ public class AppVersionService {
      * @param version 版本号。
      * @return 是否更新成功。
      */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "app-version", key = "#appName", condition = "#result"),
+            @CacheEvict(cacheNames = "app-version-list", key = "'all'", condition = "#result")
+    })
     public boolean incrementUpdateCount(String appName, String version) {
         return appVersionMapper.incrementUpdateCountByAppNameAndVersion(appName, version) > 0;
     }

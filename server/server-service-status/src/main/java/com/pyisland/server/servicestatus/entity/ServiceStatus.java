@@ -1,11 +1,16 @@
 package com.pyisland.server.servicestatus.entity;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
  * 接口状态实体。
  */
-public class ServiceStatus {
+public class ServiceStatus implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     private Long id;
     private String apiName;
