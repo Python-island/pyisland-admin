@@ -177,6 +177,8 @@ export interface WallpaperAdminItem {
   thumb320Url?: string;
   thumb720Url?: string;
   thumb1280Url?: string;
+  durationMs?: number;
+  frameRate?: number;
   ratingAvg?: number;
   ratingCount?: number;
   downloadCount?: number;

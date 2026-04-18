@@ -47,6 +47,14 @@ function statusColor(status: string): string {
   return "rgba(255,255,255,0.72)";
 }
 
+function formatDurationMs(durationMs?: number): string {
+  if (!durationMs || durationMs <= 0) return "-";
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function WallpaperReview() {
   const [wallpapers, setWallpapers] = useState<WallpaperAdminItem[]>([]);
   const [loadingWallpapers, setLoadingWallpapers] = useState(true);
@@ -237,6 +245,8 @@ export default function WallpaperReview() {
                 <tr>
                   <th style={thStyle}>预览</th>
                   <th style={thStyle}>标题</th>
+                  <th style={thStyle}>类型</th>
+                  <th style={thStyle}>视频信息</th>
                   <th style={thStyle}>作者</th>
                   <th style={thStyle}>状态</th>
                   <th style={thStyle}>评分</th>
@@ -260,6 +270,12 @@ export default function WallpaperReview() {
                         )}
                       </td>
                       <td style={tdStyle}>{item.title}</td>
+                      <td style={tdStyle}>{item.type || "-"}</td>
+                      <td style={tdStyle}>
+                        {item.type === "video"
+                          ? `${formatDurationMs(item.durationMs)} / ${item.frameRate ? `${Number(item.frameRate).toFixed(2)} fps` : "-"}`
+                          : "-"}
+                      </td>
                       <td style={tdStyle}>{item.ownerUsername}</td>
                       <td style={tdStyle}>
                         <span style={{ color: statusColor(item.status) }}>{item.status || "-"}</span>
@@ -278,6 +294,17 @@ export default function WallpaperReview() {
       {selectedWallpaper && (
         <div style={{ ...cardStyle, marginBottom: 16 }}>
           <h2 style={{ margin: "0 0 12px", color: "#fff", fontSize: 20 }}>审核与元数据</h2>
+          <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginBottom: 10 }}>
+            资源类型：{selectedWallpaper.type || "-"}
+            {selectedWallpaper.type === "video" && (
+              <>
+                {" | 时长："}
+                {formatDurationMs(selectedWallpaper.durationMs)}
+                {" | 帧率："}
+                {selectedWallpaper.frameRate ? `${Number(selectedWallpaper.frameRate).toFixed(2)} fps` : "-"}
+              </>
+            )}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={inputStyle} placeholder="标题" />
             <input value={editTags} onChange={(e) => setEditTags(e.target.value)} style={inputStyle} placeholder="标签（逗号分隔）" />

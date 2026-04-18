@@ -16,6 +16,8 @@
         <result property="thumb1280Url" column="thumb_1280_url"/>
         <result property="width" column="width"/>
         <result property="height" column="height"/>
+        <result property="durationMs" column="duration_ms"/>
+        <result property="frameRate" column="frame_rate"/>
         <result property="fileSize" column="file_size"/>
         <result property="tagsText" column="tags_text"/>
         <result property="copyrightDeclared" column="copyright_declared"/>
@@ -54,6 +56,22 @@
          #{fileSize}, #{width}, #{height}, #{operatorName}, #{reason}, #{createdAt})
     </insert>
 
+    <insert id="upsertVideoMeta">
+        INSERT INTO wallpaper_video_meta
+        (wallpaper_id, duration_ms, frame_rate, created_at, updated_at)
+        VALUES
+        (#{wallpaperId}, #{durationMs}, #{frameRate}, #{createdAt}, #{updatedAt})
+        ON DUPLICATE KEY UPDATE
+            duration_ms = VALUES(duration_ms),
+            frame_rate = VALUES(frame_rate),
+            updated_at = VALUES(updated_at)
+    </insert>
+
+    <delete id="deleteVideoMetaByWallpaperId">
+        DELETE FROM wallpaper_video_meta
+        WHERE wallpaper_id = #{wallpaperId}
+    </delete>
+
     <select id="selectAssetById" resultType="map">
         SELECT wa.id,
                wa.owner_username AS ownerUsername,
@@ -68,6 +86,8 @@
                wa.thumb_1280_url AS thumb1280Url,
                wa.width,
                wa.height,
+               vm.duration_ms AS durationMs,
+               vm.frame_rate AS frameRate,
                wa.file_size AS fileSize,
                wa.tags_text AS tagsText,
                wa.copyright_declared AS copyrightDeclared,
@@ -82,6 +102,7 @@
                wa.published_at AS publishedAt
         FROM wallpaper_asset wa
         LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        LEFT JOIN wallpaper_video_meta vm ON vm.wallpaper_id = wa.id
         WHERE wa.id = #{id}
           AND wa.deleted = 0
     </select>
@@ -97,6 +118,8 @@
                wa.thumb_320_url AS thumb320Url,
                wa.thumb_720_url AS thumb720Url,
                wa.thumb_1280_url AS thumb1280Url,
+               vm.duration_ms AS durationMs,
+               vm.frame_rate AS frameRate,
                wa.tags_text AS tagsText,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
@@ -106,6 +129,7 @@
                wa.published_at AS publishedAt
         FROM wallpaper_asset wa
         LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        LEFT JOIN wallpaper_video_meta vm ON vm.wallpaper_id = wa.id
         WHERE wa.deleted = 0
           AND wa.status = 'published'
         <if test="type != null and type != ''">
@@ -139,6 +163,8 @@
                wa.thumb_320_url AS thumb320Url,
                wa.thumb_720_url AS thumb720Url,
                wa.thumb_1280_url AS thumb1280Url,
+               vm.duration_ms AS durationMs,
+               vm.frame_rate AS frameRate,
                wa.tags_text AS tagsText,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
@@ -149,6 +175,7 @@
                wa.published_at AS publishedAt
         FROM wallpaper_asset wa
         LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        LEFT JOIN wallpaper_video_meta vm ON vm.wallpaper_id = wa.id
         WHERE wa.deleted = 0
           AND wa.owner_username = #{ownerUsername}
         <if test="type != null and type != ''">
@@ -181,6 +208,8 @@
                wa.thumb_320_url AS thumb320Url,
                wa.thumb_720_url AS thumb720Url,
                wa.thumb_1280_url AS thumb1280Url,
+               vm.duration_ms AS durationMs,
+               vm.frame_rate AS frameRate,
                wa.tags_text AS tagsText,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
@@ -191,6 +220,7 @@
                wa.published_at AS publishedAt
         FROM wallpaper_asset wa
         LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        LEFT JOIN wallpaper_video_meta vm ON vm.wallpaper_id = wa.id
         WHERE wa.deleted = 0
         <if test="type != null and type != ''">
           AND wa.type = #{type}

@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -39,6 +40,8 @@ public class WallpaperUserController {
                                     @RequestParam("copyrightDeclared") boolean copyrightDeclared,
                                     @RequestParam(value = "width", required = false) Integer width,
                                     @RequestParam(value = "height", required = false) Integer height,
+                                    @RequestParam(value = "durationMs", required = false) Long durationMs,
+                                    @RequestParam(value = "frameRate", required = false) BigDecimal frameRate,
                                     @RequestParam("original") MultipartFile original,
                                     @RequestParam("thumb320") MultipartFile thumb320,
                                     @RequestParam("thumb720") MultipartFile thumb720,
@@ -56,7 +59,9 @@ public class WallpaperUserController {
                     thumb720,
                     thumb1280,
                     width,
-                    height);
+                    height,
+                    durationMs,
+                    frameRate);
             return ResponseEntity.ok(Map.of("code", 200, "message", "上传成功，等待审核", "data", Map.of("id", id)));
         } catch (IllegalArgumentException | IOException ex) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", ex.getMessage()));
@@ -122,6 +127,8 @@ public class WallpaperUserController {
                                            @RequestParam(value = "reason", required = false) String reason,
                                            @RequestParam(value = "width", required = false) Integer width,
                                            @RequestParam(value = "height", required = false) Integer height,
+                                           @RequestParam(value = "durationMs", required = false) Long durationMs,
+                                           @RequestParam(value = "frameRate", required = false) BigDecimal frameRate,
                                            @RequestParam("original") MultipartFile original,
                                            @RequestParam("thumb320") MultipartFile thumb320,
                                            @RequestParam("thumb720") MultipartFile thumb720,
@@ -136,6 +143,8 @@ public class WallpaperUserController {
                     thumb1280,
                     width,
                     height,
+                    durationMs,
+                    frameRate,
                     reason);
             if (!ok) {
                 return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在或无权限"));

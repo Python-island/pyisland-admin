@@ -4,6 +4,7 @@ import com.pyisland.server.user.entity.WallpaperAsset;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,14 @@ public interface WallpaperMarketMapper {
                       @Param("operatorName") String operatorName,
                       @Param("reason") String reason,
                       @Param("createdAt") LocalDateTime createdAt);
+
+    int upsertVideoMeta(@Param("wallpaperId") Long wallpaperId,
+                        @Param("durationMs") Long durationMs,
+                        @Param("frameRate") BigDecimal frameRate,
+                        @Param("createdAt") LocalDateTime createdAt,
+                        @Param("updatedAt") LocalDateTime updatedAt);
+
+    int deleteVideoMetaByWallpaperId(@Param("wallpaperId") Long wallpaperId);
 
     Map<String, Object> selectAssetById(@Param("id") Long id);
 

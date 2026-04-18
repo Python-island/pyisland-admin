@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -28,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 public class WallpaperMarketService {
 
     private static final long MAX_IMAGE_SIZE = 20L * 1024 * 1024;
+    private static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024;
 
     private final WallpaperMarketMapper mapper;
     private final WallpaperR2StorageService wallpaperR2StorageService;
@@ -56,8 +58,15 @@ public class WallpaperMarketService {
                        MultipartFile thumb720,
                        MultipartFile thumb1280,
                        Integer width,
-                       Integer height) throws IOException {
-        validateImageFile(original);
+                       Integer height,
+                       Long durationMs,
+                       BigDecimal frameRate) throws IOException {
+        String normalizedType = normalizeType(type);
+        if ("video".equals(normalizedType)) {
+            validateVideoFile(original);
+        } else {
+            validateImageFile(original);
+        }
         validateImageFile(thumb320);
         validateImageFile(thumb720);
         validateImageFile(thumb1280);
@@ -72,7 +81,7 @@ public class WallpaperMarketService {
         asset.setOwnerUsername(ownerUsername);
         asset.setTitle(safeTitle(title));
         asset.setDescription(safeText(description, 2000));
-        asset.setType(normalizeType(type));
+        asset.setType(normalizedType);
         asset.setStatus("pending");
         asset.setOriginalUrl(originalUrl);
         asset.setThumb320Url(thumb320Url);
@@ -93,6 +102,14 @@ public class WallpaperMarketService {
         asset.setUpdatedAt(now);
         asset.setPublishedAt(null);
         mapper.insertAsset(asset);
+
+        if ("video".equals(normalizedType)) {
+            mapper.upsertVideoMeta(asset.getId(),
+                    safeDurationMs(durationMs),
+                    safeFrameRate(frameRate),
+                    now,
+                    now);
+        }
 
         mapper.insertVersion(asset.getId(),
                 1,
@@ -164,15 +181,19 @@ public class WallpaperMarketService {
                                        String type,
                                        String tagsText) {
         String safeTags = safeText(tagsText, 500);
+        String normalizedType = normalizeType(type);
         int updated = mapper.updateOwnerMetadata(id,
                 ownerUsername,
                 safeTitle(title),
                 safeText(description, 2000),
-                normalizeType(type),
+                normalizedType,
                 safeTags,
                 LocalDateTime.now());
         if (updated <= 0) {
             return false;
+        }
+        if (!"video".equals(normalizedType)) {
+            mapper.deleteVideoMetaByWallpaperId(id);
         }
         tagService.syncTagsForWallpaper(id, safeTags, ownerUsername);
         return true;
@@ -190,8 +211,9 @@ public class WallpaperMarketService {
                                       MultipartFile thumb1280,
                                       Integer width,
                                       Integer height,
+                                      Long durationMs,
+                                      BigDecimal frameRate,
                                       String reason) throws IOException {
-        validateImageFile(original);
         validateImageFile(thumb320);
         validateImageFile(thumb720);
         validateImageFile(thumb1280);
@@ -199,6 +221,13 @@ public class WallpaperMarketService {
         Map<String, Object> current = mapper.selectAssetById(id);
         if (current == null || current.isEmpty() || !Objects.equals(ownerUsername, current.get("ownerUsername"))) {
             return false;
+        }
+        String currentTypeRaw = current.get("type") == null ? "image" : String.valueOf(current.get("type"));
+        String currentType = normalizeType(currentTypeRaw);
+        if ("video".equals(currentType)) {
+            validateVideoFile(original);
+        } else {
+            validateImageFile(original);
         }
 
         String originalUrl = wallpaperR2StorageService.upload(original, "wallpapers/original");
@@ -234,6 +263,16 @@ public class WallpaperMarketService {
                 ownerUsername,
                 safeText(reason, 300),
                 now);
+
+        if ("video".equals(currentType)) {
+            mapper.upsertVideoMeta(id,
+                    safeDurationMs(durationMs),
+                    safeFrameRate(frameRate),
+                    now,
+                    now);
+        } else {
+            mapper.deleteVideoMetaByWallpaperId(id);
+        }
         return true;
     }
 
@@ -244,6 +283,7 @@ public class WallpaperMarketService {
     public boolean deleteOwnerWallpaper(Long id, String ownerUsername) {
         boolean removed = mapper.markOwnerDeleted(id, ownerUsername, LocalDateTime.now()) > 0;
         if (removed) {
+            mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
         }
         return removed;
@@ -256,6 +296,7 @@ public class WallpaperMarketService {
     public boolean adminDeleteWallpaper(Long id) {
         boolean removed = mapper.markAdminDeleted(id, LocalDateTime.now()) > 0;
         if (removed) {
+            mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
         }
         return removed;
@@ -336,16 +377,20 @@ public class WallpaperMarketService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime publishedAt = "published".equalsIgnoreCase(status) ? now : null;
         String safeTags = safeText(tagsText, 500);
+        String normalizedType = normalizeType(type);
         int updated = mapper.updateAdminMetadata(id,
                 safeTitle(title),
                 safeText(description, 2000),
-                normalizeType(type),
+                normalizedType,
                 safeTags,
                 safeText(status, 20),
                 now,
                 publishedAt);
         if (updated <= 0) {
             return false;
+        }
+        if (!"video".equals(normalizedType)) {
+            mapper.deleteVideoMetaByWallpaperId(id);
         }
         Map<String, Object> current = mapper.selectAssetById(id);
         String ownerUsername = current == null ? null : (String) current.get("ownerUsername");
@@ -427,6 +472,44 @@ public class WallpaperMarketService {
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new IllegalArgumentException("仅支持图片文件");
         }
+    }
+
+    private void validateVideoFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+        if (file.getSize() > MAX_VIDEO_SIZE) {
+            throw new IllegalArgumentException("视频大小不能超过 100MB");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("video/")) {
+            throw new IllegalArgumentException("仅支持视频文件");
+        }
+        String filename = file.getOriginalFilename();
+        String lower = filename == null ? "" : filename.toLowerCase();
+        if (!lower.endsWith(".mp4") && !lower.endsWith(".mov")) {
+            throw new IllegalArgumentException("仅支持 mp4/mov 视频文件");
+        }
+    }
+
+    private Long safeDurationMs(Long durationMs) {
+        if (durationMs == null || durationMs <= 0) {
+            return null;
+        }
+        return durationMs;
+    }
+
+    private BigDecimal safeFrameRate(BigDecimal frameRate) {
+        if (frameRate == null) {
+            return null;
+        }
+        if (frameRate.signum() <= 0) {
+            return null;
+        }
+        if (frameRate.compareTo(new BigDecimal("240")) > 0) {
+            return new BigDecimal("240");
+        }
+        return frameRate;
     }
 
     private boolean checkRateLimit(String key, int windowSeconds, int maxCount) {

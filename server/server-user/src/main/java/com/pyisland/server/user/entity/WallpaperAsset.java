@@ -20,6 +20,8 @@ public class WallpaperAsset {
     private String thumb1280Url;
     private Integer width;
     private Integer height;
+    private Long durationMs;
+    private BigDecimal frameRate;
     private Long fileSize;
     private String tagsText;
     private Boolean copyrightDeclared;
@@ -127,6 +129,22 @@ public class WallpaperAsset {
 
     public void setHeight(Integer height) {
         this.height = height;
+    }
+
+    public Long getDurationMs() {
+        return durationMs;
+    }
+
+    public void setDurationMs(Long durationMs) {
+        this.durationMs = durationMs;
+    }
+
+    public BigDecimal getFrameRate() {
+        return frameRate;
+    }
+
+    public void setFrameRate(BigDecimal frameRate) {
+        this.frameRate = frameRate;
     }
 
     public Long getFileSize() {

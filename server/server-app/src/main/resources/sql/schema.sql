@@ -318,6 +318,15 @@ CREATE TABLE IF NOT EXISTS wallpaper_version (
     KEY idx_wallpaper_version_wallpaper (wallpaper_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS wallpaper_video_meta (
+    wallpaper_id   BIGINT PRIMARY KEY,
+    duration_ms    BIGINT,
+    frame_rate     DECIMAL(6,3),
+    created_at     DATETIME NOT NULL,
+    updated_at     DATETIME NOT NULL,
+    KEY idx_wallpaper_video_meta_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS wallpaper_review_log (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     wallpaper_id    BIGINT NOT NULL,
