@@ -73,6 +73,40 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     ('upload.user-avatar',          1, '', 'POST /v1/upload/user-avatar - 上传用户头像（R2）'),
 
     -- --------------------------------------------------------
+    --  壁纸市场（用户侧）  /v1/user/wallpapers
+    -- --------------------------------------------------------
+    ('user.wallpapers.upload',      1, '', 'POST /v1/user/wallpapers/upload - 上传壁纸'),
+    ('user.wallpapers.list',        1, '', 'GET /v1/user/wallpapers/list - 获取已发布壁纸列表'),
+    ('user.wallpapers.mine',        1, '', 'GET /v1/user/wallpapers/mine - 获取我的壁纸列表'),
+    ('user.wallpapers.detail',      1, '', 'GET /v1/user/wallpapers/detail - 获取壁纸详情'),
+    ('user.wallpapers.metadata',    1, '', 'PUT /v1/user/wallpapers/metadata - 更新我的壁纸元数据'),
+    ('user.wallpapers.replace-source', 1, '', 'PUT /v1/user/wallpapers/replace-source - 替换我的壁纸源文件'),
+    ('user.wallpapers.delete',      1, '', 'DELETE /v1/user/wallpapers/delete - 删除我的壁纸'),
+    ('user.wallpapers.apply',       1, '', 'POST /v1/user/wallpapers/apply - 应用壁纸并计数'),
+    ('user.wallpapers.rate',        1, '', 'POST /v1/user/wallpapers/rate - 壁纸评分'),
+    ('user.wallpapers.report',      1, '', 'POST /v1/user/wallpapers/report - 提交壁纸举报'),
+
+    -- --------------------------------------------------------
+    --  壁纸市场（管理员侧）  /v1/admin/wallpapers
+    -- --------------------------------------------------------
+    ('admin.wallpapers.list',       1, '', 'GET /v1/admin/wallpapers/list - 管理端壁纸列表'),
+    ('admin.wallpapers.metadata',   1, '', 'PUT /v1/admin/wallpapers/metadata - 管理端更新壁纸元数据'),
+    ('admin.wallpapers.review',     1, '', 'PUT /v1/admin/wallpapers/review - 审核壁纸'),
+    ('admin.wallpapers.reports',    1, '', 'GET /v1/admin/wallpapers/reports - 获取举报列表'),
+    ('admin.wallpapers.reports.resolve', 1, '', 'PUT /v1/admin/wallpapers/reports/resolve - 处理举报'),
+    ('admin.wallpapers.ratings',    1, '', 'GET /v1/admin/wallpapers/ratings - 获取评分列表'),
+    ('admin.wallpapers.ratings.delete', 1, '', 'DELETE /v1/admin/wallpapers/ratings - 删除评分记录'),
+
+    -- --------------------------------------------------------
+    --  标签管理（用户/管理员）
+    -- --------------------------------------------------------
+    ('user.tags.search',            1, '', 'GET /v1/user/tags/search - 搜索标签自动补全'),
+    ('admin.tags.list',             1, '', 'GET /v1/admin/tags/list - 管理端标签列表'),
+    ('admin.tags.update',           1, '', 'PUT /v1/admin/tags/update - 管理端更新标签名称'),
+    ('admin.tags.enable',           1, '', 'PUT /v1/admin/tags/enable - 管理端启用/禁用标签'),
+    ('admin.tags.delete',           1, '', 'DELETE /v1/admin/tags/delete - 管理端删除标签'),
+
+    -- --------------------------------------------------------
     --  接口状态管理  /v1/service-status
     -- --------------------------------------------------------
     ('service-status.get',          1, '', 'GET /v1/service-status - 获取单个接口状态'),
