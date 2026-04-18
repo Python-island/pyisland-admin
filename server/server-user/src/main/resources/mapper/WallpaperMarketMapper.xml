@@ -55,110 +55,116 @@
     </insert>
 
     <select id="selectAssetById" resultType="map">
-        SELECT id,
-               owner_username AS ownerUsername,
-               title,
-               description,
-               type,
-               status,
-               original_url AS originalUrl,
-               thumb_320_url AS thumb320Url,
-               thumb_720_url AS thumb720Url,
-               thumb_1280_url AS thumb1280Url,
-               width,
-               height,
-               file_size AS fileSize,
-               tags_text AS tagsText,
-               copyright_declared AS copyrightDeclared,
-               rating_avg AS ratingAvg,
-               rating_count AS ratingCount,
-               download_count AS downloadCount,
-               apply_count AS applyCount,
-               current_version AS currentVersion,
-               deleted,
-               created_at AS createdAt,
-               updated_at AS updatedAt,
-               published_at AS publishedAt
-        FROM wallpaper_asset
-        WHERE id = #{id}
-          AND deleted = 0
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.original_url AS originalUrl,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.width,
+               wa.height,
+               wa.file_size AS fileSize,
+               wa.tags_text AS tagsText,
+               wa.copyright_declared AS copyrightDeclared,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.current_version AS currentVersion,
+               wa.deleted,
+               wa.created_at AS createdAt,
+               wa.updated_at AS updatedAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.id = #{id}
+          AND wa.deleted = 0
     </select>
 
     <select id="listPublished" resultType="map">
-        SELECT id,
-               owner_username AS ownerUsername,
-               title,
-               description,
-               type,
-               status,
-               thumb_320_url AS thumb320Url,
-               thumb_720_url AS thumb720Url,
-               thumb_1280_url AS thumb1280Url,
-               tags_text AS tagsText,
-               rating_avg AS ratingAvg,
-               rating_count AS ratingCount,
-               download_count AS downloadCount,
-               apply_count AS applyCount,
-               created_at AS createdAt,
-               published_at AS publishedAt
-        FROM wallpaper_asset
-        WHERE deleted = 0
-          AND status = 'published'
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.tags_text AS tagsText,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.created_at AS createdAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.deleted = 0
+          AND wa.status = 'published'
         <if test="type != null and type != ''">
-          AND type = #{type}
+          AND wa.type = #{type}
         </if>
         <if test="keyword != null and keyword != ''">
           AND (
-            title LIKE CONCAT('%', #{keyword}, '%')
-            OR owner_username LIKE CONCAT('%', #{keyword}, '%')
-            OR description LIKE CONCAT('%', #{keyword}, '%')
-            OR tags_text LIKE CONCAT('%', #{keyword}, '%')
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.owner_username LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
           )
         </if>
         <choose>
-            <when test="sortBy == 'rating'">ORDER BY rating_avg DESC, rating_count DESC, id DESC</when>
-            <when test="sortBy == 'apply'">ORDER BY apply_count DESC, download_count DESC, id DESC</when>
-            <otherwise>ORDER BY published_at DESC, id DESC</otherwise>
+            <when test="sortBy == 'rating'">ORDER BY wa.rating_avg DESC, wa.rating_count DESC, wa.id DESC</when>
+            <when test="sortBy == 'apply'">ORDER BY wa.apply_count DESC, wa.download_count DESC, wa.id DESC</when>
+            <otherwise>ORDER BY wa.published_at DESC, wa.id DESC</otherwise>
         </choose>
         LIMIT #{offset}, #{limit}
     </select>
 
     <select id="listAdmin" resultType="map">
-        SELECT id,
-               owner_username AS ownerUsername,
-               title,
-               description,
-               type,
-               status,
-               original_url AS originalUrl,
-               thumb_320_url AS thumb320Url,
-               thumb_720_url AS thumb720Url,
-               thumb_1280_url AS thumb1280Url,
-               tags_text AS tagsText,
-               rating_avg AS ratingAvg,
-               rating_count AS ratingCount,
-               download_count AS downloadCount,
-               apply_count AS applyCount,
-               created_at AS createdAt,
-               updated_at AS updatedAt,
-               published_at AS publishedAt
-        FROM wallpaper_asset
-        WHERE deleted = 0
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.original_url AS originalUrl,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.tags_text AS tagsText,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.created_at AS createdAt,
+               wa.updated_at AS updatedAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.deleted = 0
         <if test="type != null and type != ''">
-          AND type = #{type}
+          AND wa.type = #{type}
         </if>
         <if test="status != null and status != ''">
-          AND status = #{status}
+          AND wa.status = #{status}
         </if>
         <if test="keyword != null and keyword != ''">
           AND (
-            title LIKE CONCAT('%', #{keyword}, '%')
-            OR owner_username LIKE CONCAT('%', #{keyword}, '%')
-            OR description LIKE CONCAT('%', #{keyword}, '%')
-            OR tags_text LIKE CONCAT('%', #{keyword}, '%')
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.owner_username LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
           )
         </if>
-        ORDER BY id DESC
+        ORDER BY wa.id DESC
         LIMIT #{offset}, #{limit}
     </select>
 
