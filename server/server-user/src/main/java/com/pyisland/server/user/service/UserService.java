@@ -108,7 +108,7 @@ public class UserService {
      * @param username 用户名。
      * @return 头像 URL；用户不存在时返回 null。
      */
-    @Cacheable(cacheNames = "avatar-data", key = "#username", cacheManager = "avatarCacheManager")
+    @Cacheable(cacheNames = "avatar-data", key = "#username", cacheManager = "avatarCacheManager", unless = "#result == null")
     public String getAvatarByUsername(String username) {
         User user = userMapper.selectByUsername(username);
         return user == null ? null : user.getAvatar();
