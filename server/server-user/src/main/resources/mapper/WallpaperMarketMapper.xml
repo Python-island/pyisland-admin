@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.mapper.WallpaperMarketMapper">
+
+    <resultMap id="WallpaperAssetResultMap" type="com.pyisland.server.user.entity.WallpaperAsset">
+        <id property="id" column="id"/>
+        <result property="ownerUsername" column="owner_username"/>
+        <result property="title" column="title"/>
+        <result property="description" column="description"/>
+        <result property="type" column="type"/>
+        <result property="status" column="status"/>
+        <result property="originalUrl" column="original_url"/>
+        <result property="thumb320Url" column="thumb_320_url"/>
+        <result property="thumb720Url" column="thumb_720_url"/>
+        <result property="thumb1280Url" column="thumb_1280_url"/>
+        <result property="width" column="width"/>
+        <result property="height" column="height"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="tagsText" column="tags_text"/>
+        <result property="copyrightDeclared" column="copyright_declared"/>
+        <result property="ratingAvg" column="rating_avg"/>
+        <result property="ratingCount" column="rating_count"/>
+        <result property="downloadCount" column="download_count"/>
+        <result property="applyCount" column="apply_count"/>
+        <result property="currentVersion" column="current_version"/>
+        <result property="deleted" column="deleted"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="publishedAt" column="published_at"/>
+    </resultMap>
+
+    <insert id="insertAsset" parameterType="com.pyisland.server.user.entity.WallpaperAsset" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wallpaper_asset
+        (owner_username, title, description, type, status,
+         original_url, thumb_320_url, thumb_720_url, thumb_1280_url,
+         width, height, file_size, tags_text, copyright_declared,
+         rating_avg, rating_count, download_count, apply_count,
+         current_version, deleted, created_at, updated_at, published_at)
+        VALUES
+        (#{ownerUsername}, #{title}, #{description}, #{type}, #{status},
+         #{originalUrl}, #{thumb320Url}, #{thumb720Url}, #{thumb1280Url},
+         #{width}, #{height}, #{fileSize}, #{tagsText}, #{copyrightDeclared},
+         #{ratingAvg}, #{ratingCount}, #{downloadCount}, #{applyCount},
+         #{currentVersion}, #{deleted}, #{createdAt}, #{updatedAt}, #{publishedAt})
+    </insert>
+
+    <insert id="insertVersion">
+        INSERT INTO wallpaper_version
+        (wallpaper_id, version_no, original_url, thumb_320_url, thumb_720_url, thumb_1280_url,
+         file_size, width, height, operator_name, reason, created_at)
+        VALUES
+        (#{wallpaperId}, #{versionNo}, #{originalUrl}, #{thumb320Url}, #{thumb720Url}, #{thumb1280Url},
+         #{fileSize}, #{width}, #{height}, #{operatorName}, #{reason}, #{createdAt})
+    </insert>
+
+    <select id="selectAssetById" resultType="map">
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.original_url AS originalUrl,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.width,
+               wa.height,
+               wa.file_size AS fileSize,
+               wa.tags_text AS tagsText,
+               wa.copyright_declared AS copyrightDeclared,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.current_version AS currentVersion,
+               wa.deleted,
+               wa.created_at AS createdAt,
+               wa.updated_at AS updatedAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.id = #{id}
+          AND wa.deleted = 0
+    </select>
+
+    <select id="listPublished" resultType="map">
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.tags_text AS tagsText,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.created_at AS createdAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.deleted = 0
+          AND wa.status = 'published'
+        <if test="type != null and type != ''">
+          AND wa.type = #{type}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND (
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.owner_username LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
+          )
+        </if>
+        <choose>
+            <when test="sortBy == 'rating'">ORDER BY wa.rating_avg DESC, wa.rating_count DESC, wa.id DESC</when>
+            <when test="sortBy == 'apply'">ORDER BY wa.apply_count DESC, wa.download_count DESC, wa.id DESC</when>
+            <otherwise>ORDER BY wa.published_at DESC, wa.id DESC</otherwise>
+        </choose>
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="listMine" resultType="map">
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.original_url AS originalUrl,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.tags_text AS tagsText,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.created_at AS createdAt,
+               wa.updated_at AS updatedAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.deleted = 0
+          AND wa.owner_username = #{ownerUsername}
+        <if test="type != null and type != ''">
+          AND wa.type = #{type}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND (
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
+          )
+        </if>
+        <choose>
+            <when test="sortBy == 'rating'">ORDER BY wa.rating_avg DESC, wa.rating_count DESC, wa.id DESC</when>
+            <when test="sortBy == 'apply'">ORDER BY wa.apply_count DESC, wa.download_count DESC, wa.id DESC</when>
+            <otherwise>ORDER BY wa.updated_at DESC, wa.id DESC</otherwise>
+        </choose>
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="listAdmin" resultType="map">
+        SELECT wa.id,
+               wa.owner_username AS ownerUsername,
+               ua.avatar AS ownerAvatar,
+               wa.title,
+               wa.description,
+               wa.type,
+               wa.status,
+               wa.original_url AS originalUrl,
+               wa.thumb_320_url AS thumb320Url,
+               wa.thumb_720_url AS thumb720Url,
+               wa.thumb_1280_url AS thumb1280Url,
+               wa.tags_text AS tagsText,
+               wa.rating_avg AS ratingAvg,
+               wa.rating_count AS ratingCount,
+               wa.download_count AS downloadCount,
+               wa.apply_count AS applyCount,
+               wa.created_at AS createdAt,
+               wa.updated_at AS updatedAt,
+               wa.published_at AS publishedAt
+        FROM wallpaper_asset wa
+        LEFT JOIN user_account ua ON ua.username = wa.owner_username
+        WHERE wa.deleted = 0
+        <if test="type != null and type != ''">
+          AND wa.type = #{type}
+        </if>
+        <if test="status != null and status != ''">
+          AND wa.status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND (
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.owner_username LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
+          )
+        </if>
+        ORDER BY wa.id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <update id="updateOwnerMetadata">
+        UPDATE wallpaper_asset
+        SET title = #{title},
+            description = #{description},
+            type = #{type},
+            tags_text = #{tagsText},
+            status = 'pending',
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND owner_username = #{ownerUsername}
+          AND deleted = 0
+    </update>
+
+    <update id="updateAdminMetadata">
+        UPDATE wallpaper_asset
+        SET title = #{title},
+            description = #{description},
+            type = #{type},
+            tags_text = #{tagsText},
+            status = #{status},
+            updated_at = #{updatedAt},
+            published_at = #{publishedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="markOwnerDeleted">
+        UPDATE wallpaper_asset
+        SET deleted = 1,
+            status = 'deleted',
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND owner_username = #{ownerUsername}
+          AND deleted = 0
+    </update>
+
+    <update id="markAdminDeleted">
+        UPDATE wallpaper_asset
+        SET deleted = 1,
+            status = 'deleted',
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="replaceOwnerSource">
+        UPDATE wallpaper_asset
+        SET original_url = #{originalUrl},
+            thumb_320_url = #{thumb320Url},
+            thumb_720_url = #{thumb720Url},
+            thumb_1280_url = #{thumb1280Url},
+            file_size = #{fileSize},
+            width = #{width},
+            height = #{height},
+            current_version = current_version + 1,
+            status = 'pending',
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND owner_username = #{ownerUsername}
+          AND deleted = 0
+    </update>
+
+    <update id="incrementApplyAndDownload">
+        UPDATE wallpaper_asset
+        SET apply_count = apply_count + 1,
+            download_count = download_count + 1,
+            updated_at = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+          AND status = 'published'
+    </update>
+
+    <update id="incrementDownloadOnly">
+        UPDATE wallpaper_asset
+        SET download_count = download_count + 1,
+            updated_at = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+          AND status = 'published'
+    </update>
+
+    <select id="countApplyByUser" resultType="int">
+        SELECT COUNT(*) FROM wallpaper_apply_log
+        WHERE wallpaper_id = #{wallpaperId}
+          AND username = #{username}
+          AND action = 'apply'
+    </select>
+
+    <insert id="insertApplyLog">
+        INSERT INTO wallpaper_apply_log
+        (wallpaper_id, username, ip_hash, user_agent, action, created_at)
+        VALUES
+        (#{wallpaperId}, #{username}, #{ipHash}, #{userAgent}, #{action}, #{createdAt})
+    </insert>
+
+    <insert id="upsertRating">
+        INSERT INTO wallpaper_rating (wallpaper_id, username, score, created_at, updated_at)
+        VALUES (#{wallpaperId}, #{username}, #{score}, #{createdAt}, #{updatedAt})
+        ON DUPLICATE KEY UPDATE
+            score = VALUES(score),
+            updated_at = VALUES(updated_at)
+    </insert>
+
+    <delete id="deleteRatingById">
+        DELETE FROM wallpaper_rating WHERE id = #{id}
+    </delete>
+
+    <update id="recomputeRatingStats">
+        UPDATE wallpaper_asset wa
+        LEFT JOIN (
+            SELECT wallpaper_id,
+                   COUNT(*) AS cnt,
+                   ROUND(AVG(score), 2) AS avg_score
+            FROM wallpaper_rating
+            WHERE wallpaper_id = #{wallpaperId}
+            GROUP BY wallpaper_id
+        ) wr ON wa.id = wr.wallpaper_id
+        SET wa.rating_count = COALESCE(wr.cnt, 0),
+            wa.rating_avg = COALESCE(wr.avg_score, 0),
+            wa.updated_at = NOW()
+        WHERE wa.id = #{wallpaperId}
+    </update>
+
+    <insert id="insertReport">
+        INSERT INTO wallpaper_report
+        (wallpaper_id, reporter_username, reason_type, reason_detail, status, created_at)
+        VALUES
+        (#{wallpaperId}, #{reporterUsername}, #{reasonType}, #{reasonDetail}, 'pending', #{createdAt})
+    </insert>
+
+    <select id="listReports" resultType="map">
+        SELECT id,
+               wallpaper_id AS wallpaperId,
+               reporter_username AS reporterUsername,
+               reason_type AS reasonType,
+               reason_detail AS reasonDetail,
+               status,
+               resolver_name AS resolverName,
+               resolution_note AS resolutionNote,
+               created_at AS createdAt,
+               resolved_at AS resolvedAt
+        FROM wallpaper_report
+        <if test="status != null and status != ''">
+            WHERE status = #{status}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <update id="resolveReport">
+        UPDATE wallpaper_report
+        SET status = #{status},
+            resolver_name = #{resolverName},
+            resolution_note = #{resolutionNote},
+            resolved_at = #{resolvedAt}
+        WHERE id = #{id}
+    </update>
+
+    <select id="listRatings" resultType="map">
+        SELECT id,
+               wallpaper_id AS wallpaperId,
+               username,
+               score,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM wallpaper_rating
+        WHERE wallpaper_id = #{wallpaperId}
+        ORDER BY updated_at DESC, id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <update id="updateStatusByAdmin">
+        UPDATE wallpaper_asset
+        SET status = #{status},
+            updated_at = #{updatedAt},
+            published_at = #{publishedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <insert id="insertReviewLog">
+        INSERT INTO wallpaper_review_log
+        (wallpaper_id, action, reviewer_name, reviewer_reason, created_at)
+        VALUES
+        (#{wallpaperId}, #{action}, #{reviewerName}, #{reviewerReason}, #{createdAt})
+    </insert>
+
+</mapper>

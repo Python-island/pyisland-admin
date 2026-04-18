@@ -263,3 +263,142 @@ SET @migrate_app_sql := IF(
 PREPARE migrate_app_stmt FROM @migrate_app_sql;
 EXECUTE migrate_app_stmt;
 DEALLOCATE PREPARE migrate_app_stmt;
+
+-- ========================================================================
+-- 2026-04 壁纸市场：资源、审核、评分、统计与举报
+-- ========================================================================
+
+CREATE TABLE IF NOT EXISTS wallpaper_asset (
+    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+    owner_username     VARCHAR(100) NOT NULL,
+    title              VARCHAR(120) NOT NULL,
+    description        TEXT,
+    type               VARCHAR(20) NOT NULL DEFAULT 'image',
+    status             VARCHAR(20) NOT NULL DEFAULT 'draft',
+    original_url       LONGTEXT NOT NULL,
+    thumb_320_url      LONGTEXT,
+    thumb_720_url      LONGTEXT,
+    thumb_1280_url     LONGTEXT,
+    width              INT,
+    height             INT,
+    file_size          BIGINT,
+    tags_text          TEXT,
+    copyright_declared TINYINT(1) NOT NULL DEFAULT 0,
+    rating_avg         DECIMAL(4,2) NOT NULL DEFAULT 0,
+    rating_count       BIGINT NOT NULL DEFAULT 0,
+    download_count     BIGINT NOT NULL DEFAULT 0,
+    apply_count        BIGINT NOT NULL DEFAULT 0,
+    current_version    INT NOT NULL DEFAULT 1,
+    deleted            TINYINT(1) NOT NULL DEFAULT 0,
+    created_at         DATETIME NOT NULL,
+    updated_at         DATETIME NOT NULL,
+    published_at       DATETIME,
+    KEY idx_wallpaper_asset_owner (owner_username),
+    KEY idx_wallpaper_asset_status (status),
+    KEY idx_wallpaper_asset_type (type),
+    KEY idx_wallpaper_asset_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_version (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    wallpaper_id   BIGINT NOT NULL,
+    version_no     INT NOT NULL,
+    original_url   LONGTEXT NOT NULL,
+    thumb_320_url  LONGTEXT,
+    thumb_720_url  LONGTEXT,
+    thumb_1280_url LONGTEXT,
+    file_size      BIGINT,
+    width          INT,
+    height         INT,
+    checksum       VARCHAR(128),
+    operator_name  VARCHAR(100) NOT NULL,
+    reason         VARCHAR(300),
+    created_at     DATETIME NOT NULL,
+    UNIQUE KEY uk_wallpaper_version_no (wallpaper_id, version_no),
+    KEY idx_wallpaper_version_wallpaper (wallpaper_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_review_log (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    wallpaper_id    BIGINT NOT NULL,
+    action          VARCHAR(30) NOT NULL,
+    reviewer_name   VARCHAR(100) NOT NULL,
+    reviewer_reason VARCHAR(500),
+    created_at      DATETIME NOT NULL,
+    KEY idx_wallpaper_review_wallpaper (wallpaper_id),
+    KEY idx_wallpaper_review_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_rating (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    wallpaper_id    BIGINT NOT NULL,
+    username        VARCHAR(100) NOT NULL,
+    score           TINYINT NOT NULL,
+    created_at      DATETIME NOT NULL,
+    updated_at      DATETIME NOT NULL,
+    UNIQUE KEY uk_wallpaper_rating_user (wallpaper_id, username),
+    KEY idx_wallpaper_rating_wallpaper (wallpaper_id),
+    KEY idx_wallpaper_rating_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_stat_daily (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    wallpaper_id   BIGINT NOT NULL,
+    stat_date      DATE NOT NULL,
+    download_count BIGINT NOT NULL DEFAULT 0,
+    apply_count    BIGINT NOT NULL DEFAULT 0,
+    view_count     BIGINT NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_wallpaper_stat_daily (wallpaper_id, stat_date),
+    KEY idx_wallpaper_stat_date (stat_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_apply_log (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    wallpaper_id   BIGINT NOT NULL,
+    username       VARCHAR(100),
+    ip_hash        VARCHAR(128),
+    user_agent     VARCHAR(500),
+    action         VARCHAR(20) NOT NULL,
+    created_at     DATETIME NOT NULL,
+    KEY idx_wallpaper_apply_wallpaper (wallpaper_id),
+    KEY idx_wallpaper_apply_username (username),
+    KEY idx_wallpaper_apply_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_report (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    wallpaper_id      BIGINT NOT NULL,
+    reporter_username VARCHAR(100) NOT NULL,
+    reason_type       VARCHAR(40) NOT NULL,
+    reason_detail     VARCHAR(500),
+    status            VARCHAR(20) NOT NULL DEFAULT 'pending',
+    resolver_name     VARCHAR(100),
+    resolution_note   VARCHAR(500),
+    created_at        DATETIME NOT NULL,
+    resolved_at       DATETIME,
+    KEY idx_wallpaper_report_wallpaper (wallpaper_id),
+    KEY idx_wallpaper_report_status (status),
+    KEY idx_wallpaper_report_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_tag (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name              VARCHAR(60) NOT NULL,
+    slug              VARCHAR(60) NOT NULL,
+    creator_username  VARCHAR(100),
+    enabled           TINYINT(1) NOT NULL DEFAULT 1,
+    usage_count       INT NOT NULL DEFAULT 0,
+    created_at        DATETIME NOT NULL,
+    updated_at        DATETIME NOT NULL,
+    UNIQUE KEY uk_wallpaper_tag_slug (slug),
+    KEY idx_wallpaper_tag_enabled (enabled),
+    KEY idx_wallpaper_tag_usage (usage_count)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_tag_ref (
+    wallpaper_id BIGINT NOT NULL,
+    tag_id       BIGINT NOT NULL,
+    created_at   DATETIME NOT NULL,
+    PRIMARY KEY (wallpaper_id, tag_id),
+    KEY idx_wallpaper_tag_ref_tag (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

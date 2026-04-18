@@ -23,6 +23,7 @@ public class CacheConfig {
     private final String redisPassword;
     private final int redisDatabase;
     private final int avatarRedisDatabase;
+    private final int wallpaperRedisDatabase;
 
     /**
      * 构造缓存配置。
@@ -31,17 +32,20 @@ public class CacheConfig {
      * @param redisPassword Redis 密码。
      * @param redisDatabase 默认缓存数据库编号。
      * @param avatarRedisDatabase 头像缓存数据库编号。
+     * @param wallpaperRedisDatabase 壁纸元数据缓存数据库编号。
      */
     public CacheConfig(@Value("${REDIS_HOST:127.0.0.1}") String redisHost,
                        @Value("${REDIS_PORT:6379}") int redisPort,
                        @Value("${REDIS_PASSWORD:}") String redisPassword,
                        @Value("${REDIS_DATABASE:0}") int redisDatabase,
-                       @Value("${REDIS_AVATAR_DATABASE:1}") int avatarRedisDatabase) {
+                       @Value("${REDIS_AVATAR_DATABASE:1}") int avatarRedisDatabase,
+                       @Value("${REDIS_WALLPAPER_DATABASE:3}") int wallpaperRedisDatabase) {
         this.redisHost = redisHost;
         this.redisPort = redisPort;
         this.redisPassword = redisPassword;
         this.redisDatabase = redisDatabase;
         this.avatarRedisDatabase = avatarRedisDatabase;
+        this.wallpaperRedisDatabase = wallpaperRedisDatabase;
     }
 
     /**
@@ -61,6 +65,15 @@ public class CacheConfig {
     @Bean("avatarCacheManager")
     public RedisCacheManager avatarCacheManager() {
         return createCacheManager(avatarRedisDatabase);
+    }
+
+    /**
+     * 壁纸元数据缓存专用管理器，使用独立 Redis DB。
+     * @return 壁纸缓存管理器。
+     */
+    @Bean("wallpaperCacheManager")
+    public RedisCacheManager wallpaperCacheManager() {
+        return createCacheManager(wallpaperRedisDatabase);
     }
 
     private RedisCacheManager createCacheManager(int database) {
