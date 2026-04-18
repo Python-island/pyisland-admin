@@ -1,5 +1,6 @@
 package com.pyisland.server.auth.controller;
 
+import com.pyisland.server.auth.service.EmailVerificationService;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.auth.ratelimit.AuthRateLimiter;
 import com.pyisland.server.common.util.ClientIpUtil;
@@ -42,6 +43,7 @@ public class AuthController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final AuthRateLimiter authRateLimiter;
+    private final EmailVerificationService emailVerificationService;
 
     /**
      * 构造鉴权控制器。
@@ -51,10 +53,12 @@ public class AuthController {
      */
     public AuthController(UserService userService,
                           JwtUtil jwtUtil,
-                          AuthRateLimiter authRateLimiter) {
+                          AuthRateLimiter authRateLimiter,
+                          EmailVerificationService emailVerificationService) {
         this.userService = userService;
         this.jwtUtil = jwtUtil;
         this.authRateLimiter = authRateLimiter;
+        this.emailVerificationService = emailVerificationService;
     }
 
     /**
@@ -165,6 +169,11 @@ public class AuthController {
             authRateLimiter.recordRegisterAttempt(ip);
             return error(400, "邮箱格式不正确");
         }
+        ResponseEntity<?> verifyResult = verifyEmailCodeOrError(email, request.emailCode(), EmailVerificationService.Scene.REGISTER);
+        if (verifyResult != null) {
+            authRateLimiter.recordRegisterAttempt(ip);
+            return verifyResult;
+        }
         authRateLimiter.recordRegisterAttempt(ip);
         User user = userService.register(request.username(), email, request.password(), User.ROLE_USER);
         if (user == null) {
@@ -228,6 +237,10 @@ public class AuthController {
         }
         String ip = ClientIpUtil.resolve(http);
         String email = request.email().trim().toLowerCase(Locale.ROOT);
+        ResponseEntity<?> verifyResult = verifyEmailCodeOrError(email, request.emailCode(), EmailVerificationService.Scene.LOGIN);
+        if (verifyResult != null) {
+            return verifyResult;
+        }
         String rateKey = "login:email:" + expectedRole + ":" + email + ":" + ip;
         long locked = authRateLimiter.remainingLoginLockSeconds(rateKey);
         if (locked > 0) {
@@ -294,6 +307,16 @@ public class AuthController {
         return email;
     }
 
+    private ResponseEntity<?> verifyEmailCodeOrError(String email, String emailCode, EmailVerificationService.Scene scene) {
+        EmailVerificationService.VerifyCodeResult result = emailVerificationService.verifyCode(
+                new EmailVerificationService.VerifyCodeCommand(email, scene, emailCode, true)
+        );
+        if (result.ok()) {
+            return null;
+        }
+        return error(result.code(), result.message());
+    }
+
     private ResponseEntity<Map<String, Object>> ok(String message) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", 200);
@@ -328,8 +351,9 @@ public class AuthController {
      * 邮箱登录请求体。
      * @param email 邮箱。
      * @param password 密码。
+     * @param emailCode 邮箱验证码。
      */
-    public record EmailLoginRequest(String email, String password) {
+    public record EmailLoginRequest(String email, String password, String emailCode) {
     }
 
     /**
@@ -340,12 +364,14 @@ public class AuthController {
      * @param gender 性别（仅用户注册）。
      * @param genderCustom 自定义性别（仅用户注册）。
      * @param birthday 生日（仅用户注册）。
+     * @param emailCode 邮箱验证码（仅用户注册）。
      */
     public record RegisterRequest(String username,
                                   String email,
                                   String password,
                                   String gender,
                                   String genderCustom,
-                                  String birthday) {
+                                  String birthday,
+                                  String emailCode) {
     }
 }
