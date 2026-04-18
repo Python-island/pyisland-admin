@@ -380,3 +380,25 @@ CREATE TABLE IF NOT EXISTS wallpaper_report (
     KEY idx_wallpaper_report_status (status),
     KEY idx_wallpaper_report_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_tag (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name              VARCHAR(60) NOT NULL,
+    slug              VARCHAR(60) NOT NULL,
+    creator_username  VARCHAR(100),
+    enabled           TINYINT(1) NOT NULL DEFAULT 1,
+    usage_count       INT NOT NULL DEFAULT 0,
+    created_at        DATETIME NOT NULL,
+    updated_at        DATETIME NOT NULL,
+    UNIQUE KEY uk_wallpaper_tag_slug (slug),
+    KEY idx_wallpaper_tag_enabled (enabled),
+    KEY idx_wallpaper_tag_usage (usage_count)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_tag_ref (
+    wallpaper_id BIGINT NOT NULL,
+    tag_id       BIGINT NOT NULL,
+    created_at   DATETIME NOT NULL,
+    PRIMARY KEY (wallpaper_id, tag_id),
+    KEY idx_wallpaper_tag_ref_tag (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

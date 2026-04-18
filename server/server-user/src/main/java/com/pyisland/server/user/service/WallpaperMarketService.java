@@ -32,13 +32,16 @@ public class WallpaperMarketService {
     private final WallpaperMarketMapper mapper;
     private final WallpaperR2StorageService wallpaperR2StorageService;
     private final StringRedisTemplate redisTemplate;
+    private final WallpaperTagService tagService;
 
     public WallpaperMarketService(WallpaperMarketMapper mapper,
                                   WallpaperR2StorageService wallpaperR2StorageService,
-                                  StringRedisTemplate redisTemplate) {
+                                  StringRedisTemplate redisTemplate,
+                                  WallpaperTagService tagService) {
         this.mapper = mapper;
         this.wallpaperR2StorageService = wallpaperR2StorageService;
         this.redisTemplate = redisTemplate;
+        this.tagService = tagService;
     }
 
     @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
@@ -104,6 +107,8 @@ public class WallpaperMarketService {
                 "initial-upload",
                 now);
 
+        tagService.syncTagsForWallpaper(asset.getId(), asset.getTagsText(), ownerUsername);
+
         return asset.getId();
     }
 
@@ -158,13 +163,19 @@ public class WallpaperMarketService {
                                        String description,
                                        String type,
                                        String tagsText) {
-        return mapper.updateOwnerMetadata(id,
+        String safeTags = safeText(tagsText, 500);
+        int updated = mapper.updateOwnerMetadata(id,
                 ownerUsername,
                 safeTitle(title),
                 safeText(description, 2000),
                 normalizeType(type),
-                safeText(tagsText, 500),
-                LocalDateTime.now()) > 0;
+                safeTags,
+                LocalDateTime.now());
+        if (updated <= 0) {
+            return false;
+        }
+        tagService.syncTagsForWallpaper(id, safeTags, ownerUsername);
+        return true;
     }
 
     @Caching(evict = {
@@ -231,7 +242,11 @@ public class WallpaperMarketService {
         @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
     })
     public boolean deleteOwnerWallpaper(Long id, String ownerUsername) {
-        return mapper.markOwnerDeleted(id, ownerUsername, LocalDateTime.now()) > 0;
+        boolean removed = mapper.markOwnerDeleted(id, ownerUsername, LocalDateTime.now()) > 0;
+        if (removed) {
+            tagService.clearWallpaperTags(id);
+        }
+        return removed;
     }
 
     @Caching(evict = {
@@ -308,14 +323,22 @@ public class WallpaperMarketService {
                                        String status) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime publishedAt = "published".equalsIgnoreCase(status) ? now : null;
-        return mapper.updateAdminMetadata(id,
+        String safeTags = safeText(tagsText, 500);
+        int updated = mapper.updateAdminMetadata(id,
                 safeTitle(title),
                 safeText(description, 2000),
                 normalizeType(type),
-                safeText(tagsText, 500),
+                safeTags,
                 safeText(status, 20),
                 now,
-                publishedAt) > 0;
+                publishedAt);
+        if (updated <= 0) {
+            return false;
+        }
+        Map<String, Object> current = mapper.selectAssetById(id);
+        String ownerUsername = current == null ? null : (String) current.get("ownerUsername");
+        tagService.syncTagsForWallpaper(id, safeTags, ownerUsername);
+        return true;
     }
 
     @Caching(evict = {

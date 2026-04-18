@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.mapper.WallpaperTagMapper">
+
+    <resultMap id="WallpaperTagResultMap" type="com.pyisland.server.user.entity.WallpaperTag">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="slug" column="slug"/>
+        <result property="creatorUsername" column="creator_username"/>
+        <result property="enabled" column="enabled"/>
+        <result property="usageCount" column="usage_count"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertTag" parameterType="com.pyisland.server.user.entity.WallpaperTag" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wallpaper_tag
+        (name, slug, creator_username, enabled, usage_count, created_at, updated_at)
+        VALUES
+        (#{name}, #{slug}, #{creatorUsername}, #{enabled}, #{usageCount}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="selectBySlug" resultMap="WallpaperTagResultMap">
+        SELECT * FROM wallpaper_tag WHERE slug = #{slug} LIMIT 1
+    </select>
+
+    <select id="selectById" resultMap="WallpaperTagResultMap">
+        SELECT * FROM wallpaper_tag WHERE id = #{id}
+    </select>
+
+    <select id="searchByKeyword" resultType="map">
+        SELECT id,
+               name,
+               slug,
+               usage_count AS usageCount
+        FROM wallpaper_tag
+        WHERE enabled = 1
+        <if test="keyword != null and keyword != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%') OR slug LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY usage_count DESC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listAdmin" resultType="map">
+        SELECT id,
+               name,
+               slug,
+               creator_username AS creatorUsername,
+               enabled,
+               usage_count AS usageCount,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM wallpaper_tag
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%') OR slug LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="enabled != null">
+                AND enabled = #{enabled}
+            </if>
+        </where>
+        ORDER BY usage_count DESC, id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAdmin" resultType="long">
+        SELECT COUNT(*)
+        FROM wallpaper_tag
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%') OR slug LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="enabled != null">
+                AND enabled = #{enabled}
+            </if>
+        </where>
+    </select>
+
+    <update id="updateName">
+        UPDATE wallpaper_tag
+        SET name = #{name},
+            slug = #{slug},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateEnabled">
+        UPDATE wallpaper_tag
+        SET enabled = #{enabled},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteTag">
+        DELETE FROM wallpaper_tag WHERE id = #{id}
+    </delete>
+
+    <update id="recomputeUsageCount">
+        UPDATE wallpaper_tag
+        SET usage_count = (
+            SELECT COUNT(*) FROM wallpaper_tag_ref WHERE tag_id = #{id}
+        )
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertRef">
+        INSERT IGNORE INTO wallpaper_tag_ref (wallpaper_id, tag_id, created_at)
+        VALUES (#{wallpaperId}, #{tagId}, #{createdAt})
+    </insert>
+
+    <delete id="deleteRefsByWallpaper">
+        DELETE FROM wallpaper_tag_ref WHERE wallpaper_id = #{wallpaperId}
+    </delete>
+
+    <delete id="deleteRefsByTag">
+        DELETE FROM wallpaper_tag_ref WHERE tag_id = #{tagId}
+    </delete>
+
+    <select id="listTagIdsByWallpaper" resultType="long">
+        SELECT tag_id FROM wallpaper_tag_ref WHERE wallpaper_id = #{wallpaperId}
+    </select>
+
+    <select id="listTagsByWallpaper" resultType="map">
+        SELECT wt.id,
+               wt.name,
+               wt.slug,
+               wt.enabled,
+               wt.usage_count AS usageCount
+        FROM wallpaper_tag_ref wtr
+        INNER JOIN wallpaper_tag wt ON wt.id = wtr.tag_id
+        WHERE wtr.wallpaper_id = #{wallpaperId}
+        ORDER BY wt.usage_count DESC, wt.id ASC
+    </select>
+
+</mapper>
