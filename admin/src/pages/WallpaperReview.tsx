@@ -294,6 +294,35 @@ export default function WallpaperReview() {
       {selectedWallpaper && (
         <div style={{ ...cardStyle, marginBottom: 16 }}>
           <h2 style={{ margin: "0 0 12px", color: "#fff", fontSize: 20 }}>审核与元数据</h2>
+          {(() => {
+            const originalUrl = sanitizeUrl(selectedWallpaper.originalUrl);
+            const posterUrl = sanitizeUrl(
+              selectedWallpaper.thumb1280Url || selectedWallpaper.thumb720Url || selectedWallpaper.thumb320Url
+            );
+            const previewUrl = posterUrl || originalUrl;
+            if (!previewUrl) return null;
+            return (
+              <div style={{ marginBottom: 12, borderRadius: 8, overflow: "hidden", backgroundColor: "#000" }}>
+                {selectedWallpaper.type === "video" && originalUrl ? (
+                  <video
+                    key={originalUrl}
+                    src={originalUrl}
+                    poster={posterUrl || undefined}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    style={{ width: "100%", maxHeight: 360, objectFit: "contain", display: "block", background: "#000" }}
+                  />
+                ) : (
+                  <img
+                    src={previewUrl}
+                    alt={selectedWallpaper.title}
+                    style={{ width: "100%", maxHeight: 360, objectFit: "contain", display: "block", background: "#000" }}
+                  />
+                )}
+              </div>
+            );
+          })()}
           <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginBottom: 10 }}>
             资源类型：{selectedWallpaper.type || "-"}
             {selectedWallpaper.type === "video" && (
