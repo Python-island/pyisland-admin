@@ -3,6 +3,7 @@ package com.pyisland.server.auth.config;
 import com.pyisland.server.auth.security.JsonAccessDeniedHandler;
 import com.pyisland.server.auth.security.JsonAuthenticationEntryPoint;
 import com.pyisland.server.auth.security.JwtAuthenticationFilter;
+import com.pyisland.server.auth.security.ReplayProtectionFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -68,6 +69,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthenticationFilter jwtFilter,
+                                                   ReplayProtectionFilter replayProtectionFilter,
                                                    JsonAuthenticationEntryPoint entryPoint,
                                                    JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
@@ -86,7 +88,8 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(replayProtectionFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 }
