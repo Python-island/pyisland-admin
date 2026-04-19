@@ -22,8 +22,8 @@ import java.util.Map;
 @Component
 public class ClientVersionGateFilter extends OncePerRequestFilter {
 
+    public static final String APP_NAME_HEADER = "X-App-Name";
     public static final String CLIENT_VERSION_HEADER = "X-Client-Version";
-    private static final String APP_NAME = "pyisland";
 
     private final AppVersionService appVersionService;
     private final ObjectMapper objectMapper;
@@ -43,16 +43,22 @@ public class ClientVersionGateFilter extends OncePerRequestFilter {
             return;
         }
 
+        String appName = normalize(request.getHeader(APP_NAME_HEADER));
+        if (appName == null) {
+            writeError(response, 4262, "缺少应用标识头");
+            return;
+        }
+
         String clientVersion = normalize(request.getHeader(CLIENT_VERSION_HEADER));
         if (clientVersion == null) {
             writeError(response, 4261, "缺少客户端版本头");
             return;
         }
 
-        AppVersion latest = appVersionService.getVersion(APP_NAME);
+        AppVersion latest = appVersionService.getVersion(appName);
         String latestVersion = latest == null ? null : normalize(latest.getVersion());
         if (latestVersion == null) {
-            writeError(response, 5031, "服务端未配置可用版本");
+            writeError(response, 5031, "服务端未配置该应用可用版本");
             return;
         }
 
