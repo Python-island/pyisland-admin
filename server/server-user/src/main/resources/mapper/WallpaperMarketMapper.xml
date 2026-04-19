@@ -296,6 +296,7 @@
             description = #{description},
             type = #{type},
             tags_text = #{tagsText},
+            copyright_info = #{copyrightInfo},
             status = 'pending',
             updated_at = #{updatedAt}
         WHERE id = #{id}

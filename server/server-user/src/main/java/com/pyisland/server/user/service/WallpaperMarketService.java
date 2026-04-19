@@ -205,7 +205,8 @@ public class WallpaperMarketService {
                                        String title,
                                        String description,
                                        String type,
-                                       String tagsText) {
+                                       String tagsText,
+                                       String copyrightInfo) {
         String safeTags = safeText(tagsText, 500);
         String normalizedType = normalizeType(type);
         int updated = mapper.updateOwnerMetadata(id,
@@ -214,6 +215,7 @@ public class WallpaperMarketService {
                 safeText(description, 2000),
                 normalizedType,
                 safeTags,
+                safeText(copyrightInfo, 500),
                 LocalDateTime.now());
         if (updated <= 0) {
             return false;

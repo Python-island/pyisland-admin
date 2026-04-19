@@ -124,7 +124,8 @@ public class WallpaperUserController {
                     request.title(),
                     request.description(),
                     request.type(),
-                    request.tags());
+                    request.tags(),
+                    request.copyrightInfo());
             if (!ok) {
                 return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在或无权限"));
             }
@@ -218,7 +219,8 @@ public class WallpaperUserController {
                                         String title,
                                         String description,
                                         String type,
-                                        String tags) {
+                                        String tags,
+                                        String copyrightInfo) {
     }
 
     public record RateRequest(Long id, int score) {
