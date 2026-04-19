@@ -48,12 +48,19 @@ public interface WallpaperMarketMapper {
                                             @Param("offset") int offset,
                                             @Param("limit") int limit);
 
+    long countPublished(@Param("keyword") String keyword,
+                        @Param("type") String type);
+
     List<Map<String, Object>> listMine(@Param("ownerUsername") String ownerUsername,
                                        @Param("keyword") String keyword,
                                        @Param("type") String type,
                                        @Param("sortBy") String sortBy,
                                        @Param("offset") int offset,
                                        @Param("limit") int limit);
+
+    long countMine(@Param("ownerUsername") String ownerUsername,
+                   @Param("keyword") String keyword,
+                   @Param("type") String type);
 
     List<Map<String, Object>> listAdmin(@Param("keyword") String keyword,
                                         @Param("type") String type,

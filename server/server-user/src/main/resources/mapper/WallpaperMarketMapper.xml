@@ -161,6 +161,24 @@
         LIMIT #{offset}, #{limit}
     </select>
 
+    <select id="countPublished" resultType="long">
+        SELECT COUNT(*)
+        FROM wallpaper_asset wa
+        WHERE wa.deleted = 0
+          AND wa.status = 'published'
+        <if test="type != null and type != ''">
+          AND wa.type = #{type}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND (
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.owner_username LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
+          )
+        </if>
+    </select>
+
     <select id="listMine" resultType="map">
         SELECT wa.id,
                wa.owner_username AS ownerUsername,
@@ -204,6 +222,23 @@
             <otherwise>ORDER BY wa.updated_at DESC, wa.id DESC</otherwise>
         </choose>
         LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countMine" resultType="long">
+        SELECT COUNT(*)
+        FROM wallpaper_asset wa
+        WHERE wa.deleted = 0
+          AND wa.owner_username = #{ownerUsername}
+        <if test="type != null and type != ''">
+          AND wa.type = #{type}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND (
+            wa.title LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.description LIKE CONCAT('%', #{keyword}, '%')
+            OR wa.tags_text LIKE CONCAT('%', #{keyword}, '%')
+          )
+        </if>
     </select>
 
     <select id="listAdmin" resultType="map">

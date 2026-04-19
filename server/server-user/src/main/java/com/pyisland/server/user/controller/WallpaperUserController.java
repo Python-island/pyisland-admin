@@ -74,10 +74,15 @@ public class WallpaperUserController {
                                   @RequestParam(value = "sort", required = false) String sort,
                                   @RequestParam(value = "page", defaultValue = "1") int page,
                                   @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
+        var items = wallpaperMarketService.listPublished(keyword, type, sort, page, pageSize);
+        long total = wallpaperMarketService.countPublished(keyword, type);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
-                "data", wallpaperMarketService.listPublished(keyword, type, sort, page, pageSize)
+                "data", Map.of(
+                        "items", items,
+                        "total", total
+                )
         ));
     }
 
@@ -88,10 +93,15 @@ public class WallpaperUserController {
                                       @RequestParam(value = "page", defaultValue = "1") int page,
                                       @RequestParam(value = "pageSize", defaultValue = "50") int pageSize,
                                       Authentication authentication) {
+        var items = wallpaperMarketService.listOwn(authentication.getName(), keyword, type, sort, page, pageSize);
+        long total = wallpaperMarketService.countOwn(authentication.getName(), keyword, type);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
-                "data", wallpaperMarketService.listOwn(authentication.getName(), keyword, type, sort, page, pageSize)
+                "data", Map.of(
+                        "items", items,
+                        "total", total
+                )
         ));
     }
 

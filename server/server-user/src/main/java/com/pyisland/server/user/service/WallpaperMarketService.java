@@ -145,6 +145,16 @@ public class WallpaperMarketService {
     }
 
     @Cacheable(
+        cacheNames = "wallpaper-list",
+        key = "'total:' + (#keyword ?: '') + ':' + (#type ?: '')",
+        cacheManager = "wallpaperCacheManager",
+        unless = "#result == null"
+    )
+    public long countPublished(String keyword, String type) {
+        return mapper.countPublished(safeText(keyword, 100), normalizeTypeAllowBlank(type));
+    }
+
+    @Cacheable(
         cacheNames = "wallpaper-my-list",
         key = "#ownerUsername + ':' + (#keyword ?: '') + ':' + (#type ?: '') + ':' + (#sortBy ?: '') + ':' + #page + ':' + #pageSize",
         cacheManager = "wallpaperCacheManager",
@@ -160,6 +170,18 @@ public class WallpaperMarketService {
                 normalizeSort(sortBy),
                 offset,
                 safeSize);
+    }
+
+    @Cacheable(
+        cacheNames = "wallpaper-my-list",
+        key = "'total:' + #ownerUsername + ':' + (#keyword ?: '') + ':' + (#type ?: '')",
+        cacheManager = "wallpaperCacheManager",
+        unless = "#result == null"
+    )
+    public long countOwn(String ownerUsername, String keyword, String type) {
+        return mapper.countMine(ownerUsername,
+                safeText(keyword, 100),
+                normalizeTypeAllowBlank(type));
     }
 
     @Cacheable(
