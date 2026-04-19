@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -37,8 +38,11 @@ public class WallpaperUserController {
                                     @RequestParam(value = "type", required = false) String type,
                                     @RequestParam(value = "tags", required = false) String tags,
                                     @RequestParam("copyrightDeclared") boolean copyrightDeclared,
+                                    @RequestParam(value = "copyrightInfo", required = false) String copyrightInfo,
                                     @RequestParam(value = "width", required = false) Integer width,
                                     @RequestParam(value = "height", required = false) Integer height,
+                                    @RequestParam(value = "durationMs", required = false) Long durationMs,
+                                    @RequestParam(value = "frameRate", required = false) BigDecimal frameRate,
                                     @RequestParam("original") MultipartFile original,
                                     @RequestParam("thumb320") MultipartFile thumb320,
                                     @RequestParam("thumb720") MultipartFile thumb720,
@@ -51,12 +55,15 @@ public class WallpaperUserController {
                     type,
                     tags,
                     copyrightDeclared,
+                    copyrightInfo,
                     original,
                     thumb320,
                     thumb720,
                     thumb1280,
                     width,
-                    height);
+                    height,
+                    durationMs,
+                    frameRate);
             return ResponseEntity.ok(Map.of("code", 200, "message", "上传成功，等待审核", "data", Map.of("id", id)));
         } catch (IllegalArgumentException | IOException ex) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", ex.getMessage()));
@@ -69,10 +76,15 @@ public class WallpaperUserController {
                                   @RequestParam(value = "sort", required = false) String sort,
                                   @RequestParam(value = "page", defaultValue = "1") int page,
                                   @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
+        var items = wallpaperMarketService.listPublished(keyword, type, sort, page, pageSize);
+        long total = wallpaperMarketService.countPublished(keyword, type);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
-                "data", wallpaperMarketService.listPublished(keyword, type, sort, page, pageSize)
+                "data", Map.of(
+                        "items", items,
+                        "total", total
+                )
         ));
     }
 
@@ -83,10 +95,15 @@ public class WallpaperUserController {
                                       @RequestParam(value = "page", defaultValue = "1") int page,
                                       @RequestParam(value = "pageSize", defaultValue = "50") int pageSize,
                                       Authentication authentication) {
+        var items = wallpaperMarketService.listOwn(authentication.getName(), keyword, type, sort, page, pageSize);
+        long total = wallpaperMarketService.countOwn(authentication.getName(), keyword, type);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
-                "data", wallpaperMarketService.listOwn(authentication.getName(), keyword, type, sort, page, pageSize)
+                "data", Map.of(
+                        "items", items,
+                        "total", total
+                )
         ));
     }
 
@@ -107,7 +124,8 @@ public class WallpaperUserController {
                     request.title(),
                     request.description(),
                     request.type(),
-                    request.tags());
+                    request.tags(),
+                    request.copyrightInfo());
             if (!ok) {
                 return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在或无权限"));
             }
@@ -122,6 +140,8 @@ public class WallpaperUserController {
                                            @RequestParam(value = "reason", required = false) String reason,
                                            @RequestParam(value = "width", required = false) Integer width,
                                            @RequestParam(value = "height", required = false) Integer height,
+                                           @RequestParam(value = "durationMs", required = false) Long durationMs,
+                                           @RequestParam(value = "frameRate", required = false) BigDecimal frameRate,
                                            @RequestParam("original") MultipartFile original,
                                            @RequestParam("thumb320") MultipartFile thumb320,
                                            @RequestParam("thumb720") MultipartFile thumb720,
@@ -136,6 +156,8 @@ public class WallpaperUserController {
                     thumb1280,
                     width,
                     height,
+                    durationMs,
+                    frameRate,
                     reason);
             if (!ok) {
                 return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在或无权限"));
@@ -197,7 +219,8 @@ public class WallpaperUserController {
                                         String title,
                                         String description,
                                         String type,
-                                        String tags) {
+                                        String tags,
+                                        String copyrightInfo) {
     }
 
     public record RateRequest(Long id, int score) {

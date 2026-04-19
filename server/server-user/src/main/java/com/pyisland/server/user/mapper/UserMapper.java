@@ -1,10 +1,12 @@
 package com.pyisland.server.user.mapper;
 
+import com.pyisland.server.user.entity.UserDailyActiveStat;
 import com.pyisland.server.user.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -130,4 +132,37 @@ public interface UserMapper {
      */
     int updateEmail(@Param("username") String username,
                     @Param("email") String email);
+
+    /**
+     * 写入日活跃记录（同一用户同一角色同一天仅保留一条）。
+     * @param username 用户名。
+     * @param role 角色。
+     * @param activeDate 活跃日期。
+     * @param activeAt 活跃时间。
+     * @return 影响行数。
+     */
+    int insertDailyActive(@Param("username") String username,
+                          @Param("role") String role,
+                          @Param("activeDate") LocalDate activeDate,
+                          @Param("activeAt") LocalDateTime activeAt);
+
+    /**
+     * 统计指定日期活跃用户数。
+     * @param activeDate 活跃日期。
+     * @param role 角色。
+     * @return 活跃用户数。
+     */
+    long countDailyActive(@Param("activeDate") LocalDate activeDate,
+                          @Param("role") String role);
+
+    /**
+     * 查询日期区间内日活跃统计。
+     * @param startDate 开始日期（含）。
+     * @param endDate 结束日期（含）。
+     * @param role 角色。
+     * @return 统计列表。
+     */
+    List<UserDailyActiveStat> selectDailyActiveRange(@Param("startDate") LocalDate startDate,
+                                                     @Param("endDate") LocalDate endDate,
+                                                     @Param("role") String role);
 }

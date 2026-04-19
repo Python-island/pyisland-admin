@@ -1,5 +1,6 @@
 package com.pyisland.server.user.controller;
 
+import com.pyisland.server.user.entity.UserDailyActiveStat;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.policy.GenderPolicy;
 import com.pyisland.server.user.policy.PasswordPolicy;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -84,6 +87,50 @@ public class AppUserController {
                 "code", 200,
                 "message", "success",
                 "data", count
+        ));
+    }
+
+    /**
+     * 查询最近 N 天日活跃用户统计（普通用户）。
+     * @param days 统计天数，默认 7，最大 30。
+     * @return 日活统计。
+     */
+    @GetMapping("/daily-active")
+    public ResponseEntity<?> dailyActive(@RequestParam(defaultValue = "7") int days) {
+        int normalizedDays = Math.max(1, Math.min(days, 30));
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(normalizedDays - 1L);
+
+        List<UserDailyActiveStat> stats = userService.listDailyActiveRange(startDate, endDate, User.ROLE_USER);
+        Map<LocalDate, Long> countByDate = new HashMap<>();
+        for (UserDailyActiveStat stat : stats) {
+            if (stat == null || stat.getStatDate() == null) continue;
+            countByDate.put(stat.getStatDate(), stat.getActiveCount() == null ? 0L : stat.getActiveCount());
+        }
+
+        List<Map<String, Object>> series = new ArrayList<>();
+        long today = 0L;
+        for (int i = 0; i < normalizedDays; i++) {
+            LocalDate date = startDate.plusDays(i);
+            long count = countByDate.getOrDefault(date, 0L);
+            if (date.equals(endDate)) {
+                today = count;
+            }
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("date", date.toString());
+            point.put("count", count);
+            series.add(point);
+        }
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("today", today);
+        data.put("days", normalizedDays);
+        data.put("series", series);
+
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", data
         ));
     }
 

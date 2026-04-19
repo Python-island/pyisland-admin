@@ -284,6 +284,7 @@ CREATE TABLE IF NOT EXISTS wallpaper_asset (
     file_size          BIGINT,
     tags_text          TEXT,
     copyright_declared TINYINT(1) NOT NULL DEFAULT 0,
+    copyright_info     TEXT,
     rating_avg         DECIMAL(4,2) NOT NULL DEFAULT 0,
     rating_count       BIGINT NOT NULL DEFAULT 0,
     download_count     BIGINT NOT NULL DEFAULT 0,
@@ -298,6 +299,22 @@ CREATE TABLE IF NOT EXISTS wallpaper_asset (
     KEY idx_wallpaper_asset_type (type),
     KEY idx_wallpaper_asset_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @wallpaper_asset_copyright_info_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'wallpaper_asset'
+      AND COLUMN_NAME = 'copyright_info'
+);
+SET @wallpaper_asset_copyright_info_sql := IF(
+    @wallpaper_asset_copyright_info_exists = 0,
+    'ALTER TABLE wallpaper_asset ADD COLUMN copyright_info TEXT AFTER copyright_declared',
+    'SELECT 1'
+);
+PREPARE wallpaper_asset_copyright_info_stmt FROM @wallpaper_asset_copyright_info_sql;
+EXECUTE wallpaper_asset_copyright_info_stmt;
+DEALLOCATE PREPARE wallpaper_asset_copyright_info_stmt;
 
 CREATE TABLE IF NOT EXISTS wallpaper_version (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -316,6 +333,15 @@ CREATE TABLE IF NOT EXISTS wallpaper_version (
     created_at     DATETIME NOT NULL,
     UNIQUE KEY uk_wallpaper_version_no (wallpaper_id, version_no),
     KEY idx_wallpaper_version_wallpaper (wallpaper_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallpaper_video_meta (
+    wallpaper_id   BIGINT PRIMARY KEY,
+    duration_ms    BIGINT,
+    frame_rate     DECIMAL(6,3),
+    created_at     DATETIME NOT NULL,
+    updated_at     DATETIME NOT NULL,
+    KEY idx_wallpaper_video_meta_updated_at (updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS wallpaper_review_log (
@@ -401,4 +427,14 @@ CREATE TABLE IF NOT EXISTS wallpaper_tag_ref (
     created_at   DATETIME NOT NULL,
     PRIMARY KEY (wallpaper_id, tag_id),
     KEY idx_wallpaper_tag_ref_tag (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_active_daily (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username    VARCHAR(100) NOT NULL,
+    role        VARCHAR(20) NOT NULL DEFAULT 'user',
+    active_date DATE NOT NULL,
+    active_at   DATETIME NOT NULL,
+    UNIQUE KEY uk_user_active_daily_user_role_date (username, role, active_date),
+    KEY idx_user_active_daily_date_role (active_date, role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -115,4 +115,31 @@
         WHERE username = #{username}
     </update>
 
+    <insert id="insertDailyActive">
+        INSERT IGNORE INTO user_active_daily (username, role, active_date, active_at)
+        VALUES (#{username}, #{role}, #{activeDate}, #{activeAt})
+    </insert>
+
+    <select id="countDailyActive" resultType="long">
+        SELECT COUNT(*)
+        FROM user_active_daily
+        WHERE active_date = #{activeDate}
+        <if test="role != null">
+            AND role = #{role}
+        </if>
+    </select>
+
+    <select id="selectDailyActiveRange" resultType="com.pyisland.server.user.entity.UserDailyActiveStat">
+        SELECT active_date AS statDate,
+               COUNT(*) AS activeCount
+        FROM user_active_daily
+        WHERE active_date <![CDATA[>=]]> #{startDate}
+          AND active_date <![CDATA[<=]]> #{endDate}
+        <if test="role != null">
+            AND role = #{role}
+        </if>
+        GROUP BY active_date
+        ORDER BY active_date ASC
+    </select>
+
 </mapper>

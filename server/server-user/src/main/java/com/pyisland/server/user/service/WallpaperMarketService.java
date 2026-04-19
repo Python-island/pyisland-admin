@@ -11,14 +11,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 public class WallpaperMarketService {
 
     private static final long MAX_IMAGE_SIZE = 20L * 1024 * 1024;
+    private static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024;
 
     private final WallpaperMarketMapper mapper;
     private final WallpaperR2StorageService wallpaperR2StorageService;
@@ -51,13 +55,21 @@ public class WallpaperMarketService {
                        String type,
                        String tagsText,
                        boolean copyrightDeclared,
+                       String copyrightInfo,
                        MultipartFile original,
                        MultipartFile thumb320,
                        MultipartFile thumb720,
                        MultipartFile thumb1280,
                        Integer width,
-                       Integer height) throws IOException {
-        validateImageFile(original);
+                       Integer height,
+                       Long durationMs,
+                       BigDecimal frameRate) throws IOException {
+        String normalizedType = normalizeType(type);
+        if ("video".equals(normalizedType)) {
+            validateVideoFile(original);
+        } else {
+            validateImageFile(original);
+        }
         validateImageFile(thumb320);
         validateImageFile(thumb720);
         validateImageFile(thumb1280);
@@ -72,7 +84,7 @@ public class WallpaperMarketService {
         asset.setOwnerUsername(ownerUsername);
         asset.setTitle(safeTitle(title));
         asset.setDescription(safeText(description, 2000));
-        asset.setType(normalizeType(type));
+        asset.setType(normalizedType);
         asset.setStatus("pending");
         asset.setOriginalUrl(originalUrl);
         asset.setThumb320Url(thumb320Url);
@@ -83,6 +95,7 @@ public class WallpaperMarketService {
         asset.setFileSize(original.getSize());
         asset.setTagsText(safeText(tagsText, 500));
         asset.setCopyrightDeclared(copyrightDeclared);
+        asset.setCopyrightInfo(copyrightDeclared ? safeText(copyrightInfo, 500) : "");
         asset.setRatingAvg(java.math.BigDecimal.ZERO);
         asset.setRatingCount(0L);
         asset.setDownloadCount(0L);
@@ -93,6 +106,14 @@ public class WallpaperMarketService {
         asset.setUpdatedAt(now);
         asset.setPublishedAt(null);
         mapper.insertAsset(asset);
+
+        if ("video".equals(normalizedType)) {
+            mapper.upsertVideoMeta(asset.getId(),
+                    safeDurationMs(durationMs),
+                    safeFrameRate(frameRate),
+                    now,
+                    now);
+        }
 
         mapper.insertVersion(asset.getId(),
                 1,
@@ -126,6 +147,16 @@ public class WallpaperMarketService {
     }
 
     @Cacheable(
+        cacheNames = "wallpaper-list",
+        key = "'total:' + (#keyword ?: '') + ':' + (#type ?: '')",
+        cacheManager = "wallpaperCacheManager",
+        unless = "#result == null"
+    )
+    public long countPublished(String keyword, String type) {
+        return mapper.countPublished(safeText(keyword, 100), normalizeTypeAllowBlank(type));
+    }
+
+    @Cacheable(
         cacheNames = "wallpaper-my-list",
         key = "#ownerUsername + ':' + (#keyword ?: '') + ':' + (#type ?: '') + ':' + (#sortBy ?: '') + ':' + #page + ':' + #pageSize",
         cacheManager = "wallpaperCacheManager",
@@ -141,6 +172,18 @@ public class WallpaperMarketService {
                 normalizeSort(sortBy),
                 offset,
                 safeSize);
+    }
+
+    @Cacheable(
+        cacheNames = "wallpaper-my-list",
+        key = "'total:' + #ownerUsername + ':' + (#keyword ?: '') + ':' + (#type ?: '')",
+        cacheManager = "wallpaperCacheManager",
+        unless = "#result == null"
+    )
+    public long countOwn(String ownerUsername, String keyword, String type) {
+        return mapper.countMine(ownerUsername,
+                safeText(keyword, 100),
+                normalizeTypeAllowBlank(type));
     }
 
     @Cacheable(
@@ -162,17 +205,23 @@ public class WallpaperMarketService {
                                        String title,
                                        String description,
                                        String type,
-                                       String tagsText) {
+                                       String tagsText,
+                                       String copyrightInfo) {
         String safeTags = safeText(tagsText, 500);
+        String normalizedType = normalizeType(type);
         int updated = mapper.updateOwnerMetadata(id,
                 ownerUsername,
                 safeTitle(title),
                 safeText(description, 2000),
-                normalizeType(type),
+                normalizedType,
                 safeTags,
+                safeText(copyrightInfo, 500),
                 LocalDateTime.now());
         if (updated <= 0) {
             return false;
+        }
+        if (!"video".equals(normalizedType)) {
+            mapper.deleteVideoMetaByWallpaperId(id);
         }
         tagService.syncTagsForWallpaper(id, safeTags, ownerUsername);
         return true;
@@ -190,8 +239,9 @@ public class WallpaperMarketService {
                                       MultipartFile thumb1280,
                                       Integer width,
                                       Integer height,
+                                      Long durationMs,
+                                      BigDecimal frameRate,
                                       String reason) throws IOException {
-        validateImageFile(original);
         validateImageFile(thumb320);
         validateImageFile(thumb720);
         validateImageFile(thumb1280);
@@ -199,6 +249,13 @@ public class WallpaperMarketService {
         Map<String, Object> current = mapper.selectAssetById(id);
         if (current == null || current.isEmpty() || !Objects.equals(ownerUsername, current.get("ownerUsername"))) {
             return false;
+        }
+        String currentTypeRaw = current.get("type") == null ? "image" : String.valueOf(current.get("type"));
+        String currentType = normalizeType(currentTypeRaw);
+        if ("video".equals(currentType)) {
+            validateVideoFile(original);
+        } else {
+            validateImageFile(original);
         }
 
         String originalUrl = wallpaperR2StorageService.upload(original, "wallpapers/original");
@@ -234,6 +291,16 @@ public class WallpaperMarketService {
                 ownerUsername,
                 safeText(reason, 300),
                 now);
+
+        if ("video".equals(currentType)) {
+            mapper.upsertVideoMeta(id,
+                    safeDurationMs(durationMs),
+                    safeFrameRate(frameRate),
+                    now,
+                    now);
+        } else {
+            mapper.deleteVideoMetaByWallpaperId(id);
+        }
         return true;
     }
 
@@ -242,9 +309,15 @@ public class WallpaperMarketService {
         @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
     })
     public boolean deleteOwnerWallpaper(Long id, String ownerUsername) {
+        Map<String, Object> current = mapper.selectAssetById(id);
+        if (current == null || current.isEmpty() || !Objects.equals(ownerUsername, current.get("ownerUsername"))) {
+            return false;
+        }
         boolean removed = mapper.markOwnerDeleted(id, ownerUsername, LocalDateTime.now()) > 0;
         if (removed) {
+            mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
+            purgeR2Assets(id, current);
         }
         return removed;
     }
@@ -254,11 +327,50 @@ public class WallpaperMarketService {
         @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
     })
     public boolean adminDeleteWallpaper(Long id) {
+        Map<String, Object> current = mapper.selectAssetById(id);
+        if (current == null || current.isEmpty()) {
+            return false;
+        }
         boolean removed = mapper.markAdminDeleted(id, LocalDateTime.now()) > 0;
         if (removed) {
+            mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
+            purgeR2Assets(id, current);
         }
         return removed;
+    }
+
+    /**
+     * 清理壁纸当前与所有历史版本在 R2 上的对象；失败不回滚数据库软删除，仅打警告。
+     */
+    private void purgeR2Assets(Long id, Map<String, Object> current) {
+        Set<String> urls = new LinkedHashSet<>();
+        collectUrl(urls, current.get("originalUrl"));
+        collectUrl(urls, current.get("thumb320Url"));
+        collectUrl(urls, current.get("thumb720Url"));
+        collectUrl(urls, current.get("thumb1280Url"));
+        try {
+            List<Map<String, Object>> versions = mapper.listVersionAssetUrls(id);
+            if (versions != null) {
+                for (Map<String, Object> row : versions) {
+                    collectUrl(urls, row.get("originalUrl"));
+                    collectUrl(urls, row.get("thumb320Url"));
+                    collectUrl(urls, row.get("thumb720Url"));
+                    collectUrl(urls, row.get("thumb1280Url"));
+                }
+            }
+        } catch (Exception ignored) {
+            // ignore version lookup failure; fall back to current-asset purge only
+        }
+        if (!urls.isEmpty()) {
+            wallpaperR2StorageService.deleteAll(urls);
+        }
+    }
+
+    private void collectUrl(Set<String> bag, Object value) {
+        if (value == null) return;
+        String s = value.toString().trim();
+        if (!s.isEmpty()) bag.add(s);
     }
 
     @Caching(evict = {
@@ -332,20 +444,26 @@ public class WallpaperMarketService {
                                        String description,
                                        String type,
                                        String tagsText,
+                                       String copyrightInfo,
                                        String status) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime publishedAt = "published".equalsIgnoreCase(status) ? now : null;
         String safeTags = safeText(tagsText, 500);
+        String normalizedType = normalizeType(type);
         int updated = mapper.updateAdminMetadata(id,
                 safeTitle(title),
                 safeText(description, 2000),
-                normalizeType(type),
+                normalizedType,
                 safeTags,
+                safeText(copyrightInfo, 500),
                 safeText(status, 20),
                 now,
                 publishedAt);
         if (updated <= 0) {
             return false;
+        }
+        if (!"video".equals(normalizedType)) {
+            mapper.deleteVideoMetaByWallpaperId(id);
         }
         Map<String, Object> current = mapper.selectAssetById(id);
         String ownerUsername = current == null ? null : (String) current.get("ownerUsername");
@@ -427,6 +545,44 @@ public class WallpaperMarketService {
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new IllegalArgumentException("仅支持图片文件");
         }
+    }
+
+    private void validateVideoFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+        if (file.getSize() > MAX_VIDEO_SIZE) {
+            throw new IllegalArgumentException("视频大小不能超过 100MB");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("video/")) {
+            throw new IllegalArgumentException("仅支持视频文件");
+        }
+        String filename = file.getOriginalFilename();
+        String lower = filename == null ? "" : filename.toLowerCase();
+        if (!lower.endsWith(".mp4") && !lower.endsWith(".mov")) {
+            throw new IllegalArgumentException("仅支持 mp4/mov 视频文件");
+        }
+    }
+
+    private Long safeDurationMs(Long durationMs) {
+        if (durationMs == null || durationMs <= 0) {
+            return null;
+        }
+        return durationMs;
+    }
+
+    private BigDecimal safeFrameRate(BigDecimal frameRate) {
+        if (frameRate == null) {
+            return null;
+        }
+        if (frameRate.signum() <= 0) {
+            return null;
+        }
+        if (frameRate.compareTo(new BigDecimal("240")) > 0) {
+            return new BigDecimal("240");
+        }
+        return frameRate;
     }
 
     private boolean checkRateLimit(String key, int windowSeconds, int maxCount) {

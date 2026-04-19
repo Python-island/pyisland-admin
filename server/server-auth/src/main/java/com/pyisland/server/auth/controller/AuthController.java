@@ -186,6 +186,7 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(user.getUsername(), User.ROLE_USER);
         userService.updateSessionToken(user.getUsername(), token);
+        userService.recordDailyActive(user.getUsername(), User.ROLE_USER);
         log.info("user register success username={}", user.getUsername());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -220,6 +221,7 @@ public class AuthController {
         authRateLimiter.recordLoginSuccess(rateKey);
         String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
         userService.updateSessionToken(user.getUsername(), token);
+        userService.recordDailyActive(user.getUsername(), user.getRole());
         log.info("{} login success username={}", expectedRole, user.getUsername());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -258,6 +260,7 @@ public class AuthController {
         authRateLimiter.recordLoginSuccess(rateKey);
         String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
         userService.updateSessionToken(user.getUsername(), token);
+        userService.recordDailyActive(user.getUsername(), user.getRole());
         log.info("{} login success username={}", expectedRole, user.getUsername());
 
         Map<String, Object> data = new LinkedHashMap<>();

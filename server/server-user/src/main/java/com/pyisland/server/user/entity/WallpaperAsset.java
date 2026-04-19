@@ -20,9 +20,12 @@ public class WallpaperAsset {
     private String thumb1280Url;
     private Integer width;
     private Integer height;
+    private Long durationMs;
+    private BigDecimal frameRate;
     private Long fileSize;
     private String tagsText;
     private Boolean copyrightDeclared;
+    private String copyrightInfo;
     private BigDecimal ratingAvg;
     private Long ratingCount;
     private Long downloadCount;
@@ -129,6 +132,22 @@ public class WallpaperAsset {
         this.height = height;
     }
 
+    public Long getDurationMs() {
+        return durationMs;
+    }
+
+    public void setDurationMs(Long durationMs) {
+        this.durationMs = durationMs;
+    }
+
+    public BigDecimal getFrameRate() {
+        return frameRate;
+    }
+
+    public void setFrameRate(BigDecimal frameRate) {
+        this.frameRate = frameRate;
+    }
+
     public Long getFileSize() {
         return fileSize;
     }
@@ -151,6 +170,14 @@ public class WallpaperAsset {
 
     public void setCopyrightDeclared(Boolean copyrightDeclared) {
         this.copyrightDeclared = copyrightDeclared;
+    }
+
+    public String getCopyrightInfo() {
+        return copyrightInfo;
+    }
+
+    public void setCopyrightInfo(String copyrightInfo) {
+        this.copyrightInfo = copyrightInfo;
     }
 
     public BigDecimal getRatingAvg() {

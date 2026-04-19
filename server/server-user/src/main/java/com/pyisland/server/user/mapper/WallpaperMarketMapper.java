@@ -4,6 +4,7 @@ import com.pyisland.server.user.entity.WallpaperAsset;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,17 @@ public interface WallpaperMarketMapper {
                       @Param("reason") String reason,
                       @Param("createdAt") LocalDateTime createdAt);
 
+    int upsertVideoMeta(@Param("wallpaperId") Long wallpaperId,
+                        @Param("durationMs") Long durationMs,
+                        @Param("frameRate") BigDecimal frameRate,
+                        @Param("createdAt") LocalDateTime createdAt,
+                        @Param("updatedAt") LocalDateTime updatedAt);
+
+    int deleteVideoMetaByWallpaperId(@Param("wallpaperId") Long wallpaperId);
+
     Map<String, Object> selectAssetById(@Param("id") Long id);
+
+    List<Map<String, Object>> listVersionAssetUrls(@Param("wallpaperId") Long wallpaperId);
 
     List<Map<String, Object>> listPublished(@Param("keyword") String keyword,
                                             @Param("type") String type,
@@ -37,12 +48,19 @@ public interface WallpaperMarketMapper {
                                             @Param("offset") int offset,
                                             @Param("limit") int limit);
 
+    long countPublished(@Param("keyword") String keyword,
+                        @Param("type") String type);
+
     List<Map<String, Object>> listMine(@Param("ownerUsername") String ownerUsername,
                                        @Param("keyword") String keyword,
                                        @Param("type") String type,
                                        @Param("sortBy") String sortBy,
                                        @Param("offset") int offset,
                                        @Param("limit") int limit);
+
+    long countMine(@Param("ownerUsername") String ownerUsername,
+                   @Param("keyword") String keyword,
+                   @Param("type") String type);
 
     List<Map<String, Object>> listAdmin(@Param("keyword") String keyword,
                                         @Param("type") String type,
@@ -56,6 +74,7 @@ public interface WallpaperMarketMapper {
                             @Param("description") String description,
                             @Param("type") String type,
                             @Param("tagsText") String tagsText,
+                            @Param("copyrightInfo") String copyrightInfo,
                             @Param("updatedAt") LocalDateTime updatedAt);
 
     int updateAdminMetadata(@Param("id") Long id,
@@ -63,6 +82,7 @@ public interface WallpaperMarketMapper {
                             @Param("description") String description,
                             @Param("type") String type,
                             @Param("tagsText") String tagsText,
+                            @Param("copyrightInfo") String copyrightInfo,
                             @Param("status") String status,
                             @Param("updatedAt") LocalDateTime updatedAt,
                             @Param("publishedAt") LocalDateTime publishedAt);

@@ -47,6 +47,7 @@ public class WallpaperAdminController {
                     request.description(),
                     request.type(),
                     request.tags(),
+                    request.copyrightInfo(),
                     request.status());
             if (!ok) {
                 return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在"));
@@ -124,6 +125,7 @@ public class WallpaperAdminController {
                                        String description,
                                        String type,
                                        String tags,
+                                       String copyrightInfo,
                                        String status) {
     }
 

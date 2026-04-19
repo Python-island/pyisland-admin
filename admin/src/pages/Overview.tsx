@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { version, adminUsers, appUsers, apiStatus, type AppVersion } from "../api";
+import { version, adminUsers, appUsers, apiStatus, type AppVersion, type DailyActiveStats } from "../api";
 
 const headingStyle: React.CSSProperties = {
   fontFamily: "var(--font-display)",
@@ -28,16 +28,18 @@ export default function Overview() {
   const [userCount, setUserCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(0);
   const [apiUnavailable, setApiUnavailable] = useState(0);
+  const [dailyActive, setDailyActive] = useState<DailyActiveStats>({ today: 0, days: 7, series: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, adminRes, userRes, sRes] = await Promise.all([
+        const [vRes, adminRes, userRes, sRes, dauRes] = await Promise.all([
           version.list(),
           adminUsers.count(),
           appUsers.count(),
           apiStatus.list(),
+          appUsers.dailyActive(7),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
         if (adminRes.code === 200 && adminRes.data !== undefined) setAdminCount(adminRes.data);
@@ -45,6 +47,9 @@ export default function Overview() {
         if (sRes.code === 200 && sRes.data) {
           setApiAvailable(sRes.data.filter((x) => x.status).length);
           setApiUnavailable(sRes.data.filter((x) => !x.status).length);
+        }
+        if (dauRes.code === 200 && dauRes.data) {
+          setDailyActive(dauRes.data);
         }
       } catch {
         /* ignore */
@@ -95,6 +100,7 @@ export default function Overview() {
       {/* Stats */}
       <div className="flex" style={{ gap: 20, marginBottom: 32 }}>
         <UserCountCard userCount={userCount} adminCount={adminCount} />
+        <DailyActiveCard data={dailyActive} />
         <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
         <StatCard label="应用版本数" value={versions.length} />
         <VersionUpdateCard versions={versions} />
@@ -361,6 +367,85 @@ function UserCountCard({ userCount, adminCount }: { userCount: number; adminCoun
             {adminCount}
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>管理员</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DailyActiveCard({ data }: { data: DailyActiveStats }) {
+  const total = data.series.reduce((sum, item) => sum + (item.count || 0), 0);
+  const avg = data.series.length > 0 ? (total / data.series.length) : 0;
+  const avgText = Number.isFinite(avg) ? avg.toFixed(1) : "0.0";
+  const latestDate = data.series.length > 0 ? data.series[data.series.length - 1].date : "-";
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        backgroundColor: "var(--apple-surface-1)",
+        borderRadius: 12,
+        padding: "24px 28px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          lineHeight: 1.33,
+          letterSpacing: "-0.12px",
+          color: "rgba(255,255,255,0.48)",
+          textTransform: "uppercase",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <span>日活跃用户</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.56)",
+            textTransform: "none",
+            letterSpacing: 0,
+          }}
+          title="最近统计日期"
+        >
+          {latestDate}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "#ffffff",
+            }}
+          >
+            {data.today}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>今日活跃</div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 34,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "var(--apple-link-dark)",
+            }}
+          >
+            {avgText}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>近{data.days}天均值</div>
         </div>
       </div>
     </div>

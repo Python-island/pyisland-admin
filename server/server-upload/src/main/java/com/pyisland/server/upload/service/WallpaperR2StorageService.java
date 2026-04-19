@@ -1,5 +1,7 @@
 package com.pyisland.server.upload.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,10 +11,12 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collection;
 import java.util.UUID;
 
 /**
@@ -20,6 +24,8 @@ import java.util.UUID;
  */
 @Service
 public class WallpaperR2StorageService {
+
+    private static final Logger log = LoggerFactory.getLogger(WallpaperR2StorageService.class);
 
     @Value("${cloudflare.wallpaper-r2.endpoint}")
     private String endpoint;
@@ -80,5 +86,59 @@ public class WallpaperR2StorageService {
         }
         String base = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         return base + "/" + bucketName + "/" + safeKey;
+    }
+
+    /**
+     * 批量删除壁纸市场对象存储中的资源。
+     * 支持传入公开域名 URL 或 endpoint/bucket 形式 URL；无法解析的 URL 会被忽略。
+     * @param publicUrls 已入库的公网 URL 列表。
+     */
+    public void deleteAll(Collection<String> publicUrls) {
+        if (publicUrls == null || publicUrls.isEmpty()) return;
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, accessKeySecret);
+        try (S3Client s3Client = S3Client.builder()
+                .region(Region.of("auto"))
+                .endpointOverride(URI.create(endpoint))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+                .build()) {
+            for (String url : publicUrls) {
+                String key = extractObjectKey(url);
+                if (key == null || key.isBlank()) continue;
+                try {
+                    s3Client.deleteObject(DeleteObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(key)
+                            .build());
+                } catch (Exception ex) {
+                    log.warn("Failed to delete wallpaper R2 object: key={}, reason={}", key, ex.getMessage());
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to initialize S3 client for wallpaper R2 delete: {}", ex.getMessage());
+        }
+    }
+
+    /**
+     * 从已入库的公网 URL 反推 R2 对象 key。不匹配当前桶或域名时返回 null。
+     */
+    private String extractObjectKey(String url) {
+        if (url == null || url.isBlank()) return null;
+        String trimmed = url.trim();
+        if (publicDomain != null && !publicDomain.isBlank()) {
+            String domain = publicDomain.startsWith("http") ? publicDomain : "https://" + publicDomain;
+            String prefix = domain.endsWith("/") ? domain : domain + "/";
+            if (trimmed.startsWith(prefix)) {
+                return trimmed.substring(prefix.length());
+            }
+        }
+        if (endpoint != null && !endpoint.isBlank()) {
+            String base = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
+            String prefix = base + "/" + bucketName + "/";
+            if (trimmed.startsWith(prefix)) {
+                return trimmed.substring(prefix.length());
+            }
+        }
+        return null;
     }
 }
