@@ -126,6 +126,17 @@ export interface AdminUserInfo {
   createdAt: string;
 }
 
+export interface DailyActivePoint {
+  date: string;
+  count: number;
+}
+
+export interface DailyActiveStats {
+  today: number;
+  days: number;
+  series: DailyActivePoint[];
+}
+
 export type Gender = "male" | "female" | "custom" | "undisclosed";
 
 export interface AppUserInfo {
@@ -495,6 +506,11 @@ export const appUsers = {
   },
   count() {
     return request<ApiResponse<number>>("/v1/app-users/count");
+  },
+  dailyActive(days = 7) {
+    return request<ApiResponse<DailyActiveStats>>(
+      `/v1/app-users/daily-active?days=${encodeURIComponent(String(days))}`
+    );
   },
   add(
     username: string,

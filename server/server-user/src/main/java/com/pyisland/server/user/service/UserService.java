@@ -1,5 +1,6 @@
 package com.pyisland.server.user.service;
 
+import com.pyisland.server.user.entity.UserDailyActiveStat;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.mapper.UserMapper;
 import com.pyisland.server.user.policy.PasswordHashService;
@@ -252,5 +253,43 @@ public class UserService {
      */
     public boolean updateEmail(String username, String email) {
         return userMapper.updateEmail(username, email) > 0;
+    }
+
+    /**
+     * 记录日活跃（同一用户同一天仅记一次）。
+     * @param username 用户名。
+     * @param role 角色。
+     */
+    public void recordDailyActive(String username, String role) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        String normalizedRole = (role == null || role.isBlank()) ? User.ROLE_USER : role;
+        userMapper.insertDailyActive(username.trim(), normalizedRole, LocalDate.now(), LocalDateTime.now());
+    }
+
+    /**
+     * 统计指定日期日活跃用户数。
+     * @param activeDate 统计日期。
+     * @param role 角色。
+     * @return 日活跃数。
+     */
+    public long countDailyActive(LocalDate activeDate, String role) {
+        LocalDate targetDate = activeDate == null ? LocalDate.now() : activeDate;
+        return userMapper.countDailyActive(targetDate, role);
+    }
+
+    /**
+     * 查询日期区间内的日活跃统计。
+     * @param startDate 开始日期（含）。
+     * @param endDate 结束日期（含）。
+     * @param role 角色。
+     * @return 日活跃统计列表。
+     */
+    public List<UserDailyActiveStat> listDailyActiveRange(LocalDate startDate, LocalDate endDate, String role) {
+        if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
+            return List.of();
+        }
+        return userMapper.selectDailyActiveRange(startDate, endDate, role);
     }
 }

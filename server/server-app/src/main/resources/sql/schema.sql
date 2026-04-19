@@ -428,3 +428,13 @@ CREATE TABLE IF NOT EXISTS wallpaper_tag_ref (
     PRIMARY KEY (wallpaper_id, tag_id),
     KEY idx_wallpaper_tag_ref_tag (tag_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_active_daily (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username    VARCHAR(100) NOT NULL,
+    role        VARCHAR(20) NOT NULL DEFAULT 'user',
+    active_date DATE NOT NULL,
+    active_at   DATETIME NOT NULL,
+    UNIQUE KEY uk_user_active_daily_user_role_date (username, role, active_date),
+    KEY idx_user_active_daily_date_role (active_date, role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
