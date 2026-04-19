@@ -38,7 +38,8 @@ public class ClientVersionGateFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (!isClientApi(request.getRequestURI())) {
+        String servletPath = normalizePath(request.getServletPath());
+        if (!isClientApi(servletPath)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -75,6 +76,13 @@ public class ClientVersionGateFilter extends OncePerRequestFilter {
         return uri.startsWith("/auth/user/")
                 || uri.startsWith("/v1/user/")
                 || "/v1/upload/user-avatar".equals(uri);
+    }
+
+    private String normalizePath(String path) {
+        if (path != null && !path.isBlank()) {
+            return path;
+        }
+        return null;
     }
 
     private String normalize(String value) {
