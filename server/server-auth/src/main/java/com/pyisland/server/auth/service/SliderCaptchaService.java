@@ -19,6 +19,7 @@ import java.util.Base64;
 public class SliderCaptchaService {
 
     private static final int MAX_PENDING_CHALLENGES_PER_ACCOUNT = 3;
+    private static final int MAX_PENDING_CHALLENGES_PER_IP = 5;
 
     private final boolean enabled;
     private final String provider;
@@ -48,7 +49,7 @@ public class SliderCaptchaService {
         return new CaptchaConfig(enabled, provider, minValue, maxValue, tolerance, challengeTtlSeconds);
     }
 
-    public CaptchaChallenge createChallenge(String account) {
+    public CaptchaChallenge createChallenge(String account, String userIp) {
         if (!enabled) {
             return new CaptchaChallenge("", 0, 0, 0, 0);
         }
@@ -56,10 +57,17 @@ public class SliderCaptchaService {
             throw new IllegalStateException("暂不支持的滑块验证码提供方");
         }
         String normalizedAccount = normalizeAccount(account);
-        cleanupStaleChallenges(normalizedAccount);
+        String normalizedIp = normalizeIp(userIp);
+        cleanupStaleChallenges(keyAccountChallenges(normalizedAccount));
+        cleanupStaleChallenges(keyIpChallenges(normalizedIp));
+
         Long pendingCount = sliderCaptchaRedisTemplate.opsForSet().size(keyAccountChallenges(normalizedAccount));
         if (pendingCount != null && pendingCount >= MAX_PENDING_CHALLENGES_PER_ACCOUNT) {
             throw new TooManyPendingChallengesException("当前账户存在未完成的滑块验证，请完成后再重试");
+        }
+        Long pendingIpCount = sliderCaptchaRedisTemplate.opsForSet().size(keyIpChallenges(normalizedIp));
+        if (pendingIpCount != null && pendingIpCount >= MAX_PENDING_CHALLENGES_PER_IP) {
+            throw new TooManyPendingChallengesException("当前IP存在未完成的滑块验证过多，请完成后再重试");
         }
 
         int target = ThreadLocalRandom.current().nextInt(minValue, maxValue + 1);
@@ -71,8 +79,11 @@ public class SliderCaptchaService {
                 ttl
         );
         sliderCaptchaRedisTemplate.opsForValue().set(keyChallengeOwner(challengeId), normalizedAccount, ttl);
+        sliderCaptchaRedisTemplate.opsForValue().set(keyChallengeIpOwner(challengeId), normalizedIp, ttl);
         sliderCaptchaRedisTemplate.opsForSet().add(keyAccountChallenges(normalizedAccount), challengeId);
+        sliderCaptchaRedisTemplate.opsForSet().add(keyIpChallenges(normalizedIp), challengeId);
         sliderCaptchaRedisTemplate.expire(keyAccountChallenges(normalizedAccount), ttl.plusSeconds(10));
+        sliderCaptchaRedisTemplate.expire(keyIpChallenges(normalizedIp), ttl.plusSeconds(10));
         return new CaptchaChallenge(challengeId, minValue, maxValue, target, tolerance);
     }
 
@@ -95,10 +106,15 @@ public class SliderCaptchaService {
                 return VerifyResult.failed(400, "滑块挑战已失效，请重新验证");
             }
             String owner = sliderCaptchaRedisTemplate.opsForValue().get(keyChallengeOwner(challengeId));
+            String ownerIp = sliderCaptchaRedisTemplate.opsForValue().get(keyChallengeIpOwner(challengeId));
             sliderCaptchaRedisTemplate.delete(key);
             sliderCaptchaRedisTemplate.delete(keyChallengeOwner(challengeId));
+            sliderCaptchaRedisTemplate.delete(keyChallengeIpOwner(challengeId));
             if (owner != null && !owner.isBlank()) {
                 sliderCaptchaRedisTemplate.opsForSet().remove(keyAccountChallenges(owner), challengeId);
+            }
+            if (ownerIp != null && !ownerIp.isBlank()) {
+                sliderCaptchaRedisTemplate.opsForSet().remove(keyIpChallenges(ownerIp), challengeId);
             }
             int target = Integer.parseInt(targetRaw.trim());
             if (Math.abs(value - target) > tolerance) {
@@ -118,24 +134,31 @@ public class SliderCaptchaService {
         return "verify:slider:challenge-owner:" + challengeId;
     }
 
+    private String keyChallengeIpOwner(String challengeId) {
+        return "verify:slider:challenge-ip-owner:" + challengeId;
+    }
+
     private String keyAccountChallenges(String account) {
         return "verify:slider:account:challenges:" + encodeAccount(account);
     }
 
-    private void cleanupStaleChallenges(String account) {
-        String accountKey = keyAccountChallenges(account);
-        Set<String> challengeIds = sliderCaptchaRedisTemplate.opsForSet().members(accountKey);
+    private String keyIpChallenges(String ip) {
+        return "verify:slider:ip:challenges:" + encodeAccount(ip);
+    }
+
+    private void cleanupStaleChallenges(String challengeSetKey) {
+        Set<String> challengeIds = sliderCaptchaRedisTemplate.opsForSet().members(challengeSetKey);
         if (challengeIds == null || challengeIds.isEmpty()) {
             return;
         }
         for (String challengeId : challengeIds) {
             if (challengeId == null || challengeId.isBlank()) {
-                sliderCaptchaRedisTemplate.opsForSet().remove(accountKey, challengeId);
+                sliderCaptchaRedisTemplate.opsForSet().remove(challengeSetKey, challengeId);
                 continue;
             }
             Boolean exists = sliderCaptchaRedisTemplate.hasKey(keyChallenge(challengeId));
             if (!Boolean.TRUE.equals(exists)) {
-                sliderCaptchaRedisTemplate.opsForSet().remove(accountKey, challengeId);
+                sliderCaptchaRedisTemplate.opsForSet().remove(challengeSetKey, challengeId);
             }
         }
     }
@@ -145,6 +168,13 @@ public class SliderCaptchaService {
             return "";
         }
         return account.trim().toLowerCase();
+    }
+
+    private String normalizeIp(String userIp) {
+        if (userIp == null || userIp.isBlank()) {
+            return "unknown";
+        }
+        return userIp.trim();
     }
 
     private String encodeAccount(String account) {

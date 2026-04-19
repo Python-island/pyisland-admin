@@ -48,7 +48,7 @@ public class EmailVerificationController {
     }
 
     @PostMapping("/captcha-challenge")
-    public ResponseEntity<Map<String, Object>> captchaChallenge(@RequestBody CaptchaChallengeRequest request) {
+    public ResponseEntity<Map<String, Object>> captchaChallenge(@RequestBody CaptchaChallengeRequest request, HttpServletRequest http) {
         if (request == null || request.account() == null || request.account().isBlank()) {
             return error(400, "账户不能为空");
         }
@@ -57,7 +57,7 @@ public class EmailVerificationController {
             return error(400, "账户格式不正确");
         }
         try {
-            SliderCaptchaService.CaptchaChallenge challenge = sliderCaptchaService.createChallenge(account);
+            SliderCaptchaService.CaptchaChallenge challenge = sliderCaptchaService.createChallenge(account, ClientIpUtil.resolve(http));
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("challengeId", challenge.challengeId());
             data.put("minValue", challenge.minValue());
