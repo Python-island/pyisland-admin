@@ -186,6 +186,7 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(user.getUsername(), User.ROLE_USER);
         userService.updateSessionToken(user.getUsername(), token);
+        userService.recordDailyActive(user.getUsername(), User.ROLE_USER);
         log.info("user register success username={}", user.getUsername());
 
         Map<String, Object> data = new LinkedHashMap<>();

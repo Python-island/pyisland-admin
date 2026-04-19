@@ -65,6 +65,7 @@ public class UserSelfController {
         if (user == null) {
             return ResponseEntity.status(404).body(Map.of("code", 404, "message", "用户不存在"));
         }
+        userService.recordDailyActive(caller, user.getRole());
         Map<String, Object> data = new HashMap<>();
         data.put("username", user.getUsername());
         data.put("email", user.getEmail());
