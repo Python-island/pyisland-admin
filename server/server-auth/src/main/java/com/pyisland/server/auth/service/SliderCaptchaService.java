@@ -33,14 +33,14 @@ public class SliderCaptchaService {
                                 @Value("${captcha.slider.provider:builtin}") String provider,
                                 @Value("${captcha.slider.builtin.min-value:0}") int minValue,
                                 @Value("${captcha.slider.builtin.max-value:100}") int maxValue,
-                                @Value("${captcha.slider.builtin.tolerance:3}") int tolerance,
+                                @Value("${captcha.slider.builtin.tolerance:0}") int tolerance,
                                 @Value("${captcha.slider.builtin.challenge-ttl-seconds:120}") long challengeTtlSeconds,
                                 @Qualifier("sliderCaptchaRedisTemplate") StringRedisTemplate sliderCaptchaRedisTemplate) {
         this.enabled = enabled;
         this.provider = provider == null ? "builtin" : provider.trim().toLowerCase();
         this.minValue = minValue;
         this.maxValue = Math.max(minValue + 10, maxValue);
-        this.tolerance = Math.max(1, tolerance);
+        this.tolerance = Math.max(0, tolerance);
         this.challengeTtlSeconds = Math.max(30, challengeTtlSeconds);
         this.sliderCaptchaRedisTemplate = sliderCaptchaRedisTemplate;
     }
