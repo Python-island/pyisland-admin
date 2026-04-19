@@ -21,6 +21,7 @@
         <result property="fileSize" column="file_size"/>
         <result property="tagsText" column="tags_text"/>
         <result property="copyrightDeclared" column="copyright_declared"/>
+        <result property="copyrightInfo" column="copyright_info"/>
         <result property="ratingAvg" column="rating_avg"/>
         <result property="ratingCount" column="rating_count"/>
         <result property="downloadCount" column="download_count"/>
@@ -36,13 +37,13 @@
         INSERT INTO wallpaper_asset
         (owner_username, title, description, type, status,
          original_url, thumb_320_url, thumb_720_url, thumb_1280_url,
-         width, height, file_size, tags_text, copyright_declared,
+         width, height, file_size, tags_text, copyright_declared, copyright_info,
          rating_avg, rating_count, download_count, apply_count,
          current_version, deleted, created_at, updated_at, published_at)
         VALUES
         (#{ownerUsername}, #{title}, #{description}, #{type}, #{status},
          #{originalUrl}, #{thumb320Url}, #{thumb720Url}, #{thumb1280Url},
-         #{width}, #{height}, #{fileSize}, #{tagsText}, #{copyrightDeclared},
+         #{width}, #{height}, #{fileSize}, #{tagsText}, #{copyrightDeclared}, #{copyrightInfo},
          #{ratingAvg}, #{ratingCount}, #{downloadCount}, #{applyCount},
          #{currentVersion}, #{deleted}, #{createdAt}, #{updatedAt}, #{publishedAt})
     </insert>
@@ -100,6 +101,7 @@
                wa.file_size AS fileSize,
                wa.tags_text AS tagsText,
                wa.copyright_declared AS copyrightDeclared,
+               wa.copyright_info AS copyrightInfo,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
                wa.download_count AS downloadCount,
@@ -131,6 +133,7 @@
                vm.duration_ms AS durationMs,
                vm.frame_rate AS frameRate,
                wa.tags_text AS tagsText,
+               wa.copyright_info AS copyrightInfo,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
                wa.download_count AS downloadCount,
@@ -194,6 +197,7 @@
                vm.duration_ms AS durationMs,
                vm.frame_rate AS frameRate,
                wa.tags_text AS tagsText,
+               wa.copyright_info AS copyrightInfo,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
                wa.download_count AS downloadCount,
@@ -256,6 +260,7 @@
                vm.duration_ms AS durationMs,
                vm.frame_rate AS frameRate,
                wa.tags_text AS tagsText,
+               wa.copyright_info AS copyrightInfo,
                wa.rating_avg AS ratingAvg,
                wa.rating_count AS ratingCount,
                wa.download_count AS downloadCount,
@@ -304,6 +309,7 @@
             description = #{description},
             type = #{type},
             tags_text = #{tagsText},
+            copyright_info = #{copyrightInfo},
             status = #{status},
             updated_at = #{updatedAt},
             published_at = #{publishedAt}

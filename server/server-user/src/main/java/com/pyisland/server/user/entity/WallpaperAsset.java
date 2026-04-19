@@ -25,6 +25,7 @@ public class WallpaperAsset {
     private Long fileSize;
     private String tagsText;
     private Boolean copyrightDeclared;
+    private String copyrightInfo;
     private BigDecimal ratingAvg;
     private Long ratingCount;
     private Long downloadCount;
@@ -169,6 +170,14 @@ public class WallpaperAsset {
 
     public void setCopyrightDeclared(Boolean copyrightDeclared) {
         this.copyrightDeclared = copyrightDeclared;
+    }
+
+    public String getCopyrightInfo() {
+        return copyrightInfo;
+    }
+
+    public void setCopyrightInfo(String copyrightInfo) {
+        this.copyrightInfo = copyrightInfo;
     }
 
     public BigDecimal getRatingAvg() {

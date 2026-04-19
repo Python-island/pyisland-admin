@@ -55,6 +55,7 @@ public class WallpaperMarketService {
                        String type,
                        String tagsText,
                        boolean copyrightDeclared,
+                       String copyrightInfo,
                        MultipartFile original,
                        MultipartFile thumb320,
                        MultipartFile thumb720,
@@ -94,6 +95,7 @@ public class WallpaperMarketService {
         asset.setFileSize(original.getSize());
         asset.setTagsText(safeText(tagsText, 500));
         asset.setCopyrightDeclared(copyrightDeclared);
+        asset.setCopyrightInfo(copyrightDeclared ? safeText(copyrightInfo, 500) : "");
         asset.setRatingAvg(java.math.BigDecimal.ZERO);
         asset.setRatingCount(0L);
         asset.setDownloadCount(0L);
@@ -440,6 +442,7 @@ public class WallpaperMarketService {
                                        String description,
                                        String type,
                                        String tagsText,
+                                       String copyrightInfo,
                                        String status) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime publishedAt = "published".equalsIgnoreCase(status) ? now : null;
@@ -450,6 +453,7 @@ public class WallpaperMarketService {
                 safeText(description, 2000),
                 normalizedType,
                 safeTags,
+                safeText(copyrightInfo, 500),
                 safeText(status, 20),
                 now,
                 publishedAt);

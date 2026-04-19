@@ -173,6 +173,7 @@ export interface WallpaperAdminItem {
   type: string;
   status: string;
   tagsText: string;
+  copyrightInfo?: string;
   originalUrl: string;
   thumb320Url?: string;
   thumb720Url?: string;
@@ -394,6 +395,7 @@ export const wallpaperAdmin = {
     description: string;
     type: string;
     tags: string;
+    copyrightInfo?: string;
     status: string;
   }) {
     return request<ApiResponse>("/v1/admin/wallpapers/metadata", {

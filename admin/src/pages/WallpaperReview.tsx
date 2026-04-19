@@ -71,6 +71,7 @@ export default function WallpaperReview() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editTags, setEditTags] = useState("");
+  const [editCopyrightInfo, setEditCopyrightInfo] = useState("");
   const [editType, setEditType] = useState("image");
   const [editStatus, setEditStatus] = useState("pending");
 
@@ -136,6 +137,7 @@ export default function WallpaperReview() {
     setEditTitle(selectedWallpaper.title || "");
     setEditDescription(selectedWallpaper.description || "");
     setEditTags(selectedWallpaper.tagsText || "");
+    setEditCopyrightInfo(selectedWallpaper.copyrightInfo || "");
     setEditType(selectedWallpaper.type || "image");
     setEditStatus(selectedWallpaper.status || "pending");
   }, [selectedWallpaper]);
@@ -169,6 +171,7 @@ export default function WallpaperReview() {
         description: editDescription,
         type: editType,
         tags: editTags,
+        copyrightInfo: editCopyrightInfo,
         status: editStatus,
       });
       if (res.code === 200) {
@@ -334,9 +337,18 @@ export default function WallpaperReview() {
               </>
             )}
           </div>
+          <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, marginBottom: 10 }}>
+            版权声明：{selectedWallpaper.copyrightInfo || "-"}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={inputStyle} placeholder="标题" />
             <input value={editTags} onChange={(e) => setEditTags(e.target.value)} style={inputStyle} placeholder="标签（逗号分隔）" />
+            <input
+              value={editCopyrightInfo}
+              onChange={(e) => setEditCopyrightInfo(e.target.value)}
+              style={{ ...inputStyle, gridColumn: "1 / -1" }}
+              placeholder="版权声明信息"
+            />
             <textarea
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}

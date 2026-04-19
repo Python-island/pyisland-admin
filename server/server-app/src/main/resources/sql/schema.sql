@@ -284,6 +284,7 @@ CREATE TABLE IF NOT EXISTS wallpaper_asset (
     file_size          BIGINT,
     tags_text          TEXT,
     copyright_declared TINYINT(1) NOT NULL DEFAULT 0,
+    copyright_info     TEXT,
     rating_avg         DECIMAL(4,2) NOT NULL DEFAULT 0,
     rating_count       BIGINT NOT NULL DEFAULT 0,
     download_count     BIGINT NOT NULL DEFAULT 0,
@@ -298,6 +299,22 @@ CREATE TABLE IF NOT EXISTS wallpaper_asset (
     KEY idx_wallpaper_asset_type (type),
     KEY idx_wallpaper_asset_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @wallpaper_asset_copyright_info_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'wallpaper_asset'
+      AND COLUMN_NAME = 'copyright_info'
+);
+SET @wallpaper_asset_copyright_info_sql := IF(
+    @wallpaper_asset_copyright_info_exists = 0,
+    'ALTER TABLE wallpaper_asset ADD COLUMN copyright_info TEXT AFTER copyright_declared',
+    'SELECT 1'
+);
+PREPARE wallpaper_asset_copyright_info_stmt FROM @wallpaper_asset_copyright_info_sql;
+EXECUTE wallpaper_asset_copyright_info_stmt;
+DEALLOCATE PREPARE wallpaper_asset_copyright_info_stmt;
 
 CREATE TABLE IF NOT EXISTS wallpaper_version (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,

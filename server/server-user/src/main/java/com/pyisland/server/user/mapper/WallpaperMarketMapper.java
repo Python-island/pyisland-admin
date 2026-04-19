@@ -81,6 +81,7 @@ public interface WallpaperMarketMapper {
                             @Param("description") String description,
                             @Param("type") String type,
                             @Param("tagsText") String tagsText,
+                            @Param("copyrightInfo") String copyrightInfo,
                             @Param("status") String status,
                             @Param("updatedAt") LocalDateTime updatedAt,
                             @Param("publishedAt") LocalDateTime publishedAt);
