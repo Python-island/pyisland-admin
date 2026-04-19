@@ -26,7 +26,7 @@ public class SliderCaptchaService {
     private final int maxValue;
     private final int tolerance;
     private final long challengeTtlSeconds;
-    private final StringRedisTemplate verificationRedisTemplate;
+    private final StringRedisTemplate sliderCaptchaRedisTemplate;
 
     public SliderCaptchaService(@Value("${captcha.slider.enabled:false}") boolean enabled,
                                 @Value("${captcha.slider.provider:builtin}") String provider,
@@ -34,14 +34,14 @@ public class SliderCaptchaService {
                                 @Value("${captcha.slider.builtin.max-value:100}") int maxValue,
                                 @Value("${captcha.slider.builtin.tolerance:3}") int tolerance,
                                 @Value("${captcha.slider.builtin.challenge-ttl-seconds:120}") long challengeTtlSeconds,
-                                @Qualifier("verificationRedisTemplate") StringRedisTemplate verificationRedisTemplate) {
+                                @Qualifier("sliderCaptchaRedisTemplate") StringRedisTemplate sliderCaptchaRedisTemplate) {
         this.enabled = enabled;
         this.provider = provider == null ? "builtin" : provider.trim().toLowerCase();
         this.minValue = minValue;
         this.maxValue = Math.max(minValue + 10, maxValue);
         this.tolerance = Math.max(1, tolerance);
         this.challengeTtlSeconds = Math.max(30, challengeTtlSeconds);
-        this.verificationRedisTemplate = verificationRedisTemplate;
+        this.sliderCaptchaRedisTemplate = sliderCaptchaRedisTemplate;
     }
 
     public CaptchaConfig currentConfig() {
@@ -57,7 +57,7 @@ public class SliderCaptchaService {
         }
         String normalizedAccount = normalizeAccount(account);
         cleanupStaleChallenges(normalizedAccount);
-        Long pendingCount = verificationRedisTemplate.opsForSet().size(keyAccountChallenges(normalizedAccount));
+        Long pendingCount = sliderCaptchaRedisTemplate.opsForSet().size(keyAccountChallenges(normalizedAccount));
         if (pendingCount != null && pendingCount >= MAX_PENDING_CHALLENGES_PER_ACCOUNT) {
             throw new TooManyPendingChallengesException("当前账户存在未完成的滑块验证，请完成后再重试");
         }
@@ -65,14 +65,14 @@ public class SliderCaptchaService {
         int target = ThreadLocalRandom.current().nextInt(minValue, maxValue + 1);
         String challengeId = UUID.randomUUID().toString().replace("-", "");
         Duration ttl = Duration.ofSeconds(challengeTtlSeconds);
-        verificationRedisTemplate.opsForValue().set(
+        sliderCaptchaRedisTemplate.opsForValue().set(
                 keyChallenge(challengeId),
                 String.valueOf(target),
                 ttl
         );
-        verificationRedisTemplate.opsForValue().set(keyChallengeOwner(challengeId), normalizedAccount, ttl);
-        verificationRedisTemplate.opsForSet().add(keyAccountChallenges(normalizedAccount), challengeId);
-        verificationRedisTemplate.expire(keyAccountChallenges(normalizedAccount), ttl.plusSeconds(10));
+        sliderCaptchaRedisTemplate.opsForValue().set(keyChallengeOwner(challengeId), normalizedAccount, ttl);
+        sliderCaptchaRedisTemplate.opsForSet().add(keyAccountChallenges(normalizedAccount), challengeId);
+        sliderCaptchaRedisTemplate.expire(keyAccountChallenges(normalizedAccount), ttl.plusSeconds(10));
         return new CaptchaChallenge(challengeId, minValue, maxValue, target, tolerance);
     }
 
@@ -90,15 +90,15 @@ public class SliderCaptchaService {
             String challengeId = ticket.trim();
             int value = Integer.parseInt(randstr.trim());
             String key = keyChallenge(challengeId);
-            String targetRaw = verificationRedisTemplate.opsForValue().get(key);
+            String targetRaw = sliderCaptchaRedisTemplate.opsForValue().get(key);
             if (targetRaw == null || targetRaw.isBlank()) {
                 return VerifyResult.failed(400, "滑块挑战已失效，请重新验证");
             }
-            String owner = verificationRedisTemplate.opsForValue().get(keyChallengeOwner(challengeId));
-            verificationRedisTemplate.delete(key);
-            verificationRedisTemplate.delete(keyChallengeOwner(challengeId));
+            String owner = sliderCaptchaRedisTemplate.opsForValue().get(keyChallengeOwner(challengeId));
+            sliderCaptchaRedisTemplate.delete(key);
+            sliderCaptchaRedisTemplate.delete(keyChallengeOwner(challengeId));
             if (owner != null && !owner.isBlank()) {
-                verificationRedisTemplate.opsForSet().remove(keyAccountChallenges(owner), challengeId);
+                sliderCaptchaRedisTemplate.opsForSet().remove(keyAccountChallenges(owner), challengeId);
             }
             int target = Integer.parseInt(targetRaw.trim());
             if (Math.abs(value - target) > tolerance) {
@@ -124,18 +124,18 @@ public class SliderCaptchaService {
 
     private void cleanupStaleChallenges(String account) {
         String accountKey = keyAccountChallenges(account);
-        Set<String> challengeIds = verificationRedisTemplate.opsForSet().members(accountKey);
+        Set<String> challengeIds = sliderCaptchaRedisTemplate.opsForSet().members(accountKey);
         if (challengeIds == null || challengeIds.isEmpty()) {
             return;
         }
         for (String challengeId : challengeIds) {
             if (challengeId == null || challengeId.isBlank()) {
-                verificationRedisTemplate.opsForSet().remove(accountKey, challengeId);
+                sliderCaptchaRedisTemplate.opsForSet().remove(accountKey, challengeId);
                 continue;
             }
-            Boolean exists = verificationRedisTemplate.hasKey(keyChallenge(challengeId));
+            Boolean exists = sliderCaptchaRedisTemplate.hasKey(keyChallenge(challengeId));
             if (!Boolean.TRUE.equals(exists)) {
-                verificationRedisTemplate.opsForSet().remove(accountKey, challengeId);
+                sliderCaptchaRedisTemplate.opsForSet().remove(accountKey, challengeId);
             }
         }
     }
