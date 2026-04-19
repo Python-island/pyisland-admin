@@ -48,9 +48,16 @@ public class EmailVerificationController {
     }
 
     @PostMapping("/captcha-challenge")
-    public ResponseEntity<Map<String, Object>> captchaChallenge() {
+    public ResponseEntity<Map<String, Object>> captchaChallenge(@RequestBody CaptchaChallengeRequest request) {
+        if (request == null || request.account() == null || request.account().isBlank()) {
+            return error(400, "账户不能为空");
+        }
+        String account = request.account().trim().toLowerCase(Locale.ROOT);
+        if (!EMAIL_PATTERN.matcher(account).matches() || account.length() > 150) {
+            return error(400, "账户格式不正确");
+        }
         try {
-            SliderCaptchaService.CaptchaChallenge challenge = sliderCaptchaService.createChallenge();
+            SliderCaptchaService.CaptchaChallenge challenge = sliderCaptchaService.createChallenge(account);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("challengeId", challenge.challengeId());
             data.put("minValue", challenge.minValue());
@@ -58,6 +65,8 @@ public class EmailVerificationController {
             data.put("targetValue", challenge.targetValue());
             data.put("tolerance", challenge.tolerance());
             return okData("success", data);
+        } catch (SliderCaptchaService.TooManyPendingChallengesException ex) {
+            return error(429, ex.getMessage());
         } catch (Exception ex) {
             return error(503, "滑块验证码服务暂不可用");
         }
@@ -198,6 +207,13 @@ public class EmailVerificationController {
      * @param captchaRandstr 滑块随机串。
      */
     public record SendCodeRequest(String email, String scene, String captchaTicket, String captchaRandstr) {
+    }
+
+    /**
+     * 创建滑块挑战请求。
+     * @param account 账户标识（当前为邮箱）。
+     */
+    public record CaptchaChallengeRequest(String account) {
     }
 
     /**
