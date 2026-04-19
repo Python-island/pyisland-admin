@@ -3,6 +3,7 @@ package com.pyisland.server.upload.controller;
 import com.pyisland.server.upload.service.OssService;
 import com.pyisland.server.upload.service.R2StorageService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +38,7 @@ public class UploadController {
      * @param file 头像文件。
      * @return 上传结果。
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/admin-avatar")
     public ResponseEntity<?> uploadAdminAvatar(@RequestParam("file") MultipartFile file) {
         return doUpload(file, true);
@@ -48,6 +50,7 @@ public class UploadController {
      * @param authentication 当前认证信息。
      * @return 上传结果。
      */
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     @PostMapping("/user-avatar")
     public ResponseEntity<?> uploadUserAvatar(@RequestParam("file") MultipartFile file,
                                               Authentication authentication) {
