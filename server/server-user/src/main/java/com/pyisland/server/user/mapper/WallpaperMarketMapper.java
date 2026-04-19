@@ -40,6 +40,8 @@ public interface WallpaperMarketMapper {
 
     Map<String, Object> selectAssetById(@Param("id") Long id);
 
+    List<Map<String, Object>> listVersionAssetUrls(@Param("wallpaperId") Long wallpaperId);
+
     List<Map<String, Object>> listPublished(@Param("keyword") String keyword,
                                             @Param("type") String type,
                                             @Param("sortBy") String sortBy,

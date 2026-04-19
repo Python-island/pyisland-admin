@@ -72,6 +72,15 @@
         WHERE wallpaper_id = #{wallpaperId}
     </delete>
 
+    <select id="listVersionAssetUrls" resultType="map">
+        SELECT original_url AS originalUrl,
+               thumb_320_url AS thumb320Url,
+               thumb_720_url AS thumb720Url,
+               thumb_1280_url AS thumb1280Url
+        FROM wallpaper_version
+        WHERE wallpaper_id = #{wallpaperId}
+    </select>
+
     <select id="selectAssetById" resultType="map">
         SELECT wa.id,
                wa.owner_username AS ownerUsername,

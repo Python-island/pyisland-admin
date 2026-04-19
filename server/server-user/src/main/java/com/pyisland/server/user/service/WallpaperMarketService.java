@@ -17,9 +17,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -281,10 +283,15 @@ public class WallpaperMarketService {
         @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
     })
     public boolean deleteOwnerWallpaper(Long id, String ownerUsername) {
+        Map<String, Object> current = mapper.selectAssetById(id);
+        if (current == null || current.isEmpty() || !Objects.equals(ownerUsername, current.get("ownerUsername"))) {
+            return false;
+        }
         boolean removed = mapper.markOwnerDeleted(id, ownerUsername, LocalDateTime.now()) > 0;
         if (removed) {
             mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
+            purgeR2Assets(id, current);
         }
         return removed;
     }
@@ -294,12 +301,50 @@ public class WallpaperMarketService {
         @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
     })
     public boolean adminDeleteWallpaper(Long id) {
+        Map<String, Object> current = mapper.selectAssetById(id);
+        if (current == null || current.isEmpty()) {
+            return false;
+        }
         boolean removed = mapper.markAdminDeleted(id, LocalDateTime.now()) > 0;
         if (removed) {
             mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
+            purgeR2Assets(id, current);
         }
         return removed;
+    }
+
+    /**
+     * 清理壁纸当前与所有历史版本在 R2 上的对象；失败不回滚数据库软删除，仅打警告。
+     */
+    private void purgeR2Assets(Long id, Map<String, Object> current) {
+        Set<String> urls = new LinkedHashSet<>();
+        collectUrl(urls, current.get("originalUrl"));
+        collectUrl(urls, current.get("thumb320Url"));
+        collectUrl(urls, current.get("thumb720Url"));
+        collectUrl(urls, current.get("thumb1280Url"));
+        try {
+            List<Map<String, Object>> versions = mapper.listVersionAssetUrls(id);
+            if (versions != null) {
+                for (Map<String, Object> row : versions) {
+                    collectUrl(urls, row.get("originalUrl"));
+                    collectUrl(urls, row.get("thumb320Url"));
+                    collectUrl(urls, row.get("thumb720Url"));
+                    collectUrl(urls, row.get("thumb1280Url"));
+                }
+            }
+        } catch (Exception ignored) {
+            // ignore version lookup failure; fall back to current-asset purge only
+        }
+        if (!urls.isEmpty()) {
+            wallpaperR2StorageService.deleteAll(urls);
+        }
+    }
+
+    private void collectUrl(Set<String> bag, Object value) {
+        if (value == null) return;
+        String s = value.toString().trim();
+        if (!s.isEmpty()) bag.add(s);
     }
 
     @Caching(evict = {
