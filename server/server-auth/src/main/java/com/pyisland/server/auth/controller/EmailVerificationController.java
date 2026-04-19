@@ -1,9 +1,11 @@
 package com.pyisland.server.auth.controller;
 
 import com.pyisland.server.auth.service.EmailVerificationService;
+import com.pyisland.server.auth.service.SliderCaptchaService;
 import com.pyisland.server.common.util.ClientIpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,9 +26,41 @@ public class EmailVerificationController {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final EmailVerificationService emailVerificationService;
+    private final SliderCaptchaService sliderCaptchaService;
 
-    public EmailVerificationController(EmailVerificationService emailVerificationService) {
+    public EmailVerificationController(EmailVerificationService emailVerificationService,
+                                       SliderCaptchaService sliderCaptchaService) {
         this.emailVerificationService = emailVerificationService;
+        this.sliderCaptchaService = sliderCaptchaService;
+    }
+
+    @GetMapping("/captcha-config")
+    public ResponseEntity<Map<String, Object>> captchaConfig() {
+        SliderCaptchaService.CaptchaConfig config = sliderCaptchaService.currentConfig();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("enabled", config.enabled());
+        data.put("provider", config.provider());
+        data.put("minValue", config.minValue());
+        data.put("maxValue", config.maxValue());
+        data.put("tolerance", config.tolerance());
+        data.put("challengeTtlSeconds", config.challengeTtlSeconds());
+        return okData("success", data);
+    }
+
+    @PostMapping("/captcha-challenge")
+    public ResponseEntity<Map<String, Object>> captchaChallenge() {
+        try {
+            SliderCaptchaService.CaptchaChallenge challenge = sliderCaptchaService.createChallenge();
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("challengeId", challenge.challengeId());
+            data.put("minValue", challenge.minValue());
+            data.put("maxValue", challenge.maxValue());
+            data.put("targetValue", challenge.targetValue());
+            data.put("tolerance", challenge.tolerance());
+            return okData("success", data);
+        } catch (Exception ex) {
+            return error(503, "滑块验证码服务暂不可用");
+        }
     }
 
     /**
@@ -49,6 +83,15 @@ public class EmailVerificationController {
         EmailVerificationService.Scene scene = parseScene(request.scene());
         if (scene == null) {
             return error(400, "不支持的验证码场景");
+        }
+
+        SliderCaptchaService.VerifyResult captchaResult = sliderCaptchaService.verify(
+                request.captchaTicket(),
+                request.captchaRandstr(),
+                ClientIpUtil.resolve(http)
+        );
+        if (!captchaResult.ok()) {
+            return error(captchaResult.code(), captchaResult.message());
         }
 
         EmailVerificationService.SendCodeResult result = emailVerificationService.sendCode(
@@ -151,8 +194,10 @@ public class EmailVerificationController {
      * 发码请求。
      * @param email 目标邮箱。
      * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
+     * @param captchaTicket 滑块票据。
+     * @param captchaRandstr 滑块随机串。
      */
-    public record SendCodeRequest(String email, String scene) {
+    public record SendCodeRequest(String email, String scene, String captchaTicket, String captchaRandstr) {
     }
 
     /**

@@ -90,9 +90,9 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(clientVersionGateFilter, JwtAuthenticationFilter.class)
+                .addFilterBefore(clientVersionGateFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(replayProtectionFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(replayProtectionFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

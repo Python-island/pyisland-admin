@@ -78,6 +78,16 @@ resend:
   from: ${RESEND_FROM}
   endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
 
+captcha:
+  slider:
+    enabled: ${SLIDER_CAPTCHA_ENABLED}
+    provider: ${SLIDER_CAPTCHA_PROVIDER}
+    builtin:
+      min-value: ${SLIDER_CAPTCHA_MIN_VALUE}
+      max-value: ${SLIDER_CAPTCHA_MAX_VALUE}
+      tolerance: ${SLIDER_CAPTCHA_TOLERANCE}
+      challenge-ttl-seconds: ${SLIDER_CAPTCHA_TTL_SECONDS}
+
 mybatis:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: com.pyisland.server.user.entity,com.pyisland.server.version.entity,com.pyisland.server.servicestatus.entity
