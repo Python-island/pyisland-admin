@@ -38,6 +38,7 @@ public class SliderCaptchaService {
     private final int verifyFailLimitIp;
     private final long verifyFailWindowSeconds;
     private final long rateLimitWindowSeconds;
+    private final long sendSignTtlSeconds;
     private final StringRedisTemplate sliderCaptchaRedisTemplate;
 
     public SliderCaptchaService(@Value("${captcha.slider.enabled:false}") boolean enabled,
@@ -53,6 +54,7 @@ public class SliderCaptchaService {
                                 @Value("${captcha.slider.builtin.verify-fail-limit-ip:3}") int verifyFailLimitIp,
                                 @Value("${captcha.slider.builtin.verify-fail-window-seconds:600}") long verifyFailWindowSeconds,
                                 @Value("${captcha.slider.builtin.rate-limit-window-seconds:60}") long rateLimitWindowSeconds,
+                                @Value("${captcha.slider.builtin.send-sign-ttl-seconds:120}") long sendSignTtlSeconds,
                                 @Qualifier("sliderCaptchaRedisTemplate") StringRedisTemplate sliderCaptchaRedisTemplate) {
         this.enabled = enabled;
         this.provider = provider == null ? "builtin" : provider.trim().toLowerCase();
@@ -67,6 +69,7 @@ public class SliderCaptchaService {
         this.verifyFailLimitIp = Math.max(1, verifyFailLimitIp);
         this.verifyFailWindowSeconds = Math.max(30, verifyFailWindowSeconds);
         this.rateLimitWindowSeconds = Math.max(10, rateLimitWindowSeconds);
+        this.sendSignTtlSeconds = Math.max(30, sendSignTtlSeconds);
         this.sliderCaptchaRedisTemplate = sliderCaptchaRedisTemplate;
     }
 
@@ -76,7 +79,7 @@ public class SliderCaptchaService {
 
     public CaptchaChallenge createChallenge(String account, String userIp) {
         if (!enabled) {
-            return new CaptchaChallenge("", 0, 0, 0, 0);
+            return new CaptchaChallenge("", 0, 0, 0, 0, "");
         }
         if (!"builtin".equals(provider)) {
             throw new IllegalStateException("暂不支持的滑块验证码提供方");
@@ -107,7 +110,9 @@ public class SliderCaptchaService {
 
         int target = ThreadLocalRandom.current().nextInt(minValue, maxValue + 1);
         String challengeId = UUID.randomUUID().toString().replace("-", "");
+        String captchaSign = UUID.randomUUID().toString().replace("-", "");
         Duration ttl = Duration.ofSeconds(challengeTtlSeconds);
+        Duration signTtl = Duration.ofSeconds(Math.min(challengeTtlSeconds, sendSignTtlSeconds));
         sliderCaptchaRedisTemplate.opsForValue().set(
                 keyChallenge(challengeId),
                 String.valueOf(target),
@@ -119,7 +124,44 @@ public class SliderCaptchaService {
         sliderCaptchaRedisTemplate.opsForSet().add(keyIpChallenges(normalizedIp), challengeId);
         sliderCaptchaRedisTemplate.expire(keyAccountChallenges(normalizedAccount), ttl.plusSeconds(10));
         sliderCaptchaRedisTemplate.expire(keyIpChallenges(normalizedIp), ttl.plusSeconds(10));
-        return new CaptchaChallenge(challengeId, minValue, maxValue, target, tolerance);
+        sliderCaptchaRedisTemplate.opsForValue().set(
+                keySendSign(captchaSign),
+                normalizedAccount + "|" + normalizedIp + "|" + challengeId,
+                signTtl
+        );
+        return new CaptchaChallenge(challengeId, minValue, maxValue, target, tolerance, captchaSign);
+    }
+
+    public VerifyResult consumeSendSign(String signToken, String account, String userIp, String challengeId) {
+        if (!enabled) {
+            return VerifyResult.success();
+        }
+        if (signToken == null || signToken.isBlank() || challengeId == null || challengeId.isBlank()) {
+            return VerifyResult.failed(400, "短期票据缺失，请重新完成滑块验证");
+        }
+        String signKey = keySendSign(signToken.trim());
+        String payload = sliderCaptchaRedisTemplate.opsForValue().get(signKey);
+        if (payload == null || payload.isBlank()) {
+            return VerifyResult.failed(400, "短期票据已失效，请重新完成滑块验证");
+        }
+        String[] parts = payload.split("\\|", 3);
+        if (parts.length != 3) {
+            sliderCaptchaRedisTemplate.delete(signKey);
+            return VerifyResult.failed(400, "短期票据格式无效，请重新完成滑块验证");
+        }
+        String expectedAccount = normalizeAccount(parts[0]);
+        String expectedIp = normalizeIp(parts[1]);
+        String expectedChallengeId = parts[2] == null ? "" : parts[2].trim();
+        String normalizedAccount = normalizeAccount(account);
+        String normalizedIp = normalizeIp(userIp);
+        String normalizedChallengeId = challengeId.trim();
+        if (!expectedAccount.equals(normalizedAccount)
+                || !expectedIp.equals(normalizedIp)
+                || !expectedChallengeId.equals(normalizedChallengeId)) {
+            return VerifyResult.failed(400, "短期票据校验失败，请重新完成滑块验证");
+        }
+        sliderCaptchaRedisTemplate.delete(signKey);
+        return VerifyResult.success();
     }
 
     public VerifyResult verify(String ticket, String randstr, String userIp) {
@@ -208,6 +250,10 @@ public class SliderCaptchaService {
 
     private String keyVerifyFailIp(String ip) {
         return "verify:slider:fail:ip:" + encodeAccount(ip);
+    }
+
+    private String keySendSign(String signToken) {
+        return "verify:slider:sign:" + signToken;
     }
 
     private void assertRateLimit(String key, int maxAllowed, String message) {
@@ -418,6 +464,7 @@ public class SliderCaptchaService {
                                    int minValue,
                                    int maxValue,
                                    int targetValue,
-                                   int tolerance) {
+                                   int tolerance,
+                                   String captchaSign) {
     }
 }

@@ -64,6 +64,7 @@ public class EmailVerificationController {
             data.put("maxValue", challenge.maxValue());
             data.put("targetValue", challenge.targetValue());
             data.put("tolerance", challenge.tolerance());
+            data.put("captchaSign", challenge.captchaSign());
             return okData("success", data);
         } catch (SliderCaptchaService.TooManyRequestsException ex) {
             return error(429, ex.getMessage());
@@ -103,6 +104,16 @@ public class EmailVerificationController {
         );
         if (!captchaResult.ok()) {
             return error(captchaResult.code(), captchaResult.message());
+        }
+
+        SliderCaptchaService.VerifyResult signResult = sliderCaptchaService.consumeSendSign(
+                request.captchaSign(),
+                email,
+                ClientIpUtil.resolve(http),
+                request.captchaTicket()
+        );
+        if (!signResult.ok()) {
+            return error(signResult.code(), signResult.message());
         }
 
         EmailVerificationService.SendCodeResult result = emailVerificationService.sendCode(
@@ -207,8 +218,13 @@ public class EmailVerificationController {
      * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
      * @param captchaTicket 滑块票据。
      * @param captchaRandstr 滑块随机串。
+     * @param captchaSign 短期签名票据。
      */
-    public record SendCodeRequest(String email, String scene, String captchaTicket, String captchaRandstr) {
+    public record SendCodeRequest(String email,
+                                  String scene,
+                                  String captchaTicket,
+                                  String captchaRandstr,
+                                  String captchaSign) {
     }
 
     /**
