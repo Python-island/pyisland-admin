@@ -6,6 +6,9 @@ import com.pyisland.server.user.policy.PasswordHashService;
 import com.pyisland.server.user.policy.PasswordPolicy;
 import com.pyisland.server.upload.service.R2StorageService;
 import com.pyisland.server.user.service.UserService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +26,12 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.Instant;
+import java.time.Duration;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,10 +49,14 @@ public class UserSelfController {
     private static final long TOTP_PERIOD_SECONDS = 30L;
     private static final int TOTP_WINDOW_STEPS = 1;
     private static final long TOTP_MAX_DRIFT_SECONDS = 90L;
+    private static final String PASSWORD_EMAIL_CODE_SCENE = "RESET_PASSWORD";
+    private static final int EMAIL_CODE_MAX_VERIFY_ATTEMPTS = 5;
 
     private final UserService userService;
     private final PasswordHashService passwordHashService;
     private final R2StorageService r2StorageService;
+    private final StringRedisTemplate verificationRedisTemplate;
+    private final String verifyCodePepper;
 
     /**
      * 构造用户自助控制器。
@@ -55,10 +66,14 @@ public class UserSelfController {
      */
     public UserSelfController(UserService userService,
                               PasswordHashService passwordHashService,
-                              R2StorageService r2StorageService) {
+                              R2StorageService r2StorageService,
+                              @Qualifier("verificationRedisTemplate") StringRedisTemplate verificationRedisTemplate,
+                              @Value("${VERIFY_CODE_PEPPER:pyisland-verify-pepper}") String verifyCodePepper) {
         this.userService = userService;
         this.passwordHashService = passwordHashService;
         this.r2StorageService = r2StorageService;
+        this.verificationRedisTemplate = verificationRedisTemplate;
+        this.verifyCodePepper = verifyCodePepper;
     }
 
     /**
@@ -144,6 +159,14 @@ public class UserSelfController {
         }
         if (request == null || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "密码不能为空"));
+        }
+        if (request.emailCode() == null || request.emailCode().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "邮箱验证码不能为空"));
+        }
+        String emailCodeError = verifyPasswordEmailCodeOrMessage(user.getEmail(), request.emailCode());
+        if (emailCodeError != null) {
+            int statusCode = "验证码服务暂不可用".equals(emailCodeError) ? 503 : 401;
+            return ResponseEntity.status(statusCode).body(Map.of("code", statusCode, "message", emailCodeError));
         }
         if (request.totpCode() == null || request.totpCode().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "TOTP 密令不能为空"));
@@ -243,6 +266,60 @@ public class UserSelfController {
         return "TOTP 密令错误或已过期";
     }
 
+    private String verifyPasswordEmailCodeOrMessage(String emailRaw, String codeRaw) {
+        String email = emailRaw == null ? "" : emailRaw.trim().toLowerCase();
+        String code = codeRaw == null ? "" : codeRaw.trim();
+        if (email.isEmpty() || code.isEmpty()) {
+            return "邮箱验证码不能为空";
+        }
+        try {
+            String codeKey = keyEmailCode(PASSWORD_EMAIL_CODE_SCENE, email);
+            String attemptsKey = keyEmailCodeAttempts(PASSWORD_EMAIL_CODE_SCENE, email);
+            String storedHash = verificationRedisTemplate.opsForValue().get(codeKey);
+            if (storedHash == null || storedHash.isBlank()) {
+                return "验证码不存在或已过期";
+            }
+            String hashedInput = hashEmailCode(PASSWORD_EMAIL_CODE_SCENE, email, code);
+            if (!storedHash.equals(hashedInput)) {
+                Long attempts = verificationRedisTemplate.opsForValue().increment(attemptsKey);
+                Long ttl = verificationRedisTemplate.getExpire(codeKey);
+                if (attempts != null && attempts == 1L && ttl != null && ttl > 0) {
+                    verificationRedisTemplate.expire(attemptsKey, Duration.ofSeconds(ttl));
+                }
+                if (attempts != null && attempts >= EMAIL_CODE_MAX_VERIFY_ATTEMPTS) {
+                    verificationRedisTemplate.delete(codeKey);
+                    verificationRedisTemplate.delete(attemptsKey);
+                    return "验证码错误次数过多，请重新获取";
+                }
+                return "验证码错误";
+            }
+            verificationRedisTemplate.delete(codeKey);
+            verificationRedisTemplate.delete(attemptsKey);
+            return null;
+        } catch (Exception ex) {
+            return "验证码服务暂不可用";
+        }
+    }
+
+    private String keyEmailCode(String scene, String email) {
+        return "verify:code:" + scene + ":" + email;
+    }
+
+    private String keyEmailCodeAttempts(String scene, String email) {
+        return "verify:attempts:" + scene + ":" + email;
+    }
+
+    private String hashEmailCode(String scene, String email, String plainCode) {
+        String raw = verifyCodePepper + "|" + scene + "|" + email + "|" + plainCode;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(bytes);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 not available", ex);
+        }
+    }
+
     private String normalizeTotpCode(String raw) {
         if (raw == null) return null;
         String trimmed = raw.trim();
@@ -290,10 +367,11 @@ public class UserSelfController {
     /**
      * 自助修改密码请求体。
      * @param password 新密码。
+     * @param emailCode 邮箱验证码（RESET_PASSWORD 场景）。
      * @param totpCode TOTP 动态密令（6 位数字）。
      * @param totpTimestamp TOTP 生成时间戳（Unix 秒）。
      */
-    public record UpdateSelfPasswordRequest(String password, String totpCode, Long totpTimestamp) {
+    public record UpdateSelfPasswordRequest(String password, String emailCode, String totpCode, Long totpTimestamp) {
     }
 
     /**
