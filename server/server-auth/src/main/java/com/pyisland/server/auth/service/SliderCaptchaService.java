@@ -3,10 +3,13 @@ package com.pyisland.server.auth.service;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -20,6 +23,7 @@ public class SliderCaptchaService {
 
     private static final int MAX_PENDING_CHALLENGES_PER_ACCOUNT = 3;
     private static final int MAX_PENDING_CHALLENGES_PER_IP = 5;
+    private static final RedisScript<List<Long>> TOKEN_BUCKET_SCRIPT = buildTokenBucketScript();
 
     private final boolean enabled;
     private final String provider;
@@ -207,25 +211,109 @@ public class SliderCaptchaService {
     }
 
     private void assertRateLimit(String key, int maxAllowed, String message) {
-        Long count = sliderCaptchaRedisTemplate.opsForValue().increment(key);
-        if (count != null && count == 1L) {
-            sliderCaptchaRedisTemplate.expire(key, Duration.ofSeconds(rateLimitWindowSeconds));
-        }
-        if (count != null && count > maxAllowed) {
-            throw new TooManyRequestsException(message);
+        TokenBucketResult result = consumeToken(key, maxAllowed, rateLimitWindowSeconds);
+        if (!result.allowed()) {
+            throw new TooManyRequestsException(appendRetryAfterHint(message, result.retryAfterSeconds()), result.retryAfterSeconds());
         }
     }
 
     private VerifyResult checkVerifyRateLimit(String ip) {
-        String key = keyVerifyRateIp(ip);
-        Long count = sliderCaptchaRedisTemplate.opsForValue().increment(key);
-        if (count != null && count == 1L) {
-            sliderCaptchaRedisTemplate.expire(key, Duration.ofSeconds(rateLimitWindowSeconds));
-        }
-        if (count != null && count > verifyRateLimitIp) {
-            return VerifyResult.failed(429, "滑块校验请求过于频繁，请稍后再试");
+        TokenBucketResult result = consumeToken(keyVerifyRateIp(ip), verifyRateLimitIp, rateLimitWindowSeconds);
+        if (!result.allowed()) {
+            return VerifyResult.failed(429, appendRetryAfterHint("滑块校验请求过于频繁，请稍后再试", result.retryAfterSeconds()));
         }
         return VerifyResult.success();
+    }
+
+    private TokenBucketResult consumeToken(String key, int capacity, long refillWindowSeconds) {
+        long nowMs = System.currentTimeMillis();
+        long ttlSeconds = Math.max(30, refillWindowSeconds * 2);
+        double refillPerMs = (double) capacity / (double) refillWindowSeconds / 1000.0d;
+        List<?> response = sliderCaptchaRedisTemplate.execute(
+                TOKEN_BUCKET_SCRIPT,
+                List.of(key),
+                String.valueOf(nowMs),
+                String.valueOf(capacity),
+                String.valueOf(refillPerMs),
+                "1",
+                String.valueOf(ttlSeconds)
+        );
+        if (response == null || response.size() < 3) {
+            return new TokenBucketResult(true, 0);
+        }
+        int allowed = parseLuaNumber(response.get(0));
+        long retryAfterMs = Math.max(0L, parseLuaLong(response.get(2)));
+        long retryAfterSeconds = (retryAfterMs + 999L) / 1000L;
+        return new TokenBucketResult(allowed == 1, retryAfterSeconds);
+    }
+
+    private int parseLuaNumber(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return Integer.parseInt(String.valueOf(value));
+    }
+
+    private long parseLuaLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(String.valueOf(value));
+    }
+
+    private String appendRetryAfterHint(String message, long retryAfterSeconds) {
+        if (retryAfterSeconds <= 0) {
+            return message;
+        }
+        return message + "（请 " + retryAfterSeconds + " 秒后重试）";
+    }
+
+    private static RedisScript<List<Long>> buildTokenBucketScript() {
+        DefaultRedisScript<List<Long>> script = new DefaultRedisScript<>();
+        @SuppressWarnings("unchecked")
+        Class<List<Long>> listClass = (Class<List<Long>>) (Class<?>) List.class;
+        script.setResultType(listClass);
+        script.setScriptText("""
+                local key = KEYS[1]
+                local now_ms = tonumber(ARGV[1])
+                local capacity = tonumber(ARGV[2])
+                local refill_per_ms = tonumber(ARGV[3])
+                local requested = tonumber(ARGV[4])
+                local ttl_seconds = tonumber(ARGV[5])
+
+                local state = redis.call('HMGET', key, 'tokens', 'ts')
+                local tokens = tonumber(state[1])
+                local ts = tonumber(state[2])
+
+                if tokens == nil then
+                  tokens = capacity
+                end
+                if ts == nil then
+                  ts = now_ms
+                end
+
+                local elapsed = now_ms - ts
+                if elapsed < 0 then
+                  elapsed = 0
+                end
+
+                tokens = math.min(capacity, tokens + elapsed * refill_per_ms)
+
+                local allowed = 0
+                local retry_after_ms = 0
+                if tokens >= requested then
+                  tokens = tokens - requested
+                  allowed = 1
+                else
+                  local deficit = requested - tokens
+                  retry_after_ms = math.ceil(deficit / refill_per_ms)
+                end
+
+                redis.call('HSET', key, 'tokens', tokens, 'ts', now_ms)
+                redis.call('EXPIRE', key, ttl_seconds)
+                return { allowed, math.floor(tokens), retry_after_ms }
+                """);
+        return script;
     }
 
     private VerifyResult checkAndRecordVerifyFail(String owner, String ownerIp, String fallbackIp) {
@@ -293,9 +381,19 @@ public class SliderCaptchaService {
     }
 
     public static class TooManyRequestsException extends RuntimeException {
-        public TooManyRequestsException(String message) {
+        private final long retryAfterSeconds;
+
+        public TooManyRequestsException(String message, long retryAfterSeconds) {
             super(message);
+            this.retryAfterSeconds = Math.max(0, retryAfterSeconds);
         }
+
+        public long retryAfterSeconds() {
+            return retryAfterSeconds;
+        }
+    }
+
+    private record TokenBucketResult(boolean allowed, long retryAfterSeconds) {
     }
 
     public record VerifyResult(boolean ok, int code, String message) {
