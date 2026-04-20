@@ -84,7 +84,7 @@ public class UserSelfController {
     }
 
     /**
-     * 修改当前登录用户资料。支持修改头像、性别、生日与可选重置密码。
+     * 修改当前登录用户资料。仅支持修改头像、性别、生日。
      * @param request 更新请求体。
      * @param authentication 当前安全上下文。
      * @return 更新结果。
@@ -100,14 +100,7 @@ public class UserSelfController {
         if (user == null) {
             return ResponseEntity.status(404).body(Map.of("code", 404, "message", "用户不存在"));
         }
-        if (request.password() != null && !request.password().isBlank()) {
-            String passwordError = PasswordPolicy.validate(request.password());
-            if (passwordError != null) {
-                return ResponseEntity.badRequest().body(Map.of("code", 400, "message", passwordError));
-            }
-            String avatar = request.avatar() != null ? request.avatar() : user.getAvatar();
-            userService.updateProfile(caller, request.password(), avatar);
-        } else if (request.avatar() != null) {
+        if (request.avatar() != null) {
             userService.updateAvatar(caller, request.avatar());
         }
         if (request.gender() != null || request.birthday() != null || request.genderCustom() != null) {
@@ -120,6 +113,35 @@ public class UserSelfController {
             userService.updateExtras(caller, gender, genderCustom, birthday);
         }
         log.info("user self update profile username={}", caller);
+        return ResponseEntity.ok(Map.of("code", 200, "message", "更新成功"));
+    }
+
+    /**
+     * 修改当前登录用户密码。
+     * @param request 密码更新请求体。
+     * @param authentication 当前安全上下文。
+     * @return 更新结果。
+     */
+    @PostMapping("/profile/password")
+    public ResponseEntity<?> updatePassword(@RequestBody UpdateSelfPasswordRequest request,
+                                            Authentication authentication) {
+        String caller = callerName(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        User user = userService.getByUsername(caller);
+        if (user == null) {
+            return ResponseEntity.status(404).body(Map.of("code", 404, "message", "用户不存在"));
+        }
+        if (request == null || request.password() == null || request.password().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "密码不能为空"));
+        }
+        String passwordError = PasswordPolicy.validate(request.password());
+        if (passwordError != null) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", passwordError));
+        }
+        userService.updatePassword(caller, request.password());
+        log.info("user self update password username={}", caller);
         return ResponseEntity.ok(Map.of("code", 200, "message", "更新成功"));
     }
 
@@ -180,17 +202,22 @@ public class UserSelfController {
 
     /**
      * 自助修改资料请求体。所有字段均为可选。
-     * @param password 新密码。留空表示不修改。
      * @param avatar 头像地址。
      * @param gender 性别标识。
      * @param genderCustom 自定义性别（仅在 gender=custom 时生效）。
      * @param birthday 生日（yyyy-MM-dd）。
      */
-    public record UpdateSelfProfileRequest(String password,
-                                           String avatar,
+    public record UpdateSelfProfileRequest(String avatar,
                                            String gender,
                                            String genderCustom,
                                            String birthday) {
+    }
+
+    /**
+     * 自助修改密码请求体。
+     * @param password 新密码。
+     */
+    public record UpdateSelfPasswordRequest(String password) {
     }
 
     /**

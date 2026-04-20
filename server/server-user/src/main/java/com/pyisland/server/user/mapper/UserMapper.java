@@ -76,6 +76,15 @@ public interface UserMapper {
                       @Param("avatar") String avatar);
 
     /**
+     * 仅更新密码。
+     * @param username 用户名。
+     * @param password 新密码哈希。
+     * @return 影响行数。
+     */
+    int updatePassword(@Param("username") String username,
+                       @Param("password") String password);
+
+    /**
      * 仅更新头像。
      * @param username 用户名。
      * @param avatar 头像 URL。

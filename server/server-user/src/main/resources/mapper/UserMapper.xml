@@ -77,6 +77,12 @@
         WHERE username = #{username}
     </update>
 
+    <update id="updatePassword">
+        UPDATE user_account
+        SET password = #{password}
+        WHERE username = #{username}
+    </update>
+
     <update id="updateAvatar">
         UPDATE user_account
         SET avatar = #{avatar}
