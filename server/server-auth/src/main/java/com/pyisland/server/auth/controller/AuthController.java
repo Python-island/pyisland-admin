@@ -226,10 +226,15 @@ public class AuthController {
                 authRateLimiter.recordLoginFailure(rateKey);
                 return loginFailed();
             }
-            ResponseEntity<?> verifyResult = verifyEmailCodeOrError(email.trim().toLowerCase(Locale.ROOT), request.emailCode(), EmailVerificationService.Scene.LOGIN);
+            String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+            ResponseEntity<?> verifyResult = verifyEmailCodeOrError(normalizedEmail, request.emailCode(), EmailVerificationService.Scene.LOGIN);
             if (verifyResult != null) {
                 authRateLimiter.recordLoginFailure(rateKey);
-                return error(428, "当前登录风险较高，请输入邮箱验证码后重试");
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("requireEmailVerification", true);
+                data.put("maskedEmail", maskEmail(normalizedEmail));
+                data.put("verificationEmail", normalizedEmail);
+                return errorWithData(428, "当前登录风险较高，请输入邮箱验证码后重试", data);
             }
         }
         authRateLimiter.recordLoginSuccess(rateKey);
@@ -350,9 +355,16 @@ public class AuthController {
     }
 
     private ResponseEntity<Map<String, Object>> error(int code, String message) {
+        return errorWithData(code, message, null);
+    }
+
+    private ResponseEntity<Map<String, Object>> errorWithData(int code, String message, Object data) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
+        if (data != null) {
+            body.put("data", data);
+        }
         int status = switch (code) {
             case 401, 403, 409, 428, 429 -> code;
             default -> 400;
@@ -362,6 +374,22 @@ public class AuthController {
 
     private ResponseEntity<Map<String, Object>> loginFailed() {
         return error(401, "登录凭证错误");
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "";
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 0 || atIndex >= email.length() - 1) {
+            return "***";
+        }
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex + 1);
+        String maskedLocal = local.length() <= 2
+                ? local.charAt(0) + "*"
+                : local.substring(0, 1) + "***" + local.substring(local.length() - 1);
+        return maskedLocal + "@" + domain;
     }
 
     /**
