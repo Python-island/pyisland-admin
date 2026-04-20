@@ -1,9 +1,11 @@
 package com.pyisland.server.user.controller;
 
+import com.pyisland.server.common.util.ClientIpUtil;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.policy.GenderPolicy;
 import com.pyisland.server.user.policy.PasswordHashService;
 import com.pyisland.server.user.policy.PasswordPolicy;
+import com.pyisland.server.user.service.TotpSecurityService;
 import com.pyisland.server.upload.service.R2StorageService;
 import com.pyisland.server.user.service.UserService;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,15 +23,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.servlet.http.HttpServletRequest;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
-import java.time.Instant;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.HashMap;
@@ -45,10 +44,6 @@ import java.util.Map;
 public class UserSelfController {
 
     private static final Logger log = LoggerFactory.getLogger(UserSelfController.class);
-    private static final int TOTP_DIGITS = 6;
-    private static final long TOTP_PERIOD_SECONDS = 30L;
-    private static final int TOTP_WINDOW_STEPS = 1;
-    private static final long TOTP_MAX_DRIFT_SECONDS = 90L;
     private static final String PASSWORD_EMAIL_CODE_SCENE = "RESET_PASSWORD";
     private static final int EMAIL_CODE_MAX_VERIFY_ATTEMPTS = 5;
 
@@ -57,6 +52,7 @@ public class UserSelfController {
     private final R2StorageService r2StorageService;
     private final StringRedisTemplate verificationRedisTemplate;
     private final String verifyCodePepper;
+    private final TotpSecurityService totpSecurityService;
 
     /**
      * 构造用户自助控制器。
@@ -68,12 +64,14 @@ public class UserSelfController {
                               PasswordHashService passwordHashService,
                               R2StorageService r2StorageService,
                               @Qualifier("verificationRedisTemplate") StringRedisTemplate verificationRedisTemplate,
-                              @Value("${VERIFY_CODE_PEPPER:pyisland-verify-pepper}") String verifyCodePepper) {
+                              @Value("${VERIFY_CODE_PEPPER:pyisland-verify-pepper}") String verifyCodePepper,
+                              TotpSecurityService totpSecurityService) {
         this.userService = userService;
         this.passwordHashService = passwordHashService;
         this.r2StorageService = r2StorageService;
         this.verificationRedisTemplate = verificationRedisTemplate;
         this.verifyCodePepper = verifyCodePepper;
+        this.totpSecurityService = totpSecurityService;
     }
 
     /**
@@ -148,7 +146,8 @@ public class UserSelfController {
      */
     @PostMapping("/profile/password")
     public ResponseEntity<?> updatePassword(@RequestBody UpdateSelfPasswordRequest request,
-                                            Authentication authentication) {
+                                            Authentication authentication,
+                                            HttpServletRequest http) {
         String caller = callerName(authentication);
         if (caller == null) {
             return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
@@ -174,9 +173,17 @@ public class UserSelfController {
         if (request.totpTimestamp() == null || request.totpTimestamp() <= 0) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "TOTP 时间戳不能为空"));
         }
-        String totpError = verifyTotpOrMessage(user, request.totpCode(), request.totpTimestamp());
+        String totpError = totpSecurityService.verifyTotpOrMessage(
+                caller,
+                ClientIpUtil.resolve(http),
+                user.getSessionToken(),
+                request.totpCode(),
+                request.totpTimestamp()
+        );
         if (totpError != null) {
-            int statusCode = "TOTP 种子无效".equals(totpError) ? 503 : 401;
+            int statusCode = "TOTP 种子无效".equals(totpError)
+                    || "TOTP 密钥服务未配置".equals(totpError)
+                    ? 503 : 401;
             return ResponseEntity.status(statusCode).body(Map.of("code", statusCode, "message", totpError));
         }
         String passwordError = PasswordPolicy.validate(request.password());
@@ -243,29 +250,6 @@ public class UserSelfController {
         return authentication.getName();
     }
 
-    private String verifyTotpOrMessage(User user, String codeRaw, long timestampSeconds) {
-        String code = normalizeTotpCode(codeRaw);
-        if (code == null) {
-            return "TOTP 密令格式错误";
-        }
-        long now = Instant.now().getEpochSecond();
-        if (Math.abs(now - timestampSeconds) > TOTP_MAX_DRIFT_SECONDS) {
-            return "TOTP 密令已过期";
-        }
-        if (user.getSessionToken() == null || user.getSessionToken().isBlank()) {
-            return "TOTP 种子无效";
-        }
-        long clientCounter = timestampSeconds / TOTP_PERIOD_SECONDS;
-        byte[] secret = user.getSessionToken().getBytes(StandardCharsets.UTF_8);
-        for (long offset = -TOTP_WINDOW_STEPS; offset <= TOTP_WINDOW_STEPS; offset++) {
-            String expected = generateTotp(secret, clientCounter + offset);
-            if (expected != null && expected.equals(code)) {
-                return null;
-            }
-        }
-        return "TOTP 密令错误或已过期";
-    }
-
     private String verifyPasswordEmailCodeOrMessage(String emailRaw, String codeRaw) {
         String email = emailRaw == null ? "" : emailRaw.trim().toLowerCase();
         String code = codeRaw == null ? "" : codeRaw.trim();
@@ -317,37 +301,6 @@ public class UserSelfController {
             return HexFormat.of().formatHex(bytes);
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 not available", ex);
-        }
-    }
-
-    private String normalizeTotpCode(String raw) {
-        if (raw == null) return null;
-        String trimmed = raw.trim();
-        if (trimmed.length() != TOTP_DIGITS) return null;
-        for (int i = 0; i < trimmed.length(); i++) {
-            if (!Character.isDigit(trimmed.charAt(i))) {
-                return null;
-            }
-        }
-        return trimmed;
-    }
-
-    private String generateTotp(byte[] secret, long counter) {
-        if (counter < 0) return null;
-        try {
-            byte[] data = ByteBuffer.allocate(8).putLong(counter).array();
-            Mac mac = Mac.getInstance("HmacSHA1");
-            mac.init(new SecretKeySpec(secret, "HmacSHA1"));
-            byte[] hash = mac.doFinal(data);
-            int offset = hash[hash.length - 1] & 0x0F;
-            int binary = ((hash[offset] & 0x7F) << 24)
-                    | ((hash[offset + 1] & 0xFF) << 16)
-                    | ((hash[offset + 2] & 0xFF) << 8)
-                    | (hash[offset + 3] & 0xFF);
-            int otp = binary % (int) Math.pow(10, TOTP_DIGITS);
-            return String.format("%0" + TOTP_DIGITS + "d", otp);
-        } catch (Exception ex) {
-            return null;
         }
     }
 
