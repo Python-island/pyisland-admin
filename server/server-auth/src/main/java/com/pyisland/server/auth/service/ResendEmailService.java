@@ -59,6 +59,7 @@ public class ResendEmailService {
             case LOGIN -> "eIsland 登录验证码";
             case RESET_PASSWORD -> "eIsland 重置密码验证码";
             case CHANGE_EMAIL -> "eIsland 更换邮箱验证码";
+            case UNREGISTER -> "eIsland 注销账号验证码";
         };
     }
 
@@ -68,6 +69,7 @@ public class ResendEmailService {
             case LOGIN -> "登录账号";
             case RESET_PASSWORD -> "重置密码";
             case CHANGE_EMAIL -> "更换邮箱";
+            case UNREGISTER -> "注销账号";
         };
         return """
                 <div style=\"font-family:Arial,sans-serif;line-height:1.6;color:#111\"> 

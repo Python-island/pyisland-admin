@@ -234,7 +234,7 @@ public class EmailVerificationController {
     /**
      * 发码请求。
      * @param email 目标邮箱。
-     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
+     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL/UNREGISTER。
      * @param captchaTicket 滑块票据。
      * @param captchaRandstr 滑块随机串。
      * @param captchaSign 短期签名票据。
@@ -256,7 +256,7 @@ public class EmailVerificationController {
     /**
      * 验证请求。
      * @param email 目标邮箱。
-     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
+     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL/UNREGISTER。
      * @param code 验证码。
      * @param consume 是否消费验证码；默认 true。
      * @param captchaTicket 滑块票据。

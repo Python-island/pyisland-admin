@@ -53,7 +53,8 @@ public class EmailVerificationService {
         REGISTER,
         LOGIN,
         RESET_PASSWORD,
-        CHANGE_EMAIL
+        CHANGE_EMAIL,
+        UNREGISTER
     }
 
     /**

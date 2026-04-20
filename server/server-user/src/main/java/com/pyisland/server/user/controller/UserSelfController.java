@@ -45,6 +45,7 @@ public class UserSelfController {
 
     private static final Logger log = LoggerFactory.getLogger(UserSelfController.class);
     private static final String PASSWORD_EMAIL_CODE_SCENE = "RESET_PASSWORD";
+    private static final String UNREGISTER_EMAIL_CODE_SCENE = "UNREGISTER";
     private static final int EMAIL_CODE_MAX_VERIFY_ATTEMPTS = 5;
 
     private final UserService userService;
@@ -162,7 +163,7 @@ public class UserSelfController {
         if (request.emailCode() == null || request.emailCode().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "邮箱验证码不能为空"));
         }
-        String emailCodeError = verifyPasswordEmailCodeOrMessage(user.getEmail(), request.emailCode());
+        String emailCodeError = verifyEmailCodeOrMessage(PASSWORD_EMAIL_CODE_SCENE, user.getEmail(), request.emailCode());
         if (emailCodeError != null) {
             int statusCode = "验证码服务暂不可用".equals(emailCodeError) ? 503 : 401;
             return ResponseEntity.status(statusCode).body(Map.of("code", statusCode, "message", emailCodeError));
@@ -281,6 +282,14 @@ public class UserSelfController {
         if (request == null || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "请输入当前密码以确认注销"));
         }
+        if (request.emailCode() == null || request.emailCode().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "邮箱验证码不能为空"));
+        }
+        String emailCodeError = verifyEmailCodeOrMessage(UNREGISTER_EMAIL_CODE_SCENE, user.getEmail(), request.emailCode());
+        if (emailCodeError != null) {
+            int statusCode = "验证码服务暂不可用".equals(emailCodeError) ? 503 : 401;
+            return ResponseEntity.status(statusCode).body(Map.of("code", statusCode, "message", emailCodeError));
+        }
         if (!passwordHashService.matches(request.password(), user.getPassword())) {
             log.warn("user unregister failed username={} reason=password_mismatch", caller);
             return ResponseEntity.status(401).body(Map.of("code", 401, "message", "密码错误"));
@@ -300,20 +309,20 @@ public class UserSelfController {
         return authentication.getName();
     }
 
-    private String verifyPasswordEmailCodeOrMessage(String emailRaw, String codeRaw) {
+    private String verifyEmailCodeOrMessage(String scene, String emailRaw, String codeRaw) {
         String email = emailRaw == null ? "" : emailRaw.trim().toLowerCase();
         String code = codeRaw == null ? "" : codeRaw.trim();
         if (email.isEmpty() || code.isEmpty()) {
             return "邮箱验证码不能为空";
         }
         try {
-            String codeKey = keyEmailCode(PASSWORD_EMAIL_CODE_SCENE, email);
-            String attemptsKey = keyEmailCodeAttempts(PASSWORD_EMAIL_CODE_SCENE, email);
+            String codeKey = keyEmailCode(scene, email);
+            String attemptsKey = keyEmailCodeAttempts(scene, email);
             String storedHash = verificationRedisTemplate.opsForValue().get(codeKey);
             if (storedHash == null || storedHash.isBlank()) {
                 return "验证码不存在或已过期";
             }
-            String hashedInput = hashEmailCode(PASSWORD_EMAIL_CODE_SCENE, email, code);
+            String hashedInput = hashEmailCode(scene, email, code);
             if (!storedHash.equals(hashedInput)) {
                 Long attempts = verificationRedisTemplate.opsForValue().increment(attemptsKey);
                 Long ttl = verificationRedisTemplate.getExpire(codeKey);
@@ -379,7 +388,8 @@ public class UserSelfController {
     /**
      * 注销账号请求体。
      * @param password 当前密码用于二次确认。
+     * @param emailCode 邮箱验证码（UNREGISTER 场景）。
      */
-    public record UnregisterRequest(String password) {
+    public record UnregisterRequest(String password, String emailCode) {
     }
 }
