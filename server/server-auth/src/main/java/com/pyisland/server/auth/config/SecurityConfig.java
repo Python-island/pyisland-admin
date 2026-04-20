@@ -2,7 +2,9 @@ package com.pyisland.server.auth.config;
 
 import com.pyisland.server.auth.security.JsonAccessDeniedHandler;
 import com.pyisland.server.auth.security.JsonAuthenticationEntryPoint;
+import com.pyisland.server.auth.security.ClientVersionGateFilter;
 import com.pyisland.server.auth.security.JwtAuthenticationFilter;
+import com.pyisland.server.auth.security.ReplayProtectionFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -67,7 +69,9 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   ClientVersionGateFilter clientVersionGateFilter,
                                                    JwtAuthenticationFilter jwtFilter,
+                                                   ReplayProtectionFilter replayProtectionFilter,
                                                    JsonAuthenticationEntryPoint entryPoint,
                                                    JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
@@ -80,13 +84,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/v1/version", "/v1/version/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/version/update-count").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/service-status", "/v1/service-status/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/v1/upload/user-avatar").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/v1/upload/user-avatar").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/v1/user/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().hasRole("ADMIN"))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(clientVersionGateFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(replayProtectionFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

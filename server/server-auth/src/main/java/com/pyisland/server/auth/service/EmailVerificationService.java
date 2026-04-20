@@ -28,7 +28,8 @@ public class EmailVerificationService {
     private static final long CODE_TTL_SECONDS = 5 * 60;
     private static final long SEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_VERIFY_ATTEMPTS = 5;
-    private static final int MAX_IP_SENDS_PER_HOUR = 30;
+    private static final int MAX_IP_SENDS_PER_HOUR = 3;
+    private static final int MAX_EMAIL_SENDS_PER_HOUR = 3;
     private static final int MAX_EMAIL_SENDS_PER_DAY = 30;
 
     private final StringRedisTemplate verificationRedisTemplate;
@@ -52,7 +53,8 @@ public class EmailVerificationService {
         REGISTER,
         LOGIN,
         RESET_PASSWORD,
-        CHANGE_EMAIL
+        CHANGE_EMAIL,
+        UNREGISTER
     }
 
     /**
@@ -124,6 +126,16 @@ public class EmailVerificationService {
             if (ipCount != null && ipCount > MAX_IP_SENDS_PER_HOUR) {
                 Long retryAfter = verificationRedisTemplate.getExpire(ipRateKey);
                 return new SendCodeResult(false, 429, "请求过于频繁，请稍后再试", retryAfter == null ? 60 : Math.max(1, retryAfter));
+            }
+
+            String emailHourlyRateKey = keyEmailHourlyRate(email);
+            Long hourlyCount = verificationRedisTemplate.opsForValue().increment(emailHourlyRateKey);
+            if (hourlyCount != null && hourlyCount == 1L) {
+                verificationRedisTemplate.expire(emailHourlyRateKey, Duration.ofHours(1));
+            }
+            if (hourlyCount != null && hourlyCount > MAX_EMAIL_SENDS_PER_HOUR) {
+                Long retryAfter = verificationRedisTemplate.getExpire(emailHourlyRateKey);
+                return new SendCodeResult(false, 429, "当前邮箱发送过于频繁，请稍后再试", retryAfter == null ? 60 : Math.max(1, retryAfter));
             }
 
             String emailDailyRateKey = keyEmailDailyRate(email);
@@ -253,5 +265,9 @@ public class EmailVerificationService {
 
     private String keyEmailDailyRate(String email) {
         return "verify:rate:email:day:" + email;
+    }
+
+    private String keyEmailHourlyRate(String email) {
+        return "verify:rate:email:hour:" + email;
     }
 }

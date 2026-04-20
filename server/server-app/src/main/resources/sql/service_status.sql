@@ -20,6 +20,10 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     ('auth.admin.register',         1, '', 'POST /auth/admin/register - 管理员注册'),
     ('auth.user.login',             1, '', 'POST /auth/user/login - 用户登录'),
     ('auth.user.register',          1, '', 'POST /auth/user/register - 用户注册'),
+    ('auth.user.email-code.config', 1, '', 'GET /auth/user/email-code/captcha-config - 获取滑块验证码配置'),
+    ('auth.user.email-code.challenge', 1, '', 'POST /auth/user/email-code/captcha-challenge - 创建滑块验证码挑战'),
+    ('auth.user.email-code.send',   1, '', 'POST /auth/user/email-code/send - 发送邮箱验证码'),
+    ('auth.user.email-code.verify', 1, '', 'POST /auth/user/email-code/verify - 校验邮箱验证码'),
 
     -- --------------------------------------------------------
     --  版本管理  /v1/version

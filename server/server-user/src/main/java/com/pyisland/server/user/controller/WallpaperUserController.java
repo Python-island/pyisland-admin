@@ -2,6 +2,7 @@ package com.pyisland.server.user.controller;
 
 import com.pyisland.server.user.service.WallpaperMarketService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +25,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/v1/user/wallpapers")
+@PreAuthorize("hasAnyRole('USER','ADMIN')")
 public class WallpaperUserController {
 
     private final WallpaperMarketService wallpaperMarketService;

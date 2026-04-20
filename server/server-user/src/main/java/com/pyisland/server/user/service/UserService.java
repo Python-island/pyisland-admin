@@ -193,6 +193,17 @@ public class UserService {
     }
 
     /**
+     * 仅更新密码。
+     * @param username 用户名。
+     * @param rawPassword 明文新密码。
+     * @return 是否成功。
+     */
+    public boolean updatePassword(String username, String rawPassword) {
+        String hashed = passwordHashService.hash(rawPassword);
+        return userMapper.updatePassword(username, hashed) > 0;
+    }
+
+    /**
      * 仅更新头像。
      * @param username 用户名。
      * @param avatar 头像 URL。
@@ -223,6 +234,16 @@ public class UserService {
      */
     public boolean updateSessionToken(String username, String sessionToken) {
         return userMapper.updateSessionToken(username, sessionToken) > 0;
+    }
+
+    /**
+     * 更新用户 TOTP 种子密文。
+     * @param username 用户名。
+     * @param totpSecretCiphertext AES-GCM 密文（Base64）。
+     * @return 是否成功。
+     */
+    public boolean updateTotpSecret(String username, String totpSecretCiphertext) {
+        return userMapper.updateTotpSecret(username, totpSecretCiphertext, LocalDateTime.now()) > 0;
     }
 
     /**

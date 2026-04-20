@@ -15,12 +15,14 @@
         <result property="birthday" column="birthday"/>
         <result property="enabled" column="enabled"/>
         <result property="sessionToken" column="session_token"/>
+        <result property="totpSecretCiphertext" column="totp_secret_ciphertext"/>
+        <result property="totpSecretUpdatedAt" column="totp_secret_updated_at"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <sql id="baseColumns">
         id, username, email, password, role, avatar, gender, gender_custom,
-        birthday, enabled, session_token, created_at
+        birthday, enabled, session_token, totp_secret_ciphertext, totp_secret_updated_at, created_at
     </sql>
 
     <select id="selectByUsername" resultMap="UserResultMap">
@@ -77,6 +79,12 @@
         WHERE username = #{username}
     </update>
 
+    <update id="updatePassword">
+        UPDATE user_account
+        SET password = #{password}
+        WHERE username = #{username}
+    </update>
+
     <update id="updateAvatar">
         UPDATE user_account
         SET avatar = #{avatar}
@@ -94,6 +102,13 @@
     <update id="updateSessionToken">
         UPDATE user_account
         SET session_token = #{sessionToken}
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateTotpSecret">
+        UPDATE user_account
+        SET totp_secret_ciphertext = #{totpSecretCiphertext},
+            totp_secret_updated_at = #{updatedAt}
         WHERE username = #{username}
     </update>
 

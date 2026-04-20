@@ -1,8 +1,10 @@
 package com.pyisland.server.auth.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -15,6 +17,7 @@ import org.springframework.util.StringUtils;
 public class VerificationRedisConfig {
 
     @Bean("verificationRedisConnectionFactory")
+    @Primary
     public LettuceConnectionFactory verificationRedisConnectionFactory(
             @Value("${REDIS_HOST:127.0.0.1}") String redisHost,
             @Value("${REDIS_PORT:6379}") int redisPort,
@@ -32,11 +35,66 @@ public class VerificationRedisConfig {
     }
 
     @Bean("verificationRedisTemplate")
+    @Primary
     public StringRedisTemplate verificationRedisTemplate(
-            LettuceConnectionFactory verificationRedisConnectionFactory
+            @Qualifier("verificationRedisConnectionFactory") LettuceConnectionFactory verificationRedisConnectionFactory
     ) {
         StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(verificationRedisConnectionFactory);
+        template.afterPropertiesSet();
+        return template;
+    }
+
+    @Bean("sliderCaptchaRedisConnectionFactory")
+    public LettuceConnectionFactory sliderCaptchaRedisConnectionFactory(
+            @Value("${REDIS_HOST:127.0.0.1}") String redisHost,
+            @Value("${REDIS_PORT:6379}") int redisPort,
+            @Value("${REDIS_PASSWORD:}") String redisPassword,
+            @Value("${REDIS_SLIDER_CAPTCHA_DATABASE:4}") int sliderCaptchaRedisDatabase
+    ) {
+        RedisStandaloneConfiguration standaloneConfiguration = new RedisStandaloneConfiguration();
+        standaloneConfiguration.setHostName(redisHost);
+        standaloneConfiguration.setPort(redisPort);
+        standaloneConfiguration.setDatabase(sliderCaptchaRedisDatabase);
+        if (StringUtils.hasText(redisPassword)) {
+            standaloneConfiguration.setPassword(redisPassword);
+        }
+        return new LettuceConnectionFactory(standaloneConfiguration);
+    }
+
+    @Bean("sliderCaptchaRedisTemplate")
+    public StringRedisTemplate sliderCaptchaRedisTemplate(
+            @Qualifier("sliderCaptchaRedisConnectionFactory") LettuceConnectionFactory sliderCaptchaRedisConnectionFactory
+    ) {
+        StringRedisTemplate template = new StringRedisTemplate();
+        template.setConnectionFactory(sliderCaptchaRedisConnectionFactory);
+        template.afterPropertiesSet();
+        return template;
+    }
+
+    @Bean("authSecurityRedisConnectionFactory")
+    public LettuceConnectionFactory authSecurityRedisConnectionFactory(
+            @Value("${REDIS_HOST:127.0.0.1}") String redisHost,
+            @Value("${REDIS_PORT:6379}") int redisPort,
+            @Value("${REDIS_PASSWORD:}") String redisPassword,
+            @Value("${REDIS_AUTH_SECURITY_DATABASE:6}") int authSecurityRedisDatabase
+    ) {
+        RedisStandaloneConfiguration standaloneConfiguration = new RedisStandaloneConfiguration();
+        standaloneConfiguration.setHostName(redisHost);
+        standaloneConfiguration.setPort(redisPort);
+        standaloneConfiguration.setDatabase(authSecurityRedisDatabase);
+        if (StringUtils.hasText(redisPassword)) {
+            standaloneConfiguration.setPassword(redisPassword);
+        }
+        return new LettuceConnectionFactory(standaloneConfiguration);
+    }
+
+    @Bean("authSecurityRedisTemplate")
+    public StringRedisTemplate authSecurityRedisTemplate(
+            @Qualifier("authSecurityRedisConnectionFactory") LettuceConnectionFactory authSecurityRedisConnectionFactory
+    ) {
+        StringRedisTemplate template = new StringRedisTemplate();
+        template.setConnectionFactory(authSecurityRedisConnectionFactory);
         template.afterPropertiesSet();
         return template;
     }

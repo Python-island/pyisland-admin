@@ -39,6 +39,7 @@ public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final int LOGIN_STEP_UP_FAILURE_THRESHOLD = 3;
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
@@ -212,11 +213,29 @@ public class AuthController {
         User user = userService.authenticateByUsername(account, request.password());
         if (user == null) {
             authRateLimiter.recordLoginFailure(rateKey);
-            return error(401, "用户名或密码错误");
+            return loginFailed();
         }
         if (!expectedRole.equals(user.getRole())) {
             authRateLimiter.recordLoginFailure(rateKey);
-            return error(403, "无此角色登录权限");
+            return loginFailed();
+        }
+        int recentFailures = authRateLimiter.recentLoginFailures(rateKey);
+        if (recentFailures >= LOGIN_STEP_UP_FAILURE_THRESHOLD) {
+            String email = user.getEmail();
+            if (email == null || email.isBlank()) {
+                authRateLimiter.recordLoginFailure(rateKey);
+                return loginFailed();
+            }
+            String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+            ResponseEntity<?> verifyResult = verifyEmailCodeOrError(normalizedEmail, request.emailCode(), EmailVerificationService.Scene.LOGIN);
+            if (verifyResult != null) {
+                authRateLimiter.recordLoginFailure(rateKey);
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("requireEmailVerification", true);
+                data.put("maskedEmail", maskEmail(normalizedEmail));
+                data.put("verificationEmail", normalizedEmail);
+                return errorWithData(428, "当前登录风险较高，请输入邮箱验证码后重试", data);
+            }
         }
         authRateLimiter.recordLoginSuccess(rateKey);
         String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
@@ -251,11 +270,11 @@ public class AuthController {
         User user = userService.authenticateByEmail(email, request.password());
         if (user == null) {
             authRateLimiter.recordLoginFailure(rateKey);
-            return error(401, "邮箱或密码错误");
+            return loginFailed();
         }
         if (!expectedRole.equals(user.getRole())) {
             authRateLimiter.recordLoginFailure(rateKey);
-            return error(403, "无此角色登录权限");
+            return loginFailed();
         }
         authRateLimiter.recordLoginSuccess(rateKey);
         String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
@@ -336,10 +355,41 @@ public class AuthController {
     }
 
     private ResponseEntity<Map<String, Object>> error(int code, String message) {
+        return errorWithData(code, message, null);
+    }
+
+    private ResponseEntity<Map<String, Object>> errorWithData(int code, String message, Object data) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        return ResponseEntity.status(code == 429 ? 429 : (code == 401 ? 401 : (code == 403 ? 403 : (code == 409 ? 409 : 400)))).body(body);
+        if (data != null) {
+            body.put("data", data);
+        }
+        int status = switch (code) {
+            case 401, 403, 409, 428, 429 -> code;
+            default -> 400;
+        };
+        return ResponseEntity.status(status).body(body);
+    }
+
+    private ResponseEntity<Map<String, Object>> loginFailed() {
+        return error(401, "登录凭证错误");
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "";
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 0 || atIndex >= email.length() - 1) {
+            return "***";
+        }
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex + 1);
+        String maskedLocal = local.length() <= 2
+                ? local.charAt(0) + "*"
+                : local.substring(0, 1) + "***" + local.substring(local.length() - 1);
+        return maskedLocal + "@" + domain;
     }
 
     /**
@@ -347,7 +397,7 @@ public class AuthController {
      * @param username 用户名。
      * @param password 密码。
      */
-    public record LoginRequest(String username, String password) {
+    public record LoginRequest(String username, String password, String emailCode) {
     }
 
     /**

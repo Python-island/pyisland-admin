@@ -1,9 +1,13 @@
 package com.pyisland.server.auth.controller;
 
 import com.pyisland.server.auth.service.EmailVerificationService;
+import com.pyisland.server.auth.service.SliderCaptchaService;
 import com.pyisland.server.common.util.ClientIpUtil;
+import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,9 +28,56 @@ public class EmailVerificationController {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final EmailVerificationService emailVerificationService;
+    private final SliderCaptchaService sliderCaptchaService;
+    private final UserService userService;
 
-    public EmailVerificationController(EmailVerificationService emailVerificationService) {
+    public EmailVerificationController(EmailVerificationService emailVerificationService,
+                                       SliderCaptchaService sliderCaptchaService,
+                                       UserService userService) {
         this.emailVerificationService = emailVerificationService;
+        this.sliderCaptchaService = sliderCaptchaService;
+        this.userService = userService;
+    }
+
+    @GetMapping("/captcha-config")
+    public ResponseEntity<Map<String, Object>> captchaConfig() {
+        SliderCaptchaService.CaptchaConfig config = sliderCaptchaService.currentConfig();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("enabled", config.enabled());
+        data.put("provider", config.provider());
+        data.put("minValue", config.minValue());
+        data.put("maxValue", config.maxValue());
+        data.put("tolerance", config.tolerance());
+        data.put("challengeTtlSeconds", config.challengeTtlSeconds());
+        return okData("success", data);
+    }
+
+    @PostMapping("/captcha-challenge")
+    public ResponseEntity<Map<String, Object>> captchaChallenge(@RequestBody CaptchaChallengeRequest request, HttpServletRequest http) {
+        if (request == null || request.account() == null || request.account().isBlank()) {
+            return error(400, "账户不能为空");
+        }
+        String account = request.account().trim().toLowerCase(Locale.ROOT);
+        if (!EMAIL_PATTERN.matcher(account).matches() || account.length() > 150) {
+            return error(400, "账户格式不正确");
+        }
+        try {
+            SliderCaptchaService.CaptchaChallenge challenge = sliderCaptchaService.createChallenge(account, ClientIpUtil.resolve(http));
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("challengeId", challenge.challengeId());
+            data.put("minValue", challenge.minValue());
+            data.put("maxValue", challenge.maxValue());
+            data.put("targetValue", challenge.targetValue());
+            data.put("tolerance", challenge.tolerance());
+            data.put("captchaSign", challenge.captchaSign());
+            return okData("success", data);
+        } catch (SliderCaptchaService.TooManyRequestsException ex) {
+            return error(429, ex.getMessage());
+        } catch (SliderCaptchaService.TooManyPendingChallengesException ex) {
+            return error(429, ex.getMessage());
+        } catch (Exception ex) {
+            return error(503, "滑块验证码服务暂不可用");
+        }
     }
 
     /**
@@ -49,6 +100,32 @@ public class EmailVerificationController {
         EmailVerificationService.Scene scene = parseScene(request.scene());
         if (scene == null) {
             return error(400, "不支持的验证码场景");
+        }
+
+        if (scene == EmailVerificationService.Scene.LOGIN) {
+            User user = userService.getByEmail(email);
+            if (user == null) {
+                return error(404, "用户不存在");
+            }
+        }
+
+        SliderCaptchaService.VerifyResult captchaResult = sliderCaptchaService.verify(
+                request.captchaTicket(),
+                request.captchaRandstr(),
+                ClientIpUtil.resolve(http)
+        );
+        if (!captchaResult.ok()) {
+            return error(captchaResult.code(), captchaResult.message());
+        }
+
+        SliderCaptchaService.VerifyResult signResult = sliderCaptchaService.consumeSendSign(
+                request.captchaSign(),
+                email,
+                ClientIpUtil.resolve(http),
+                request.captchaTicket()
+        );
+        if (!signResult.ok()) {
+            return error(signResult.code(), signResult.message());
         }
 
         EmailVerificationService.SendCodeResult result = emailVerificationService.sendCode(
@@ -74,7 +151,7 @@ public class EmailVerificationController {
      * 校验邮箱验证码。
      */
     @PostMapping("/verify")
-    public ResponseEntity<Map<String, Object>> verifyCode(@RequestBody VerifyCodeRequest request) {
+    public ResponseEntity<Map<String, Object>> verifyCode(@RequestBody VerifyCodeRequest request, HttpServletRequest http) {
         if (request == null || request.email() == null || request.email().isBlank()) {
             return error(400, "邮箱不能为空");
         }
@@ -93,6 +170,25 @@ public class EmailVerificationController {
         EmailVerificationService.Scene scene = parseScene(request.scene());
         if (scene == null) {
             return error(400, "不支持的验证码场景");
+        }
+
+        SliderCaptchaService.VerifyResult captchaResult = sliderCaptchaService.verify(
+                request.captchaTicket(),
+                request.captchaRandstr(),
+                ClientIpUtil.resolve(http)
+        );
+        if (!captchaResult.ok()) {
+            return error(captchaResult.code(), captchaResult.message());
+        }
+
+        SliderCaptchaService.VerifyResult signResult = sliderCaptchaService.consumeSendSign(
+                request.captchaSign(),
+                email,
+                ClientIpUtil.resolve(http),
+                request.captchaTicket()
+        );
+        if (!signResult.ok()) {
+            return error(signResult.code(), signResult.message());
         }
 
         EmailVerificationService.VerifyCodeResult result = emailVerificationService.verifyCode(
@@ -150,18 +246,41 @@ public class EmailVerificationController {
     /**
      * 发码请求。
      * @param email 目标邮箱。
-     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
+     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL/UNREGISTER。
+     * @param captchaTicket 滑块票据。
+     * @param captchaRandstr 滑块随机串。
+     * @param captchaSign 短期签名票据。
      */
-    public record SendCodeRequest(String email, String scene) {
+    public record SendCodeRequest(String email,
+                                  String scene,
+                                  String captchaTicket,
+                                  String captchaRandstr,
+                                  String captchaSign) {
+    }
+
+    /**
+     * 创建滑块挑战请求。
+     * @param account 账户标识（当前为邮箱）。
+     */
+    public record CaptchaChallengeRequest(String account) {
     }
 
     /**
      * 验证请求。
      * @param email 目标邮箱。
-     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
+     * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL/UNREGISTER。
      * @param code 验证码。
      * @param consume 是否消费验证码；默认 true。
+     * @param captchaTicket 滑块票据。
+     * @param captchaRandstr 滑块随机串。
+     * @param captchaSign 短期签名票据。
      */
-    public record VerifyCodeRequest(String email, String scene, String code, Boolean consume) {
+    public record VerifyCodeRequest(String email,
+                                    String scene,
+                                    String code,
+                                    Boolean consume,
+                                    String captchaTicket,
+                                    String captchaRandstr,
+                                    String captchaSign) {
     }
 }
