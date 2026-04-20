@@ -3,6 +3,8 @@ package com.pyisland.server.auth.controller;
 import com.pyisland.server.auth.service.EmailVerificationService;
 import com.pyisland.server.auth.service.SliderCaptchaService;
 import com.pyisland.server.common.util.ClientIpUtil;
+import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,11 +29,14 @@ public class EmailVerificationController {
 
     private final EmailVerificationService emailVerificationService;
     private final SliderCaptchaService sliderCaptchaService;
+    private final UserService userService;
 
     public EmailVerificationController(EmailVerificationService emailVerificationService,
-                                       SliderCaptchaService sliderCaptchaService) {
+                                       SliderCaptchaService sliderCaptchaService,
+                                       UserService userService) {
         this.emailVerificationService = emailVerificationService;
         this.sliderCaptchaService = sliderCaptchaService;
+        this.userService = userService;
     }
 
     @GetMapping("/captcha-config")
@@ -95,6 +100,13 @@ public class EmailVerificationController {
         EmailVerificationService.Scene scene = parseScene(request.scene());
         if (scene == null) {
             return error(400, "不支持的验证码场景");
+        }
+
+        if (scene == EmailVerificationService.Scene.LOGIN) {
+            User user = userService.getByEmail(email);
+            if (user == null) {
+                return error(404, "用户不存在");
+            }
         }
 
         SliderCaptchaService.VerifyResult captchaResult = sliderCaptchaService.verify(
