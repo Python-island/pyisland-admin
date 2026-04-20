@@ -75,6 +75,23 @@ export default function UserList() {
     }
   };
 
+  /**
+   * 轮换目标管理员的 TOTP 种子。
+   * @param username - 目标管理员用户名。
+   */
+  const handleRotateTotpSeed = async (username: string) => {
+    try {
+      const res = await adminUsers.rotateTotpSeed(username);
+      if (res.code === 200) {
+        showMsg(`已为 ${username} 轮换 TOTP 种子`);
+      } else {
+        showMsg(res.message, "err");
+      }
+    } catch {
+      showMsg("轮换失败", "err");
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -267,6 +284,21 @@ export default function UserList() {
                           </span>
                         ) : (
                           <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              onClick={() => void handleRotateTotpSeed(u.username)}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#5ac8fa",
+                                borderRadius: 980,
+                                border: "1px solid #5ac8fa",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              轮换 TOTP
+                            </button>
                             <button
                               onClick={() => requestDemote(u.username)}
                               className="cursor-pointer"

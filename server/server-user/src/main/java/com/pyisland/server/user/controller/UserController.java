@@ -3,6 +3,7 @@ package com.pyisland.server.user.controller;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.policy.PasswordPolicy;
 import com.pyisland.server.user.policy.UsernamePolicy;
+import com.pyisland.server.user.service.TotpSecurityService;
 import com.pyisland.server.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,13 +30,16 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final TotpSecurityService totpSecurityService;
 
     /**
      * 构造用户控制器。
      * @param userService 用户服务。
      */
-    public UserController(UserService userService) {
+    public UserController(UserService userService,
+                          TotpSecurityService totpSecurityService) {
         this.userService = userService;
+        this.totpSecurityService = totpSecurityService;
     }
 
     /**
@@ -214,6 +218,40 @@ public class UserController {
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "更新成功"
+        ));
+    }
+
+    /**
+     * 轮换指定管理员的 TOTP Seed。
+     * @param username 目标管理员用户名。
+     * @return 操作结果。
+     */
+    @PostMapping("/totp-seed/rotate")
+    public ResponseEntity<?> rotateTotpSeed(@RequestParam String username) {
+        if (username == null || username.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "用户名不能为空"
+            ));
+        }
+        String targetUsername = username.trim();
+        User target = userService.getByUsername(targetUsername);
+        if (target == null || !User.ROLE_ADMIN.equals(target.getRole())) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "code", 404,
+                    "message", "管理员不存在"
+            ));
+        }
+        String seed = totpSecurityService.rotateTotpSeedForClient(targetUsername);
+        if (seed == null || seed.isBlank()) {
+            return ResponseEntity.status(503).body(Map.of(
+                    "code", 503,
+                    "message", "TOTP 种子轮换失败"
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "轮换成功"
         ));
     }
 

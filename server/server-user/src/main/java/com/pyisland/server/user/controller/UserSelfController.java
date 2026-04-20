@@ -222,6 +222,7 @@ public class UserSelfController {
      * @param authentication 当前安全上下文。
      * @return 新 Seed 信息。
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/profile/password/totp-seed/rotate")
     public ResponseEntity<?> rotatePasswordTotpSeed(Authentication authentication) {
         String caller = callerName(authentication);

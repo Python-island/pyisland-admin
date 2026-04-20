@@ -381,6 +381,12 @@ export const adminUsers = {
       body: JSON.stringify({ username, password, avatar }),
     });
   },
+  rotateTotpSeed(username: string) {
+    return request<ApiResponse>(
+      `/v1/admin-users/totp-seed/rotate?username=${encodeURIComponent(username)}`,
+      { method: "POST" }
+    );
+  },
 };
 
 export const wallpaperAdmin = {
