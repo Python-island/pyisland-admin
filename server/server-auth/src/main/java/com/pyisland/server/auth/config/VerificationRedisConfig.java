@@ -71,4 +71,31 @@ public class VerificationRedisConfig {
         template.afterPropertiesSet();
         return template;
     }
+
+    @Bean("authSecurityRedisConnectionFactory")
+    public LettuceConnectionFactory authSecurityRedisConnectionFactory(
+            @Value("${REDIS_HOST:127.0.0.1}") String redisHost,
+            @Value("${REDIS_PORT:6379}") int redisPort,
+            @Value("${REDIS_PASSWORD:}") String redisPassword,
+            @Value("${REDIS_AUTH_SECURITY_DATABASE:6}") int authSecurityRedisDatabase
+    ) {
+        RedisStandaloneConfiguration standaloneConfiguration = new RedisStandaloneConfiguration();
+        standaloneConfiguration.setHostName(redisHost);
+        standaloneConfiguration.setPort(redisPort);
+        standaloneConfiguration.setDatabase(authSecurityRedisDatabase);
+        if (StringUtils.hasText(redisPassword)) {
+            standaloneConfiguration.setPassword(redisPassword);
+        }
+        return new LettuceConnectionFactory(standaloneConfiguration);
+    }
+
+    @Bean("authSecurityRedisTemplate")
+    public StringRedisTemplate authSecurityRedisTemplate(
+            @Qualifier("authSecurityRedisConnectionFactory") LettuceConnectionFactory authSecurityRedisConnectionFactory
+    ) {
+        StringRedisTemplate template = new StringRedisTemplate();
+        template.setConnectionFactory(authSecurityRedisConnectionFactory);
+        template.afterPropertiesSet();
+        return template;
+    }
 }
