@@ -27,6 +27,10 @@ public class SliderCaptchaService {
     private final int maxValue;
     private final int tolerance;
     private final long challengeTtlSeconds;
+    private final int createRateLimitAccount;
+    private final int createRateLimitIp;
+    private final int verifyRateLimitIp;
+    private final long rateLimitWindowSeconds;
     private final StringRedisTemplate sliderCaptchaRedisTemplate;
 
     public SliderCaptchaService(@Value("${captcha.slider.enabled:false}") boolean enabled,
@@ -35,6 +39,10 @@ public class SliderCaptchaService {
                                 @Value("${captcha.slider.builtin.max-value:100}") int maxValue,
                                 @Value("${captcha.slider.builtin.tolerance:0}") int tolerance,
                                 @Value("${captcha.slider.builtin.challenge-ttl-seconds:120}") long challengeTtlSeconds,
+                                @Value("${captcha.slider.builtin.rate-limit-account-per-minute:12}") int createRateLimitAccount,
+                                @Value("${captcha.slider.builtin.rate-limit-ip-per-minute:24}") int createRateLimitIp,
+                                @Value("${captcha.slider.builtin.verify-rate-limit-ip-per-minute:60}") int verifyRateLimitIp,
+                                @Value("${captcha.slider.builtin.rate-limit-window-seconds:60}") long rateLimitWindowSeconds,
                                 @Qualifier("sliderCaptchaRedisTemplate") StringRedisTemplate sliderCaptchaRedisTemplate) {
         this.enabled = enabled;
         this.provider = provider == null ? "builtin" : provider.trim().toLowerCase();
@@ -42,6 +50,10 @@ public class SliderCaptchaService {
         this.maxValue = Math.max(minValue + 10, maxValue);
         this.tolerance = Math.max(0, tolerance);
         this.challengeTtlSeconds = Math.max(30, challengeTtlSeconds);
+        this.createRateLimitAccount = Math.max(1, createRateLimitAccount);
+        this.createRateLimitIp = Math.max(1, createRateLimitIp);
+        this.verifyRateLimitIp = Math.max(1, verifyRateLimitIp);
+        this.rateLimitWindowSeconds = Math.max(10, rateLimitWindowSeconds);
         this.sliderCaptchaRedisTemplate = sliderCaptchaRedisTemplate;
     }
 
@@ -58,6 +70,16 @@ public class SliderCaptchaService {
         }
         String normalizedAccount = normalizeAccount(account);
         String normalizedIp = normalizeIp(userIp);
+        assertRateLimit(
+                keyCreateRateAccount(normalizedAccount),
+                createRateLimitAccount,
+                "当前账户滑块请求过于频繁，请稍后再试"
+        );
+        assertRateLimit(
+                keyCreateRateIp(normalizedIp),
+                createRateLimitIp,
+                "当前IP滑块请求过于频繁，请稍后再试"
+        );
         cleanupStaleChallenges(keyAccountChallenges(normalizedAccount));
         cleanupStaleChallenges(keyIpChallenges(normalizedIp));
 
@@ -90,6 +112,11 @@ public class SliderCaptchaService {
     public VerifyResult verify(String ticket, String randstr, String userIp) {
         if (!enabled) {
             return VerifyResult.success();
+        }
+        String normalizedIp = normalizeIp(userIp);
+        VerifyResult verifyRateLimitResult = checkVerifyRateLimit(normalizedIp);
+        if (!verifyRateLimitResult.ok()) {
+            return verifyRateLimitResult;
         }
         if (!"builtin".equals(provider)) {
             return VerifyResult.failed(500, "暂不支持的滑块验证码提供方");
@@ -146,6 +173,40 @@ public class SliderCaptchaService {
         return "verify:slider:ip:challenges:" + encodeAccount(ip);
     }
 
+    private String keyCreateRateAccount(String account) {
+        return "verify:slider:rate:create:account:" + encodeAccount(account);
+    }
+
+    private String keyCreateRateIp(String ip) {
+        return "verify:slider:rate:create:ip:" + encodeAccount(ip);
+    }
+
+    private String keyVerifyRateIp(String ip) {
+        return "verify:slider:rate:verify:ip:" + encodeAccount(ip);
+    }
+
+    private void assertRateLimit(String key, int maxAllowed, String message) {
+        Long count = sliderCaptchaRedisTemplate.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            sliderCaptchaRedisTemplate.expire(key, Duration.ofSeconds(rateLimitWindowSeconds));
+        }
+        if (count != null && count > maxAllowed) {
+            throw new TooManyRequestsException(message);
+        }
+    }
+
+    private VerifyResult checkVerifyRateLimit(String ip) {
+        String key = keyVerifyRateIp(ip);
+        Long count = sliderCaptchaRedisTemplate.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            sliderCaptchaRedisTemplate.expire(key, Duration.ofSeconds(rateLimitWindowSeconds));
+        }
+        if (count != null && count > verifyRateLimitIp) {
+            return VerifyResult.failed(429, "滑块校验请求过于频繁，请稍后再试");
+        }
+        return VerifyResult.success();
+    }
+
     private void cleanupStaleChallenges(String challengeSetKey) {
         Set<String> challengeIds = sliderCaptchaRedisTemplate.opsForSet().members(challengeSetKey);
         if (challengeIds == null || challengeIds.isEmpty()) {
@@ -183,6 +244,12 @@ public class SliderCaptchaService {
 
     public static class TooManyPendingChallengesException extends RuntimeException {
         public TooManyPendingChallengesException(String message) {
+            super(message);
+        }
+    }
+
+    public static class TooManyRequestsException extends RuntimeException {
+        public TooManyRequestsException(String message) {
             super(message);
         }
     }

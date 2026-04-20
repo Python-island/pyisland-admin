@@ -65,6 +65,8 @@ public class EmailVerificationController {
             data.put("targetValue", challenge.targetValue());
             data.put("tolerance", challenge.tolerance());
             return okData("success", data);
+        } catch (SliderCaptchaService.TooManyRequestsException ex) {
+            return error(429, ex.getMessage());
         } catch (SliderCaptchaService.TooManyPendingChallengesException ex) {
             return error(429, ex.getMessage());
         } catch (Exception ex) {
