@@ -19,7 +19,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,6 +38,10 @@ import java.util.Map;
 public class UserSelfController {
 
     private static final Logger log = LoggerFactory.getLogger(UserSelfController.class);
+    private static final int TOTP_DIGITS = 6;
+    private static final long TOTP_PERIOD_SECONDS = 30L;
+    private static final int TOTP_WINDOW_STEPS = 1;
+    private static final long TOTP_MAX_DRIFT_SECONDS = 90L;
 
     private final UserService userService;
     private final PasswordHashService passwordHashService;
@@ -136,6 +145,17 @@ public class UserSelfController {
         if (request == null || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "密码不能为空"));
         }
+        if (request.totpCode() == null || request.totpCode().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "TOTP 密令不能为空"));
+        }
+        if (request.totpTimestamp() == null || request.totpTimestamp() <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "TOTP 时间戳不能为空"));
+        }
+        String totpError = verifyTotpOrMessage(user, request.totpCode(), request.totpTimestamp());
+        if (totpError != null) {
+            int statusCode = "TOTP 种子无效".equals(totpError) ? 503 : 401;
+            return ResponseEntity.status(statusCode).body(Map.of("code", statusCode, "message", totpError));
+        }
         String passwordError = PasswordPolicy.validate(request.password());
         if (passwordError != null) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", passwordError));
@@ -200,6 +220,60 @@ public class UserSelfController {
         return authentication.getName();
     }
 
+    private String verifyTotpOrMessage(User user, String codeRaw, long timestampSeconds) {
+        String code = normalizeTotpCode(codeRaw);
+        if (code == null) {
+            return "TOTP 密令格式错误";
+        }
+        long now = Instant.now().getEpochSecond();
+        if (Math.abs(now - timestampSeconds) > TOTP_MAX_DRIFT_SECONDS) {
+            return "TOTP 密令已过期";
+        }
+        if (user.getSessionToken() == null || user.getSessionToken().isBlank()) {
+            return "TOTP 种子无效";
+        }
+        long clientCounter = timestampSeconds / TOTP_PERIOD_SECONDS;
+        byte[] secret = user.getSessionToken().getBytes(StandardCharsets.UTF_8);
+        for (long offset = -TOTP_WINDOW_STEPS; offset <= TOTP_WINDOW_STEPS; offset++) {
+            String expected = generateTotp(secret, clientCounter + offset);
+            if (expected != null && expected.equals(code)) {
+                return null;
+            }
+        }
+        return "TOTP 密令错误或已过期";
+    }
+
+    private String normalizeTotpCode(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (trimmed.length() != TOTP_DIGITS) return null;
+        for (int i = 0; i < trimmed.length(); i++) {
+            if (!Character.isDigit(trimmed.charAt(i))) {
+                return null;
+            }
+        }
+        return trimmed;
+    }
+
+    private String generateTotp(byte[] secret, long counter) {
+        if (counter < 0) return null;
+        try {
+            byte[] data = ByteBuffer.allocate(8).putLong(counter).array();
+            Mac mac = Mac.getInstance("HmacSHA1");
+            mac.init(new SecretKeySpec(secret, "HmacSHA1"));
+            byte[] hash = mac.doFinal(data);
+            int offset = hash[hash.length - 1] & 0x0F;
+            int binary = ((hash[offset] & 0x7F) << 24)
+                    | ((hash[offset + 1] & 0xFF) << 16)
+                    | ((hash[offset + 2] & 0xFF) << 8)
+                    | (hash[offset + 3] & 0xFF);
+            int otp = binary % (int) Math.pow(10, TOTP_DIGITS);
+            return String.format("%0" + TOTP_DIGITS + "d", otp);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     /**
      * 自助修改资料请求体。所有字段均为可选。
      * @param avatar 头像地址。
@@ -216,8 +290,10 @@ public class UserSelfController {
     /**
      * 自助修改密码请求体。
      * @param password 新密码。
+     * @param totpCode TOTP 动态密令（6 位数字）。
+     * @param totpTimestamp TOTP 生成时间戳（Unix 秒）。
      */
-    public record UpdateSelfPasswordRequest(String password) {
+    public record UpdateSelfPasswordRequest(String password, String totpCode, Long totpTimestamp) {
     }
 
     /**
