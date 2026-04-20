@@ -217,11 +217,62 @@ CREATE TABLE IF NOT EXISTS user_account (
     birthday      DATE,
     enabled       TINYINT(1)   NOT NULL DEFAULT 1,
     session_token VARCHAR(500),
+    totp_secret_ciphertext LONGTEXT,
+    totp_secret_updated_at DATETIME,
     created_at    DATETIME,
     UNIQUE KEY uk_user_account_username (username),
     UNIQUE KEY uk_user_account_email (email),
-    KEY idx_user_account_role (role)
+    KEY idx_user_account_role (role),
+    KEY idx_user_account_totp_secret_updated_at (totp_secret_updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @user_account_totp_secret_ciphertext_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'user_account'
+      AND COLUMN_NAME = 'totp_secret_ciphertext'
+);
+SET @user_account_totp_secret_ciphertext_sql := IF(
+    @user_account_totp_secret_ciphertext_exists = 0,
+    'ALTER TABLE user_account ADD COLUMN totp_secret_ciphertext LONGTEXT AFTER session_token',
+    'SELECT 1'
+);
+PREPARE user_account_totp_secret_ciphertext_stmt FROM @user_account_totp_secret_ciphertext_sql;
+EXECUTE user_account_totp_secret_ciphertext_stmt;
+DEALLOCATE PREPARE user_account_totp_secret_ciphertext_stmt;
+
+SET @user_account_totp_secret_updated_at_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'user_account'
+      AND COLUMN_NAME = 'totp_secret_updated_at'
+);
+SET @user_account_totp_secret_updated_at_sql := IF(
+    @user_account_totp_secret_updated_at_exists = 0,
+    'ALTER TABLE user_account ADD COLUMN totp_secret_updated_at DATETIME AFTER totp_secret_ciphertext',
+    'SELECT 1'
+);
+PREPARE user_account_totp_secret_updated_at_stmt FROM @user_account_totp_secret_updated_at_sql;
+EXECUTE user_account_totp_secret_updated_at_stmt;
+DEALLOCATE PREPARE user_account_totp_secret_updated_at_stmt;
+
+SET @user_account_totp_secret_updated_at_idx_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'user_account'
+      AND INDEX_NAME = 'idx_user_account_totp_secret_updated_at'
+);
+SET @user_account_totp_secret_updated_at_idx_sql := IF(
+    @user_account_totp_secret_updated_at_idx_exists = 0,
+    'ALTER TABLE user_account ADD INDEX idx_user_account_totp_secret_updated_at (totp_secret_updated_at)',
+    'SELECT 1'
+);
+PREPARE user_account_totp_secret_updated_at_idx_stmt FROM @user_account_totp_secret_updated_at_idx_sql;
+EXECUTE user_account_totp_secret_updated_at_idx_stmt;
+DEALLOCATE PREPARE user_account_totp_secret_updated_at_idx_stmt;
 
 -- 仅当 user_account 为空且源表存在时才执行数据拷贝。
 SET @user_account_count := (SELECT COUNT(*) FROM user_account);

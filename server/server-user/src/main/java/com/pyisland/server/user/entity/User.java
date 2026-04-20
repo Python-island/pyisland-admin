@@ -24,6 +24,8 @@ public class User {
     private LocalDate birthday;
     private Boolean enabled;
     private String sessionToken;
+    private String totpSecretCiphertext;
+    private LocalDateTime totpSecretUpdatedAt;
     private LocalDateTime createdAt;
 
     /**
@@ -200,6 +202,38 @@ public class User {
      */
     public void setSessionToken(String sessionToken) {
         this.sessionToken = sessionToken;
+    }
+
+    /**
+     * 获取 TOTP 种子密文。
+     * @return AES-GCM 加密后的 Base64 密文。
+     */
+    public String getTotpSecretCiphertext() {
+        return totpSecretCiphertext;
+    }
+
+    /**
+     * 设置 TOTP 种子密文。
+     * @param totpSecretCiphertext AES-GCM 加密后的 Base64 密文。
+     */
+    public void setTotpSecretCiphertext(String totpSecretCiphertext) {
+        this.totpSecretCiphertext = totpSecretCiphertext;
+    }
+
+    /**
+     * 获取 TOTP 种子更新时间。
+     * @return 种子最近更新时间。
+     */
+    public LocalDateTime getTotpSecretUpdatedAt() {
+        return totpSecretUpdatedAt;
+    }
+
+    /**
+     * 设置 TOTP 种子更新时间。
+     * @param totpSecretUpdatedAt 种子最近更新时间。
+     */
+    public void setTotpSecretUpdatedAt(LocalDateTime totpSecretUpdatedAt) {
+        this.totpSecretUpdatedAt = totpSecretUpdatedAt;
     }
 
     /**

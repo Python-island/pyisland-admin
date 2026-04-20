@@ -237,6 +237,16 @@ public class UserService {
     }
 
     /**
+     * 更新用户 TOTP 种子密文。
+     * @param username 用户名。
+     * @param totpSecretCiphertext AES-GCM 密文（Base64）。
+     * @return 是否成功。
+     */
+    public boolean updateTotpSecret(String username, String totpSecretCiphertext) {
+        return userMapper.updateTotpSecret(username, totpSecretCiphertext, LocalDateTime.now()) > 0;
+    }
+
+    /**
      * 更新角色。
      * @param username 用户名。
      * @param role 新角色。

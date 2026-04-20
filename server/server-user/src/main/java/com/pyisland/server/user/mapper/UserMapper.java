@@ -116,6 +116,17 @@ public interface UserMapper {
                            @Param("sessionToken") String sessionToken);
 
     /**
+     * 更新用户 TOTP 种子密文。
+     * @param username 用户名。
+     * @param totpSecretCiphertext AES-GCM 密文（Base64）。
+     * @param updatedAt 更新时间。
+     * @return 影响行数。
+     */
+    int updateTotpSecret(@Param("username") String username,
+                         @Param("totpSecretCiphertext") String totpSecretCiphertext,
+                         @Param("updatedAt") LocalDateTime updatedAt);
+
+    /**
      * 更新角色。
      * @param username 用户名。
      * @param role 新角色。

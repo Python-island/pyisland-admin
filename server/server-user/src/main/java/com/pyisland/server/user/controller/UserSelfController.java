@@ -170,15 +170,10 @@ public class UserSelfController {
         if (request.totpCode() == null || request.totpCode().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "TOTP 密令不能为空"));
         }
-        if (request.totpTimestamp() == null || request.totpTimestamp() <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "TOTP 时间戳不能为空"));
-        }
         String totpError = totpSecurityService.verifyTotpOrMessage(
                 caller,
                 ClientIpUtil.resolve(http),
-                user.getSessionToken(),
-                request.totpCode(),
-                request.totpTimestamp()
+                request.totpCode()
         );
         if (totpError != null) {
             int statusCode = "TOTP 种子无效".equals(totpError)
@@ -193,6 +188,60 @@ public class UserSelfController {
         userService.updatePassword(caller, request.password());
         log.info("user self update password username={}", caller);
         return ResponseEntity.ok(Map.of("code", 200, "message", "更新成功"));
+    }
+
+    /**
+     * 获取当前用户 TOTP Seed（Base32）。若不存在则自动初始化。
+     * @param authentication 当前安全上下文。
+     * @return Seed 信息。
+     */
+    @GetMapping("/profile/password/totp-seed")
+    public ResponseEntity<?> getPasswordTotpSeed(Authentication authentication) {
+        String caller = callerName(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        String seed = totpSecurityService.getOrCreateTotpSeedForClient(caller);
+        if (seed == null || seed.isBlank()) {
+            return ResponseEntity.status(503).body(Map.of("code", 503, "message", "TOTP 种子不可用"));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", Map.of(
+                        "seed", seed,
+                        "algorithm", "HMAC-SHA1",
+                        "digits", TotpSecurityService.TOTP_DIGITS,
+                        "periodSeconds", TotpSecurityService.TOTP_PERIOD_SECONDS
+                )
+        ));
+    }
+
+    /**
+     * 轮换当前用户 TOTP Seed（Base32）。
+     * @param authentication 当前安全上下文。
+     * @return 新 Seed 信息。
+     */
+    @PostMapping("/profile/password/totp-seed/rotate")
+    public ResponseEntity<?> rotatePasswordTotpSeed(Authentication authentication) {
+        String caller = callerName(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        String seed = totpSecurityService.rotateTotpSeedForClient(caller);
+        if (seed == null || seed.isBlank()) {
+            return ResponseEntity.status(503).body(Map.of("code", 503, "message", "TOTP 种子轮换失败"));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", Map.of(
+                        "seed", seed,
+                        "algorithm", "HMAC-SHA1",
+                        "digits", TotpSecurityService.TOTP_DIGITS,
+                        "periodSeconds", TotpSecurityService.TOTP_PERIOD_SECONDS
+                )
+        ));
     }
 
     /**
@@ -322,9 +371,8 @@ public class UserSelfController {
      * @param password 新密码。
      * @param emailCode 邮箱验证码（RESET_PASSWORD 场景）。
      * @param totpCode TOTP 动态密令（6 位数字）。
-     * @param totpTimestamp TOTP 生成时间戳（Unix 秒）。
      */
-    public record UpdateSelfPasswordRequest(String password, String emailCode, String totpCode, Long totpTimestamp) {
+    public record UpdateSelfPasswordRequest(String password, String emailCode, String totpCode) {
     }
 
     /**
