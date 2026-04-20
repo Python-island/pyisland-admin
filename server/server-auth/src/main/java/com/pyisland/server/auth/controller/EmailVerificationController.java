@@ -139,7 +139,7 @@ public class EmailVerificationController {
      * 校验邮箱验证码。
      */
     @PostMapping("/verify")
-    public ResponseEntity<Map<String, Object>> verifyCode(@RequestBody VerifyCodeRequest request) {
+    public ResponseEntity<Map<String, Object>> verifyCode(@RequestBody VerifyCodeRequest request, HttpServletRequest http) {
         if (request == null || request.email() == null || request.email().isBlank()) {
             return error(400, "邮箱不能为空");
         }
@@ -158,6 +158,25 @@ public class EmailVerificationController {
         EmailVerificationService.Scene scene = parseScene(request.scene());
         if (scene == null) {
             return error(400, "不支持的验证码场景");
+        }
+
+        SliderCaptchaService.VerifyResult captchaResult = sliderCaptchaService.verify(
+                request.captchaTicket(),
+                request.captchaRandstr(),
+                ClientIpUtil.resolve(http)
+        );
+        if (!captchaResult.ok()) {
+            return error(captchaResult.code(), captchaResult.message());
+        }
+
+        SliderCaptchaService.VerifyResult signResult = sliderCaptchaService.consumeSendSign(
+                request.captchaSign(),
+                email,
+                ClientIpUtil.resolve(http),
+                request.captchaTicket()
+        );
+        if (!signResult.ok()) {
+            return error(signResult.code(), signResult.message());
         }
 
         EmailVerificationService.VerifyCodeResult result = emailVerificationService.verifyCode(
@@ -240,7 +259,16 @@ public class EmailVerificationController {
      * @param scene 场景，支持 REGISTER/LOGIN/RESET_PASSWORD/CHANGE_EMAIL。
      * @param code 验证码。
      * @param consume 是否消费验证码；默认 true。
+     * @param captchaTicket 滑块票据。
+     * @param captchaRandstr 滑块随机串。
+     * @param captchaSign 短期签名票据。
      */
-    public record VerifyCodeRequest(String email, String scene, String code, Boolean consume) {
+    public record VerifyCodeRequest(String email,
+                                    String scene,
+                                    String code,
+                                    Boolean consume,
+                                    String captchaTicket,
+                                    String captchaRandstr,
+                                    String captchaSign) {
     }
 }
