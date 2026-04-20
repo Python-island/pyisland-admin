@@ -30,6 +30,9 @@ public class SliderCaptchaService {
     private final int createRateLimitAccount;
     private final int createRateLimitIp;
     private final int verifyRateLimitIp;
+    private final int verifyFailLimitAccount;
+    private final int verifyFailLimitIp;
+    private final long verifyFailWindowSeconds;
     private final long rateLimitWindowSeconds;
     private final StringRedisTemplate sliderCaptchaRedisTemplate;
 
@@ -42,6 +45,9 @@ public class SliderCaptchaService {
                                 @Value("${captcha.slider.builtin.rate-limit-account-per-minute:12}") int createRateLimitAccount,
                                 @Value("${captcha.slider.builtin.rate-limit-ip-per-minute:24}") int createRateLimitIp,
                                 @Value("${captcha.slider.builtin.verify-rate-limit-ip-per-minute:60}") int verifyRateLimitIp,
+                                @Value("${captcha.slider.builtin.verify-fail-limit-account:3}") int verifyFailLimitAccount,
+                                @Value("${captcha.slider.builtin.verify-fail-limit-ip:3}") int verifyFailLimitIp,
+                                @Value("${captcha.slider.builtin.verify-fail-window-seconds:600}") long verifyFailWindowSeconds,
                                 @Value("${captcha.slider.builtin.rate-limit-window-seconds:60}") long rateLimitWindowSeconds,
                                 @Qualifier("sliderCaptchaRedisTemplate") StringRedisTemplate sliderCaptchaRedisTemplate) {
         this.enabled = enabled;
@@ -53,6 +59,9 @@ public class SliderCaptchaService {
         this.createRateLimitAccount = Math.max(1, createRateLimitAccount);
         this.createRateLimitIp = Math.max(1, createRateLimitIp);
         this.verifyRateLimitIp = Math.max(1, verifyRateLimitIp);
+        this.verifyFailLimitAccount = Math.max(1, verifyFailLimitAccount);
+        this.verifyFailLimitIp = Math.max(1, verifyFailLimitIp);
+        this.verifyFailWindowSeconds = Math.max(30, verifyFailWindowSeconds);
         this.rateLimitWindowSeconds = Math.max(10, rateLimitWindowSeconds);
         this.sliderCaptchaRedisTemplate = sliderCaptchaRedisTemplate;
     }
@@ -145,6 +154,10 @@ public class SliderCaptchaService {
             }
             int target = Integer.parseInt(targetRaw.trim());
             if (Math.abs(value - target) > tolerance) {
+                VerifyResult failLimitedResult = checkAndRecordVerifyFail(owner, ownerIp, normalizedIp);
+                if (!failLimitedResult.ok()) {
+                    return failLimitedResult;
+                }
                 return VerifyResult.failed(400, "滑块验证未通过");
             }
             return VerifyResult.success();
@@ -185,6 +198,14 @@ public class SliderCaptchaService {
         return "verify:slider:rate:verify:ip:" + encodeAccount(ip);
     }
 
+    private String keyVerifyFailAccount(String account) {
+        return "verify:slider:fail:account:" + encodeAccount(account);
+    }
+
+    private String keyVerifyFailIp(String ip) {
+        return "verify:slider:fail:ip:" + encodeAccount(ip);
+    }
+
     private void assertRateLimit(String key, int maxAllowed, String message) {
         Long count = sliderCaptchaRedisTemplate.opsForValue().increment(key);
         if (count != null && count == 1L) {
@@ -204,6 +225,29 @@ public class SliderCaptchaService {
         if (count != null && count > verifyRateLimitIp) {
             return VerifyResult.failed(429, "滑块校验请求过于频繁，请稍后再试");
         }
+        return VerifyResult.success();
+    }
+
+    private VerifyResult checkAndRecordVerifyFail(String owner, String ownerIp, String fallbackIp) {
+        String normalizedOwner = normalizeAccount(owner == null ? "" : owner);
+        String normalizedIp = normalizeIp(ownerIp == null || ownerIp.isBlank() ? fallbackIp : ownerIp);
+
+        Long accountFail = sliderCaptchaRedisTemplate.opsForValue().increment(keyVerifyFailAccount(normalizedOwner));
+        if (accountFail != null && accountFail == 1L) {
+            sliderCaptchaRedisTemplate.expire(keyVerifyFailAccount(normalizedOwner), Duration.ofSeconds(verifyFailWindowSeconds));
+        }
+        if (accountFail != null && accountFail >= verifyFailLimitAccount) {
+            return VerifyResult.failed(429, "滑块输入错误次数过多，请稍后再试");
+        }
+
+        Long ipFail = sliderCaptchaRedisTemplate.opsForValue().increment(keyVerifyFailIp(normalizedIp));
+        if (ipFail != null && ipFail == 1L) {
+            sliderCaptchaRedisTemplate.expire(keyVerifyFailIp(normalizedIp), Duration.ofSeconds(verifyFailWindowSeconds));
+        }
+        if (ipFail != null && ipFail >= verifyFailLimitIp) {
+            return VerifyResult.failed(429, "当前IP滑块输入错误次数过多，请稍后再试");
+        }
+
         return VerifyResult.success();
     }
 
