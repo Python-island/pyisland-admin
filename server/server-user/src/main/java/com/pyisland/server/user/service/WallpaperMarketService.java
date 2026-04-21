@@ -36,18 +36,15 @@ public class WallpaperMarketService {
 
     private final WallpaperMarketMapper mapper;
     private final WallpaperR2StorageService wallpaperR2StorageService;
-    private final StringRedisTemplate redisTemplate;
     private final StringRedisTemplate uploadRateRedisTemplate;
     private final WallpaperTagService tagService;
 
     public WallpaperMarketService(WallpaperMarketMapper mapper,
                                   WallpaperR2StorageService wallpaperR2StorageService,
-                                  @Qualifier("stringRedisTemplate") StringRedisTemplate redisTemplate,
                                   @Qualifier("uploadRateRedisTemplate") StringRedisTemplate uploadRateRedisTemplate,
                                   WallpaperTagService tagService) {
         this.mapper = mapper;
         this.wallpaperR2StorageService = wallpaperR2StorageService;
-        this.redisTemplate = redisTemplate;
         this.uploadRateRedisTemplate = uploadRateRedisTemplate;
         this.tagService = tagService;
     }
@@ -420,6 +417,9 @@ public class WallpaperMarketService {
     }
 
     public boolean report(Long id, String reporterUsername, String reasonType, String reasonDetail) {
+        if (mapper.countPendingReportByUser(id, reporterUsername) > 0) {
+            return false;
+        }
         if (!checkRateLimit("wallpaper:report:" + reporterUsername, 3600, 20)) {
             return false;
         }
@@ -594,7 +594,7 @@ public class WallpaperMarketService {
     }
 
     private boolean checkRateLimit(String key, int windowSeconds, int maxCount) {
-        return checkRateLimit(redisTemplate, key, windowSeconds, maxCount);
+        return checkRateLimit(uploadRateRedisTemplate, key, windowSeconds, maxCount);
     }
 
     private boolean checkRateLimit(StringRedisTemplate template, String key, int windowSeconds, int maxCount) {

@@ -215,7 +215,7 @@ public class WallpaperUserController {
                 request.reasonType(),
                 request.reasonDetail());
         if (!ok) {
-            return ResponseEntity.ok(Map.of("code", 429, "message", "举报过于频繁或参数无效"));
+            return ResponseEntity.ok(Map.of("code", 429, "message", "举报过于频繁、参数无效或已存在待审核举报"));
         }
         return ResponseEntity.ok(Map.of("code", 200, "message", "举报已提交，等待审核"));
     }

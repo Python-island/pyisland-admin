@@ -422,6 +422,14 @@
         (#{wallpaperId}, #{reporterUsername}, #{reasonType}, #{reasonDetail}, 'pending', #{createdAt})
     </insert>
 
+    <select id="countPendingReportByUser" resultType="int">
+        SELECT COUNT(*)
+        FROM wallpaper_report
+        WHERE wallpaper_id = #{wallpaperId}
+          AND reporter_username = #{reporterUsername}
+          AND status = 'pending'
+    </select>
+
     <select id="listReports" resultType="map">
         SELECT id,
                wallpaper_id AS wallpaperId,

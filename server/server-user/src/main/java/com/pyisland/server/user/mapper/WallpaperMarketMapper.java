@@ -135,6 +135,9 @@ public interface WallpaperMarketMapper {
                      @Param("reasonDetail") String reasonDetail,
                      @Param("createdAt") LocalDateTime createdAt);
 
+    int countPendingReportByUser(@Param("wallpaperId") Long wallpaperId,
+                                 @Param("reporterUsername") String reporterUsername);
+
     List<Map<String, Object>> listReports(@Param("status") String status,
                                           @Param("offset") int offset,
                                           @Param("limit") int limit);
