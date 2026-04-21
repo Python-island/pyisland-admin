@@ -99,6 +99,9 @@ totp:
     decrypted-secret-cache-seconds: ${TOTP_DECRYPTED_SECRET_CACHE_SECONDS}
     encrypted-secret-cache-seconds: ${TOTP_ENCRYPTED_SECRET_CACHE_SECONDS}
 
+issue-feedback:
+  redis-database: ${REDIS_ISSUE_FEEDBACK_DATABASE}
+
 mybatis:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: com.pyisland.server.user.entity,com.pyisland.server.version.entity,com.pyisland.server.servicestatus.entity

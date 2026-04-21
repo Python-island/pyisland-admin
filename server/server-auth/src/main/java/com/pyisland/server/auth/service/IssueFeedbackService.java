@@ -14,26 +14,29 @@ import java.util.concurrent.TimeUnit;
 public class IssueFeedbackService {
 
     private final IssueFeedbackMapper issueFeedbackMapper;
-    private final StringRedisTemplate authSecurityRedisTemplate;
+    private final StringRedisTemplate issueFeedbackRedisTemplate;
 
     public IssueFeedbackService(IssueFeedbackMapper issueFeedbackMapper,
-                                @Qualifier("authSecurityRedisTemplate") StringRedisTemplate authSecurityRedisTemplate) {
+                                @Qualifier("issueFeedbackRedisTemplate") StringRedisTemplate issueFeedbackRedisTemplate) {
         this.issueFeedbackMapper = issueFeedbackMapper;
-        this.authSecurityRedisTemplate = authSecurityRedisTemplate;
+        this.issueFeedbackRedisTemplate = issueFeedbackRedisTemplate;
     }
 
     public boolean submit(String username,
+                          String userIp,
                           String feedbackType,
                           String title,
                           String content,
                           String contact,
                           String clientVersion) {
-        if (!checkRateLimit("issue-feedback:submit:" + username, 3600, 20)) {
+        String normalizedUsername = safeText(username, 100).toLowerCase();
+        String normalizedIp = normalizeIp(userIp);
+        if (!checkRateLimit("issue-feedback:submit:" + normalizedUsername + ":" + normalizedIp, 3600, 3)) {
             return false;
         }
         LocalDateTime now = LocalDateTime.now();
         return issueFeedbackMapper.insertFeedback(
-                safeText(username, 100),
+                normalizedUsername,
                 normalizeFeedbackType(feedbackType),
                 safeTitle(title),
                 safeContent(content),
@@ -81,9 +84,9 @@ public class IssueFeedbackService {
     }
 
     private boolean checkRateLimit(String key, int windowSeconds, int maxCount) {
-        Long count = authSecurityRedisTemplate.opsForValue().increment(key);
+        Long count = issueFeedbackRedisTemplate.opsForValue().increment(key);
         if (count != null && count == 1L) {
-            authSecurityRedisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
+            issueFeedbackRedisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
         }
         return count != null && count <= maxCount;
     }
@@ -115,6 +118,14 @@ public class IssueFeedbackService {
             return "rejected";
         }
         return "resolved";
+    }
+
+    private String normalizeIp(String ip) {
+        String normalized = safeText(ip, 64);
+        if (normalized.isBlank()) {
+            return "unknown";
+        }
+        return normalized;
     }
 
     private String safeTitle(String value) {

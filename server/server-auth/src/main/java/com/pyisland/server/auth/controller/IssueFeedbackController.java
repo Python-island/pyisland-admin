@@ -74,6 +74,7 @@ public class IssueFeedbackController {
         try {
             boolean ok = issueFeedbackService.submit(
                     caller,
+                    userIp,
                     request.feedbackType(),
                     request.title(),
                     request.content(),
