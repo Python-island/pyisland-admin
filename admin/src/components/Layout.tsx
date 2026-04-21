@@ -127,7 +127,7 @@ export default function Layout() {
     <div className="flex" style={{ backgroundColor: "var(--apple-black)", height: "100vh", overflow: "hidden" }}>
       {/* Sidebar */}
       <aside
-        className="flex flex-col"
+        className="admin-sidebar flex flex-col"
         style={{
           width: 280,
           flexShrink: 0,
