@@ -1,4 +1,4 @@
-package com.pyisland.server.upload.config;
+package com.pyisland.server.user.config;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,34 +10,34 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.StringUtils;
 
 /**
- * 上传域安全策略 Redis 配置。
+ * 用户域上传限流 Redis 配置（DB7）。
  */
 @Configuration
-public class UploadSecurityRedisConfig {
+public class UploadRateRedisConfig {
 
-    @Bean("uploadSecurityRedisConnectionFactory")
-    public LettuceConnectionFactory uploadSecurityRedisConnectionFactory(
+    @Bean("uploadRateRedisConnectionFactory")
+    public LettuceConnectionFactory uploadRateRedisConnectionFactory(
             @Value("${REDIS_HOST:127.0.0.1}") String redisHost,
             @Value("${REDIS_PORT:6379}") int redisPort,
             @Value("${REDIS_PASSWORD:}") String redisPassword,
-            @Value("${REDIS_UPLOAD_RATE_DATABASE:${REDIS_UPLOAD_SECURITY_DATABASE:7}}") int uploadSecurityRedisDatabase
+            @Value("${REDIS_UPLOAD_RATE_DATABASE:${REDIS_UPLOAD_SECURITY_DATABASE:7}}") int uploadRateRedisDatabase
     ) {
         RedisStandaloneConfiguration standaloneConfiguration = new RedisStandaloneConfiguration();
         standaloneConfiguration.setHostName(redisHost);
         standaloneConfiguration.setPort(redisPort);
-        standaloneConfiguration.setDatabase(uploadSecurityRedisDatabase);
+        standaloneConfiguration.setDatabase(uploadRateRedisDatabase);
         if (StringUtils.hasText(redisPassword)) {
             standaloneConfiguration.setPassword(redisPassword);
         }
         return new LettuceConnectionFactory(standaloneConfiguration);
     }
 
-    @Bean("uploadSecurityRedisTemplate")
-    public StringRedisTemplate uploadSecurityRedisTemplate(
-            @Qualifier("uploadSecurityRedisConnectionFactory") LettuceConnectionFactory uploadSecurityRedisConnectionFactory
+    @Bean("uploadRateRedisTemplate")
+    public StringRedisTemplate uploadRateRedisTemplate(
+            @Qualifier("uploadRateRedisConnectionFactory") LettuceConnectionFactory uploadRateRedisConnectionFactory
     ) {
         StringRedisTemplate template = new StringRedisTemplate();
-        template.setConnectionFactory(uploadSecurityRedisConnectionFactory);
+        template.setConnectionFactory(uploadRateRedisConnectionFactory);
         template.afterPropertiesSet();
         return template;
     }

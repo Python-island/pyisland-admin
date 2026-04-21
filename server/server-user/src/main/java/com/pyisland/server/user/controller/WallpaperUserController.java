@@ -50,6 +50,12 @@ public class WallpaperUserController {
                                     @RequestParam("thumb720") MultipartFile thumb720,
                                     @RequestParam("thumb1280") MultipartFile thumb1280,
                                     Authentication authentication) {
+        if (!wallpaperMarketService.allowUpload(authentication.getName())) {
+            return ResponseEntity.status(429).body(Map.of(
+                    "code", 429,
+                    "message", "壁纸上传过于频繁，每小时最多上传 5 个"
+            ));
+        }
         try {
             Long id = wallpaperMarketService.create(authentication.getName(),
                     title,

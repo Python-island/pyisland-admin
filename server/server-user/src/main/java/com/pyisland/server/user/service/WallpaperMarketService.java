@@ -3,6 +3,7 @@ package com.pyisland.server.user.service;
 import com.pyisland.server.upload.service.WallpaperR2StorageService;
 import com.pyisland.server.user.entity.WallpaperAsset;
 import com.pyisland.server.user.mapper.WallpaperMarketMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -36,15 +37,18 @@ public class WallpaperMarketService {
     private final WallpaperMarketMapper mapper;
     private final WallpaperR2StorageService wallpaperR2StorageService;
     private final StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate uploadRateRedisTemplate;
     private final WallpaperTagService tagService;
 
     public WallpaperMarketService(WallpaperMarketMapper mapper,
                                   WallpaperR2StorageService wallpaperR2StorageService,
-                                  StringRedisTemplate redisTemplate,
+                                  @Qualifier("stringRedisTemplate") StringRedisTemplate redisTemplate,
+                                  @Qualifier("uploadRateRedisTemplate") StringRedisTemplate uploadRateRedisTemplate,
                                   WallpaperTagService tagService) {
         this.mapper = mapper;
         this.wallpaperR2StorageService = wallpaperR2StorageService;
         this.redisTemplate = redisTemplate;
+        this.uploadRateRedisTemplate = uploadRateRedisTemplate;
         this.tagService = tagService;
     }
 
@@ -131,6 +135,10 @@ public class WallpaperMarketService {
         tagService.syncTagsForWallpaper(asset.getId(), asset.getTagsText(), ownerUsername);
 
         return asset.getId();
+    }
+
+    public boolean allowUpload(String ownerUsername) {
+        return checkRateLimit(uploadRateRedisTemplate, "wallpaper:upload:" + ownerUsername, 3600, 5);
     }
 
     @Cacheable(
@@ -586,9 +594,13 @@ public class WallpaperMarketService {
     }
 
     private boolean checkRateLimit(String key, int windowSeconds, int maxCount) {
-        Long count = redisTemplate.opsForValue().increment(key);
+        return checkRateLimit(redisTemplate, key, windowSeconds, maxCount);
+    }
+
+    private boolean checkRateLimit(StringRedisTemplate template, String key, int windowSeconds, int maxCount) {
+        Long count = template.opsForValue().increment(key);
         if (count != null && count == 1L) {
-            redisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
+            template.expire(key, windowSeconds, TimeUnit.SECONDS);
         }
         return count != null && count <= maxCount;
     }

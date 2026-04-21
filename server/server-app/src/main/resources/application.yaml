@@ -70,8 +70,6 @@ cloudflare:
     access-key-secret: ${WALLPAPER_R2_ACCESS_KEY_SECRET}
     bucket-name: ${WALLPAPER_R2_BUCKET_NAME}
     public-domain: ${WALLPAPER_R2_PUBLIC_DOMAIN}
-  turnstile:
-    secret-key: ${TURNSTILE_SECRET_KEY}
 
 resend:
   api-key: ${RESEND_API_KEY}
