@@ -222,6 +222,28 @@ export interface WallpaperRatingItem {
   updatedAt?: string;
 }
 
+export interface IssueFeedbackAdminItem {
+  id: number;
+  username: string;
+  feedbackType: string;
+  title: string;
+  content: string;
+  contact?: string;
+  clientVersion?: string;
+  status: string;
+  adminReply?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  resolvedAt?: string;
+}
+
+export interface IssueFeedbackAdminListResponse {
+  items: IssueFeedbackAdminItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export const auth = {
   adminLogin(username: string, password: string) {
     return request<ApiResponse<LoginData>>("/auth/admin/login", {
@@ -502,6 +524,31 @@ export const wallpaperTagAdmin = {
   deleteTag(id: number) {
     return request<ApiResponse>(`/v1/admin/tags/delete?id=${encodeURIComponent(String(id))}`, {
       method: "DELETE",
+    });
+  },
+};
+
+export const issueFeedbackAdmin = {
+  list(params?: {
+    status?: string;
+    keyword?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.keyword) query.set("keyword", params.keyword);
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+    const qs = query.toString();
+    return request<ApiResponse<IssueFeedbackAdminListResponse>>(
+      `/v1/admin/feedback${qs ? `?${qs}` : ""}`
+    );
+  },
+  resolve(payload: { id: number; status: string; adminReply?: string }) {
+    return request<ApiResponse>("/v1/admin/feedback/resolve", {
+      method: "PUT",
+      body: JSON.stringify(payload),
     });
   },
 };

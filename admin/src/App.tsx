@@ -25,6 +25,7 @@ import WallpaperReview from "./pages/WallpaperReview";
 import WallpaperReportManage from "./pages/WallpaperReportManage";
 import WallpaperRatingManage from "./pages/WallpaperRatingManage";
 import TagManage from "./pages/TagManage";
+import UserFeedbackManage from "./pages/UserFeedbackManage";
 
 /**
  * 鉴权路由包装器。
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/wallpapers/reports" element={<WallpaperReportManage />} />
           <Route path="/wallpapers/ratings" element={<WallpaperRatingManage />} />
           <Route path="/tags" element={<TagManage />} />
+          <Route path="/feedbacks" element={<UserFeedbackManage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

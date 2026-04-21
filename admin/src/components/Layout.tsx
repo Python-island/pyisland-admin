@@ -48,6 +48,7 @@ const navItems = [
       { label: "举报处理", path: "/wallpapers/reports" },
       { label: "评分管理", path: "/wallpapers/ratings" },
       { label: "标签管理", path: "/tags" },
+      { label: "用户反馈", path: "/feedbacks" },
     ],
   },
 ];
