@@ -480,6 +480,23 @@ CREATE TABLE IF NOT EXISTS wallpaper_tag_ref (
     KEY idx_wallpaper_tag_ref_tag (tag_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS issue_feedback (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username       VARCHAR(100) NOT NULL,
+    feedback_type  VARCHAR(40) NOT NULL,
+    title          VARCHAR(120) NOT NULL,
+    content        TEXT NOT NULL,
+    contact        VARCHAR(150),
+    client_version VARCHAR(50),
+    status         VARCHAR(20) NOT NULL DEFAULT 'pending',
+    admin_reply    VARCHAR(1000),
+    created_at     DATETIME NOT NULL,
+    updated_at     DATETIME NOT NULL,
+    resolved_at    DATETIME,
+    KEY idx_issue_feedback_user_created (username, created_at),
+    KEY idx_issue_feedback_status_created (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS user_active_daily (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     username    VARCHAR(100) NOT NULL,

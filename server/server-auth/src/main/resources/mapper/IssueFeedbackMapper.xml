@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.auth.mapper.IssueFeedbackMapper">
+
+    <insert id="insertFeedback">
+        INSERT INTO issue_feedback
+        (username, feedback_type, title, content, contact, client_version, status, created_at, updated_at)
+        VALUES
+        (#{username}, #{feedbackType}, #{title}, #{content}, #{contact}, #{clientVersion}, #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="listMine" resultType="map">
+        SELECT id,
+               username,
+               feedback_type AS feedbackType,
+               title,
+               content,
+               contact,
+               client_version AS clientVersion,
+               status,
+               admin_reply AS adminReply,
+               created_at AS createdAt,
+               updated_at AS updatedAt,
+               resolved_at AS resolvedAt
+        FROM issue_feedback
+        WHERE username = #{username}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countMine" resultType="long">
+        SELECT COUNT(*)
+        FROM issue_feedback
+        WHERE username = #{username}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="listAdmin" resultType="map">
+        SELECT id,
+               username,
+               feedback_type AS feedbackType,
+               title,
+               content,
+               contact,
+               client_version AS clientVersion,
+               status,
+               admin_reply AS adminReply,
+               created_at AS createdAt,
+               updated_at AS updatedAt,
+               resolved_at AS resolvedAt
+        FROM issue_feedback
+        WHERE 1 = 1
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                username LIKE CONCAT('%', #{keyword}, '%')
+                OR title LIKE CONCAT('%', #{keyword}, '%')
+                OR content LIKE CONCAT('%', #{keyword}, '%')
+                OR contact LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAdmin" resultType="long">
+        SELECT COUNT(*)
+        FROM issue_feedback
+        WHERE 1 = 1
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                username LIKE CONCAT('%', #{keyword}, '%')
+                OR title LIKE CONCAT('%', #{keyword}, '%')
+                OR content LIKE CONCAT('%', #{keyword}, '%')
+                OR contact LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <update id="resolve">
+        UPDATE issue_feedback
+        SET status = #{status},
+            admin_reply = #{adminReply},
+            resolved_at = #{resolvedAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
