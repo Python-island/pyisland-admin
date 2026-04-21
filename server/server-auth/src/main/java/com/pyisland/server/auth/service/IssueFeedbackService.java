@@ -29,6 +29,7 @@ public class IssueFeedbackService {
                           String content,
                           String contact,
                           String feedbackLogUrl,
+                          String feedbackScreenshotUrl,
                           String clientVersion) {
         String normalizedUsername = safeText(username, 100).toLowerCase();
         String normalizedIp = normalizeIp(userIp);
@@ -43,6 +44,7 @@ public class IssueFeedbackService {
                 safeContent(content),
                 safeText(contact, 150),
                 safeText(feedbackLogUrl, 500),
+                safeText(feedbackScreenshotUrl, 500),
                 safeText(clientVersion, 50),
                 "pending",
                 now,

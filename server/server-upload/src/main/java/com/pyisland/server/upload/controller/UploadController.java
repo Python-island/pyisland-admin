@@ -108,10 +108,10 @@ public class UploadController {
                     "message", "文件不能为空"
             ));
         }
-        if (file.getSize() > 50L * 1024 * 1024) {
+        if (file.getSize() > 5L * 1024 * 1024) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", 400,
-                    "message", "日志文件不能超过 50MB"
+                    "message", "日志文件不能超过 5MB"
             ));
         }
         String originalFilename = file.getOriginalFilename();
@@ -124,6 +124,50 @@ public class UploadController {
         }
         try {
             String url = feedbackR2StorageService.upload(file, "feedback-logs");
+            return ResponseEntity.ok(Map.of(
+                    "code", 200,
+                    "message", "上传成功",
+                    "data", url
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 500,
+                    "message", "上传失败: " + e.getMessage()
+            ));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PostMapping("/feedback-screenshot")
+    public ResponseEntity<?> uploadFeedbackScreenshot(@RequestParam("file") MultipartFile file,
+                                                      Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "code", 401,
+                    "message", "未登录"
+            ));
+        }
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "文件不能为空"
+            ));
+        }
+        if (file.getSize() > 10L * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "截图文件不能超过 10MB"
+            ));
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "仅支持上传图片截图"
+            ));
+        }
+        try {
+            String url = feedbackR2StorageService.upload(file, "feedback-screenshots");
             return ResponseEntity.ok(Map.of(
                     "code", 200,
                     "message", "上传成功",

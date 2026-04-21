@@ -16,6 +16,7 @@ public interface IssueFeedbackMapper {
                        @Param("content") String content,
                        @Param("contact") String contact,
                        @Param("feedbackLogUrl") String feedbackLogUrl,
+                       @Param("feedbackScreenshotUrl") String feedbackScreenshotUrl,
                        @Param("clientVersion") String clientVersion,
                        @Param("status") String status,
                        @Param("createdAt") LocalDateTime createdAt,
