@@ -7,7 +7,8 @@
 
 import { showKickedModal } from "./modal";
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+const DEV_API_BASE = "https://test.server.pyisland.com/api";
+const BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? DEV_API_BASE : "/api");
 
 /**
  * 过滤并校验可用于展示的头像 URL。

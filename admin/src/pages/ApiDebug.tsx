@@ -17,6 +17,8 @@ const PRESET_APIS = [
   { label: "接口状态列表", path: "/v1/service-status/list" },
 ];
 
+const DEV_API_BASE = "https://test.server.pyisland.com/api";
+
 const cardStyle: React.CSSProperties = {
   backgroundColor: "var(--apple-surface-1)",
   borderRadius: 12,
@@ -48,7 +50,8 @@ export default function ApiDebug() {
   const [elapsed, setElapsed] = useState<number | null>(null);
 
   const token = localStorage.getItem("token");
-  const base = (import.meta as { env: Record<string, string> }).env.VITE_API_BASE || "/api";
+  const env = (import.meta as { env: Record<string, string | boolean> }).env;
+  const base = String(env.VITE_API_BASE || (env.DEV ? DEV_API_BASE : "/api"));
 
   const send = async () => {
     setLoading(true);
