@@ -1,7 +1,10 @@
 package com.pyisland.server.upload.controller;
 
+import com.pyisland.server.common.util.ClientIpUtil;
 import com.pyisland.server.upload.service.OssService;
 import com.pyisland.server.upload.service.R2StorageService;
+import com.pyisland.server.upload.service.UploadRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -22,15 +25,20 @@ public class UploadController {
 
     private final OssService ossService;
     private final R2StorageService r2StorageService;
+    private final UploadRateLimiter uploadRateLimiter;
 
     /**
      * 构造上传控制器。
      * @param ossService OSS 服务。
      * @param r2StorageService R2 服务。
+     * @param uploadRateLimiter 上传限流器。
      */
-    public UploadController(OssService ossService, R2StorageService r2StorageService) {
+    public UploadController(OssService ossService,
+                            R2StorageService r2StorageService,
+                            UploadRateLimiter uploadRateLimiter) {
         this.ossService = ossService;
         this.r2StorageService = r2StorageService;
+        this.uploadRateLimiter = uploadRateLimiter;
     }
 
     /**
@@ -53,11 +61,27 @@ public class UploadController {
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     @PostMapping("/user-avatar")
     public ResponseEntity<?> uploadUserAvatar(@RequestParam("file") MultipartFile file,
-                                              Authentication authentication) {
+                                              Authentication authentication,
+                                              HttpServletRequest request) {
         if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
             return ResponseEntity.status(401).body(Map.of(
                     "code", 401,
                     "message", "未登录"
+            ));
+        }
+        String ip = ClientIpUtil.resolve(request);
+        String account = authentication.getName().trim().toLowerCase();
+        UploadRateLimiter.Result limiterResult = uploadRateLimiter.recordUserAvatarUploadAttempt(ip, account);
+        if (limiterResult.blocked()) {
+            return ResponseEntity.status(429).body(Map.of(
+                    "code", 429,
+                    "message", "头像上传过于频繁，请稍后再试",
+                    "data", Map.of(
+                            "scope", limiterResult.scope(),
+                            "retryAfterSeconds", limiterResult.retryAfterSeconds(),
+                            "limit", UploadRateLimiter.USER_AVATAR_HOURLY_MAX_ATTEMPTS,
+                            "windowSeconds", UploadRateLimiter.USER_AVATAR_WINDOW_MS / 1000
+                    )
             ));
         }
         return doUpload(file, false);
