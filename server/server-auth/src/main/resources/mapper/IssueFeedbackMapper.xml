@@ -5,9 +5,9 @@
 
     <insert id="insertFeedback">
         INSERT INTO issue_feedback
-        (username, feedback_type, title, content, contact, client_version, status, created_at, updated_at)
+        (username, feedback_type, title, content, contact, feedback_log_url, client_version, status, created_at, updated_at)
         VALUES
-        (#{username}, #{feedbackType}, #{title}, #{content}, #{contact}, #{clientVersion}, #{status}, #{createdAt}, #{updatedAt})
+        (#{username}, #{feedbackType}, #{title}, #{content}, #{contact}, #{feedbackLogUrl}, #{clientVersion}, #{status}, #{createdAt}, #{updatedAt})
     </insert>
 
     <select id="listMine" resultType="map">
@@ -17,6 +17,7 @@
                title,
                content,
                contact,
+               feedback_log_url AS feedbackLogUrl,
                client_version AS clientVersion,
                status,
                admin_reply AS adminReply,
@@ -48,6 +49,7 @@
                title,
                content,
                contact,
+               feedback_log_url AS feedbackLogUrl,
                client_version AS clientVersion,
                status,
                admin_reply AS adminReply,

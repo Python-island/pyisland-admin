@@ -70,6 +70,12 @@ cloudflare:
     access-key-secret: ${WALLPAPER_R2_ACCESS_KEY_SECRET}
     bucket-name: ${WALLPAPER_R2_BUCKET_NAME}
     public-domain: ${WALLPAPER_R2_PUBLIC_DOMAIN}
+  feedback-r2:
+    endpoint: ${FEEDBACK_R2_ENDPOINT}
+    access-key-id: ${FEEDBACK_R2_ACCESS_KEY_ID}
+    access-key-secret: ${FEEDBACK_R2_ACCESS_KEY_SECRET}
+    bucket-name: ${FEEDBACK_R2_BUCKET_NAME:eisland-feedback-assets}
+    public-domain: ${FEEDBACK_R2_PUBLIC_DOMAIN}
 
 resend:
   api-key: ${RESEND_API_KEY}

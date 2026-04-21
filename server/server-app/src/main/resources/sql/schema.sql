@@ -487,6 +487,7 @@ CREATE TABLE IF NOT EXISTS issue_feedback (
     title          VARCHAR(120) NOT NULL,
     content        TEXT NOT NULL,
     contact        VARCHAR(150),
+    feedback_log_url VARCHAR(500),
     client_version VARCHAR(50),
     status         VARCHAR(20) NOT NULL DEFAULT 'pending',
     admin_reply    VARCHAR(1000),
@@ -496,6 +497,22 @@ CREATE TABLE IF NOT EXISTS issue_feedback (
     KEY idx_issue_feedback_user_created (username, created_at),
     KEY idx_issue_feedback_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @issue_feedback_log_url_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'issue_feedback'
+      AND COLUMN_NAME = 'feedback_log_url'
+);
+SET @issue_feedback_log_url_sql := IF(
+    @issue_feedback_log_url_exists = 0,
+    'ALTER TABLE issue_feedback ADD COLUMN feedback_log_url VARCHAR(500) AFTER contact',
+    'SELECT 1'
+);
+PREPARE issue_feedback_log_url_stmt FROM @issue_feedback_log_url_sql;
+EXECUTE issue_feedback_log_url_stmt;
+DEALLOCATE PREPARE issue_feedback_log_url_stmt;
 
 CREATE TABLE IF NOT EXISTS user_active_daily (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,

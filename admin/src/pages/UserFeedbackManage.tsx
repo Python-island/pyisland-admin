@@ -216,6 +216,16 @@ export default function UserFeedbackManage() {
                         <div style={{ color: "rgba(255,255,255,0.48)", marginTop: 6, fontSize: 12 }}>
                           客户端版本：{item.clientVersion || "-"} / 提交时间：{item.createdAt || "-"}
                         </div>
+                        {item.feedbackLogUrl ? (
+                          <a
+                            href={item.feedbackLogUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: "inline-block", marginTop: 6, color: "#64b4ff", fontSize: 12 }}
+                          >
+                            查看日志
+                          </a>
+                        ) : null}
                       </div>
                     </td>
                     <td style={tdStyle}>{item.contact || "-"}</td>

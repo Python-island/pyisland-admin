@@ -79,6 +79,7 @@ public class IssueFeedbackController {
                     request.title(),
                     request.content(),
                     request.contact(),
+                    request.feedbackLogUrl(),
                     request.clientVersion()
             );
             if (!ok) {
@@ -169,6 +170,7 @@ public class IssueFeedbackController {
                                         String title,
                                         String content,
                                         String contact,
+                                        String feedbackLogUrl,
                                         String clientVersion,
                                         String captchaTicket,
                                         String captchaRandstr,

@@ -229,6 +229,7 @@ export interface IssueFeedbackAdminItem {
   title: string;
   content: string;
   contact?: string;
+  feedbackLogUrl?: string;
   clientVersion?: string;
   status: string;
   adminReply?: string;

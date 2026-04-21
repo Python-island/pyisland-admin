@@ -1,6 +1,7 @@
 package com.pyisland.server.upload.controller;
 
 import com.pyisland.server.common.util.ClientIpUtil;
+import com.pyisland.server.upload.service.FeedbackR2StorageService;
 import com.pyisland.server.upload.service.OssService;
 import com.pyisland.server.upload.service.R2StorageService;
 import com.pyisland.server.upload.service.UploadRateLimiter;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -25,6 +27,7 @@ public class UploadController {
 
     private final OssService ossService;
     private final R2StorageService r2StorageService;
+    private final FeedbackR2StorageService feedbackR2StorageService;
     private final UploadRateLimiter uploadRateLimiter;
 
     /**
@@ -35,9 +38,11 @@ public class UploadController {
      */
     public UploadController(OssService ossService,
                             R2StorageService r2StorageService,
+                            FeedbackR2StorageService feedbackR2StorageService,
                             UploadRateLimiter uploadRateLimiter) {
         this.ossService = ossService;
         this.r2StorageService = r2StorageService;
+        this.feedbackR2StorageService = feedbackR2StorageService;
         this.uploadRateLimiter = uploadRateLimiter;
     }
 
@@ -85,6 +90,51 @@ public class UploadController {
             ));
         }
         return doUpload(file, false);
+    }
+
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PostMapping("/feedback-log")
+    public ResponseEntity<?> uploadFeedbackLog(@RequestParam("file") MultipartFile file,
+                                               Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "code", 401,
+                    "message", "未登录"
+            ));
+        }
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "文件不能为空"
+            ));
+        }
+        if (file.getSize() > 50L * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "日志文件不能超过 50MB"
+            ));
+        }
+        String originalFilename = file.getOriginalFilename();
+        String normalizedFilename = originalFilename == null ? "" : originalFilename.trim().toLowerCase(Locale.ROOT);
+        if (!normalizedFilename.endsWith(".log")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "仅支持上传 .log 日志文件"
+            ));
+        }
+        try {
+            String url = feedbackR2StorageService.upload(file, "feedback-logs");
+            return ResponseEntity.ok(Map.of(
+                    "code", 200,
+                    "message", "上传成功",
+                    "data", url
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                    "code", 500,
+                    "message", "上传失败: " + e.getMessage()
+            ));
+        }
     }
 
     private ResponseEntity<?> doUpload(MultipartFile file, boolean adminAvatar) {

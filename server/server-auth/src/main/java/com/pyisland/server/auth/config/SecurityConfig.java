@@ -85,6 +85,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/v1/version/update-count").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/service-status", "/v1/service-status/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/upload/user-avatar").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/v1/upload/feedback-log").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/v1/user/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().hasRole("ADMIN"))
                 .exceptionHandling(ex -> ex
