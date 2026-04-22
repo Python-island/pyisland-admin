@@ -107,6 +107,35 @@ public class AuthController {
     }
 
     /**
+     * 刷新普通用户 JWT（用于同步最新角色 claim）。
+     * @param http HTTP 请求上下文。
+     * @return 刷新后的 token 与用户信息。
+     */
+    @PostMapping("/user/token/refresh")
+    public ResponseEntity<?> userRefreshToken(HttpServletRequest http) {
+        User caller = resolveUserCaller(http);
+        if (caller == null) {
+            return error(401, "未登录或会话已失效");
+        }
+        if (Boolean.FALSE.equals(caller.getEnabled())) {
+            return error(401, "账号已被禁用");
+        }
+        String role = caller.getRole();
+        if (role == null || role.isBlank()) {
+            role = User.ROLE_USER;
+        }
+        String token = jwtUtil.generateToken(caller.getUsername(), role);
+        userService.updateSessionToken(caller.getUsername(), token);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("token", token);
+        data.put("username", caller.getUsername());
+        data.put("email", caller.getEmail());
+        data.put("role", role);
+        return okData("刷新成功", data);
+    }
+
+    /**
      * 管理员注册。首任管理员无需鉴权；之后需要携带管理员 JWT。
      * 当由 SecurityFilterChain 放行 /auth/** 时，二次管理员注册的鉴权由本方法内部强制校验。
      * @param request 注册请求。
@@ -316,6 +345,31 @@ public class AuthController {
             return null;
         }
         return username;
+    }
+
+    private User resolveUserCaller(HttpServletRequest http) {
+        String authHeader = http.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        String token = authHeader.substring(7).trim();
+        if (token.isEmpty() || !jwtUtil.validateToken(token)) {
+            return null;
+        }
+        String username;
+        try {
+            username = jwtUtil.getUsernameFromToken(token);
+        } catch (Exception ex) {
+            return null;
+        }
+        User caller = userService.getByUsername(username);
+        if (caller == null) {
+            return null;
+        }
+        if (caller.getSessionToken() != null && !token.equals(caller.getSessionToken())) {
+            return null;
+        }
+        return caller;
     }
 
     private boolean isAcceptedLoginRole(String expectedRole, String actualRole) {
