@@ -26,6 +26,7 @@ export default function Overview() {
   const [versions, setVersions] = useState<AppVersion[]>([]);
   const [adminCount, setAdminCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
+  const [proCount, setProCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(0);
   const [apiUnavailable, setApiUnavailable] = useState(0);
   const [dailyActive, setDailyActive] = useState<DailyActiveStats>({ today: 0, days: 7, series: [] });
@@ -34,16 +35,20 @@ export default function Overview() {
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, adminRes, userRes, sRes, dauRes] = await Promise.all([
+        const [vRes, adminRes, userRes, userListRes, sRes, dauRes] = await Promise.all([
           version.list(),
           adminUsers.count(),
           appUsers.count(),
+          appUsers.list(),
           apiStatus.list(),
           appUsers.dailyActive(7),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
         if (adminRes.code === 200 && adminRes.data !== undefined) setAdminCount(adminRes.data);
         if (userRes.code === 200 && userRes.data !== undefined) setUserCount(userRes.data);
+        if (userListRes.code === 200 && userListRes.data) {
+          setProCount(userListRes.data.filter((x) => x.role === "pro").length);
+        }
         if (sRes.code === 200 && sRes.data) {
           setApiAvailable(sRes.data.filter((x) => x.status).length);
           setApiUnavailable(sRes.data.filter((x) => !x.status).length);
@@ -99,7 +104,7 @@ export default function Overview() {
 
       {/* Stats */}
       <div className="flex" style={{ gap: 20, marginBottom: 32 }}>
-        <UserCountCard userCount={userCount} adminCount={adminCount} />
+        <UserCountCard userCount={userCount} proCount={proCount} adminCount={adminCount} />
         <DailyActiveCard data={dailyActive} />
         <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
         <StatCard label="应用版本数" value={versions.length} />
@@ -294,11 +299,21 @@ function StatCard({ label, value }: { label: string; value: number }) {
 }
 
 /**
- * 用户数量卡片：展示当前普通用户与管理员人数。
- * @param userCount - 普通用户数量。
+ * 用户数量卡片：展示当前普通用户、Pro 用户与管理员人数。
+ * @param userCount - 应用用户数量（普通 + Pro）。
+ * @param proCount - Pro 用户数量。
  * @param adminCount - 管理员数量。
  */
-function UserCountCard({ userCount, adminCount }: { userCount: number; adminCount: number }) {
+function UserCountCard({
+  userCount,
+  proCount,
+  adminCount,
+}: {
+  userCount: number;
+  proCount: number;
+  adminCount: number;
+}) {
+  const normalUserCount = Math.max(0, userCount - proCount);
   const total = userCount + adminCount;
   return (
     <div
@@ -349,9 +364,24 @@ function UserCountCard({ userCount, adminCount }: { userCount: number; adminCoun
               color: "#ffffff",
             }}
           >
-            {userCount}
+            {normalUserCount}
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>普通用户</div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "var(--apple-link-dark)",
+            }}
+          >
+            {proCount}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>Pro 用户</div>
         </div>
         <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
         <div>
