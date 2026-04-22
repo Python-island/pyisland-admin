@@ -73,6 +73,7 @@ public class ClientVersionGateFilter extends OncePerRequestFilter {
 
     private boolean isClientApi(String uri) {
         if (uri == null || uri.isBlank()) return false;
+        if ("/v1/user/update-source".equals(uri)) return false;
         return uri.startsWith("/auth/user/")
                 || uri.startsWith("/v1/user/")
                 || "/v1/upload/user-avatar".equals(uri);
