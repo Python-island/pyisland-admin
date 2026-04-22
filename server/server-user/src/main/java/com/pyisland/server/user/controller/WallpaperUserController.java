@@ -25,7 +25,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/v1/user/wallpapers")
-@PreAuthorize("hasAnyRole('USER','ADMIN')")
+@PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
 public class WallpaperUserController {
 
     private final WallpaperMarketService wallpaperMarketService;

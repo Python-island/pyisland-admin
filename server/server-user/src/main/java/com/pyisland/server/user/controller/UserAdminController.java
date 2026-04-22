@@ -40,7 +40,7 @@ public class UserAdminController {
 
     /**
      * 查询全量用户列表，可按 role 过滤。
-     * @param role 可选 admin / user / 空。
+     * @param role 可选 admin / pro / user / 空。
      * @return 用户列表。
      */
     @GetMapping
@@ -52,7 +52,7 @@ public class UserAdminController {
     }
 
     /**
-     * 变更用户角色。禁止把自己降级为普通用户。
+     * 变更用户角色。禁止把自己从管理员降级为非管理员。
      * @param request 变更请求。
      * @param authentication 当前登录管理员。
      * @return 操作结果。
@@ -63,12 +63,16 @@ public class UserAdminController {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "用户名不能为空"));
         }
         String role = request.role();
-        if (role == null || !(User.ROLE_ADMIN.equals(role) || User.ROLE_USER.equals(role))) {
-            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "角色取值应为 admin / user"));
+        if (role == null || !(User.ROLE_ADMIN.equals(role)
+                || User.ROLE_PRO.equals(role)
+                || User.ROLE_USER.equals(role))) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "角色取值应为 admin / pro / user"));
         }
         String caller = authentication != null ? authentication.getName() : null;
-        if (caller != null && caller.equals(request.username()) && User.ROLE_USER.equals(role)) {
-            return ResponseEntity.status(400).body(Map.of("code", 400, "message", "不能将自己降级为普通用户"));
+        if (caller != null
+                && caller.equals(request.username())
+                && !User.ROLE_ADMIN.equals(role)) {
+            return ResponseEntity.status(400).body(Map.of("code", 400, "message", "不能将自己降级为非管理员"));
         }
         User target = userService.getByUsername(request.username());
         if (target == null) {
@@ -133,7 +137,7 @@ public class UserAdminController {
     /**
      * 变更角色请求体。
      * @param username 用户名。
-     * @param role 新角色（admin / user）。
+     * @param role 新角色（admin / pro / user）。
      */
     public record UpdateRoleRequest(String username, String role) {
     }

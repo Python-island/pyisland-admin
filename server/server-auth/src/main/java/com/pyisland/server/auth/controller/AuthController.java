@@ -215,7 +215,7 @@ public class AuthController {
             authRateLimiter.recordLoginFailure(rateKey);
             return loginFailed();
         }
-        if (!expectedRole.equals(user.getRole())) {
+        if (!isAcceptedLoginRole(expectedRole, user.getRole())) {
             authRateLimiter.recordLoginFailure(rateKey);
             return loginFailed();
         }
@@ -272,7 +272,7 @@ public class AuthController {
             authRateLimiter.recordLoginFailure(rateKey);
             return loginFailed();
         }
-        if (!expectedRole.equals(user.getRole())) {
+        if (!isAcceptedLoginRole(expectedRole, user.getRole())) {
             authRateLimiter.recordLoginFailure(rateKey);
             return loginFailed();
         }
@@ -316,6 +316,16 @@ public class AuthController {
             return null;
         }
         return username;
+    }
+
+    private boolean isAcceptedLoginRole(String expectedRole, String actualRole) {
+        if (actualRole == null || actualRole.isBlank()) {
+            return false;
+        }
+        if (User.ROLE_USER.equals(expectedRole)) {
+            return User.ROLE_USER.equals(actualRole) || User.ROLE_PRO.equals(actualRole);
+        }
+        return expectedRole.equals(actualRole);
     }
 
     private String normalizeAdminEmail(String rawEmail, String username) {

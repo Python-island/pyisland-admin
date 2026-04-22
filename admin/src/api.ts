@@ -117,7 +117,7 @@ export interface AppVersion {
 export interface LoginData {
   token: string;
   username: string;
-  role: "admin" | "user";
+  role: "admin" | "pro" | "user";
 }
 
 export interface AdminUserInfo {
@@ -144,6 +144,7 @@ export interface AppUserInfo {
   id: number;
   username: string;
   email: string;
+  role?: "admin" | "pro" | "user";
   avatar: string | null;
   gender?: Gender;
   genderCustom?: string | null;
@@ -635,7 +636,7 @@ export interface UserAccountItem {
   id: number;
   username: string;
   email: string;
-  role: "admin" | "user";
+  role: "admin" | "pro" | "user";
   avatar: string | null;
   gender?: Gender;
   genderCustom?: string | null;
@@ -653,14 +654,14 @@ export const userAccounts = {
    * 列表查询，可按 role 过滤（空表示全部）。
    * @param role - 可选角色过滤。
    */
-  list(role?: "admin" | "user" | "") {
+  list(role?: "admin" | "pro" | "user" | "") {
     const qs = role ? `?role=${encodeURIComponent(role)}` : "";
     return request<ApiResponse<UserAccountItem[]>>(`/v1/admin/users${qs}`);
   },
   /**
-   * 更新角色（admin/user 互相切换，切换后对方会被强制重新登录）。
+   * 更新角色（admin/pro/user 切换，切换后对方会被强制重新登录）。
    */
-  updateRole(username: string, role: "admin" | "user") {
+  updateRole(username: string, role: "admin" | "pro" | "user") {
     return request<ApiResponse>("/v1/admin/users/role", {
       method: "PUT",
       body: JSON.stringify({ username, role }),

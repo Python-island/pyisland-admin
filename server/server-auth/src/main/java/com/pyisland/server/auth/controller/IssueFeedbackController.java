@@ -38,7 +38,7 @@ public class IssueFeedbackController {
     }
 
     @PostMapping("/user/feedback/submit")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
     public ResponseEntity<Map<String, Object>> submit(@RequestBody SubmitFeedbackRequest request,
                                                        Authentication authentication,
                                                        HttpServletRequest http) {
@@ -93,7 +93,7 @@ public class IssueFeedbackController {
     }
 
     @GetMapping("/user/feedback/mine")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
     public ResponseEntity<Map<String, Object>> listMine(@RequestParam(value = "status", required = false) String status,
                                                          @RequestParam(value = "page", defaultValue = "1") int page,
                                                          @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,

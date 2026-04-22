@@ -63,7 +63,7 @@ public class UploadController {
      * @param authentication 当前认证信息。
      * @return 上传结果。
      */
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
     @PostMapping("/user-avatar")
     public ResponseEntity<?> uploadUserAvatar(@RequestParam("file") MultipartFile file,
                                               Authentication authentication,
@@ -92,7 +92,7 @@ public class UploadController {
         return doUpload(file, false);
     }
 
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
     @PostMapping("/feedback-log")
     public ResponseEntity<?> uploadFeedbackLog(@RequestParam("file") MultipartFile file,
                                                Authentication authentication) {
@@ -137,7 +137,7 @@ public class UploadController {
         }
     }
 
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
     @PostMapping("/feedback-screenshot")
     public ResponseEntity<?> uploadFeedbackScreenshot(@RequestParam("file") MultipartFile file,
                                                       Authentication authentication) {

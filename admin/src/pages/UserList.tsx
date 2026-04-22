@@ -49,8 +49,9 @@ export default function UserList() {
   const currentUser = getUsername();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState("");
-  const [demoteVisible, setDemoteVisible] = useState(false);
-  const [demoteTarget, setDemoteTarget] = useState("");
+  const [roleVisible, setRoleVisible] = useState(false);
+  const [roleTarget, setRoleTarget] = useState("");
+  const [targetRole, setTargetRole] = useState<"pro" | "user">("pro");
 
   const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -127,29 +128,26 @@ export default function UserList() {
     }
   };
 
-  /**
-   * 发起"降为普通用户"二次确认，自身禁止降级。
-   * @param username - 目标管理员用户名。
-   */
-  const requestDemote = (username: string) => {
+  const requestUpdateRole = (username: string, role: "pro" | "user") => {
     if (username === currentUser) {
-      showMsg("不能将当前登录管理员降为普通用户", "err");
+      showMsg("不能将当前登录管理员降级", "err");
       return;
     }
-    setDemoteTarget(username);
-    setDemoteVisible(true);
+    setRoleTarget(username);
+    setTargetRole(role);
+    setRoleVisible(true);
   };
 
   /**
    * 执行角色降级。成功后该用户从管理员列表消失。
    */
-  const handleDemote = async () => {
-    setDemoteVisible(false);
-    if (!demoteTarget) return;
+  const handleUpdateRole = async () => {
+    setRoleVisible(false);
+    if (!roleTarget) return;
     try {
-      const res = await userAccounts.updateRole(demoteTarget, "user");
+      const res = await userAccounts.updateRole(roleTarget, targetRole);
       if (res.code === 200) {
-        showMsg(`已将 ${demoteTarget} 降为普通用户`);
+        showMsg(`已将 ${roleTarget} 降为${targetRole === "pro" ? "Pro 用户" : "普通用户"}`);
         fetchUsers();
       } else {
         showMsg(res.message, "err");
@@ -300,7 +298,22 @@ export default function UserList() {
                               轮换 TOTP
                             </button>
                             <button
-                              onClick={() => requestDemote(u.username)}
+                              onClick={() => requestUpdateRole(u.username, "pro")}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#64d2ff",
+                                borderRadius: 980,
+                                border: "1px solid #64d2ff",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              降为 Pro
+                            </button>
+                            <button
+                              onClick={() => requestUpdateRole(u.username, "user")}
                               className="cursor-pointer"
                               style={{
                                 padding: "2px 12px",
@@ -418,12 +431,12 @@ export default function UserList() {
       />
 
       <ConfirmDialog
-        visible={demoteVisible}
+        visible={roleVisible}
         title="撤销管理员权限"
-        message={`确定要将 ${demoteTarget} 降为普通用户吗？其当前登录态会被清除，需重新登录。`}
-        confirmText="降为普通用户"
-        onConfirm={handleDemote}
-        onCancel={() => setDemoteVisible(false)}
+        message={`确定要将 ${roleTarget} 降为${targetRole === "pro" ? "Pro 用户" : "普通用户"}吗？其当前登录态会被清除，需重新登录。`}
+        confirmText="确认降级"
+        onConfirm={handleUpdateRole}
+        onCancel={() => setRoleVisible(false)}
       />
     </div>
   );

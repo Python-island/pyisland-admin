@@ -14,6 +14,12 @@ function genderLabel(gender: Gender | undefined, custom: string | null | undefin
   return "不愿透露";
 }
 
+function roleLabel(role: "admin" | "pro" | "user" | undefined): string {
+  if (role === "admin") return "管理员";
+  if (role === "pro") return "Pro 用户";
+  return "普通用户";
+}
+
 const cardStyle: React.CSSProperties = {
   backgroundColor: "var(--apple-surface-1)",
   borderRadius: 12,
@@ -49,8 +55,9 @@ export default function AppUserList() {
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState("");
-  const [promoteVisible, setPromoteVisible] = useState(false);
-  const [promoteTarget, setPromoteTarget] = useState("");
+  const [roleVisible, setRoleVisible] = useState(false);
+  const [roleTarget, setRoleTarget] = useState("");
+  const [targetRole, setTargetRole] = useState<"admin" | "pro" | "user">("pro");
 
   const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -106,25 +113,23 @@ export default function AppUserList() {
     }
   };
 
-  /**
-   * 发起"设为管理员"二次确认。
-   * @param username - 目标用户名。
-   */
-  const requestPromote = (username: string) => {
-    setPromoteTarget(username);
-    setPromoteVisible(true);
+  const requestUpdateRole = (username: string, role: "admin" | "pro" | "user") => {
+    setRoleTarget(username);
+    setTargetRole(role);
+    setRoleVisible(true);
   };
 
   /**
-   * 执行角色升级。成功后该用户将从普通用户列表消失。
+   * 执行角色变更。成功后刷新列表。
    */
-  const handlePromote = async () => {
-    setPromoteVisible(false);
-    if (!promoteTarget) return;
+  const handleUpdateRole = async () => {
+    setRoleVisible(false);
+    if (!roleTarget) return;
     try {
-      const res = await userAccounts.updateRole(promoteTarget, "admin");
+      const res = await userAccounts.updateRole(roleTarget, targetRole);
       if (res.code === 200) {
-        showMsg(`已将 ${promoteTarget} 设为管理员`);
+        const roleText = targetRole === "admin" ? "管理员" : targetRole === "pro" ? "Pro 用户" : "普通用户";
+        showMsg(`已将 ${roleTarget} 设为${roleText}`);
         fetchUsers();
       } else {
         showMsg(res.message, "err");
@@ -158,7 +163,7 @@ export default function AppUserList() {
           marginBottom: 40,
         }}
       >
-        查看和管理普通用户
+        查看和管理普通用户与 Pro 用户
       </p>
 
       <MessageDialog
@@ -193,7 +198,7 @@ export default function AppUserList() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["头像", "用户名", "邮箱", "性别", "生日", "创建时间", "操作"].map((h) => (
+                    {["头像", "用户名", "角色", "邮箱", "性别", "生日", "创建时间", "操作"].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -238,6 +243,7 @@ export default function AppUserList() {
                         </div>
                       </td>
                       <td style={tdStyle}>{u.username}</td>
+                      <td style={tdStyle}>{roleLabel(u.role)}</td>
                       <td style={tdStyle}>{u.email}</td>
                       <td style={tdStyle}>{genderLabel(u.gender, u.genderCustom)}</td>
                       <td style={tdStyle}>{u.birthday || "—"}</td>
@@ -259,21 +265,57 @@ export default function AppUserList() {
                           >
                             编辑
                           </button>
-                          <button
-                            onClick={() => requestPromote(u.username)}
-                            className="cursor-pointer"
-                            style={{
-                              padding: "2px 12px",
-                              backgroundColor: "transparent",
-                              color: "#30d158",
-                              borderRadius: 980,
-                              border: "1px solid #30d158",
-                              fontSize: 12,
-                              lineHeight: 1.43,
-                            }}
-                          >
-                            设为管理员
-                          </button>
+                          {u.role !== "pro" && (
+                            <button
+                              onClick={() => requestUpdateRole(u.username, "pro")}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#64d2ff",
+                                borderRadius: 980,
+                                border: "1px solid #64d2ff",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              设为 Pro
+                            </button>
+                          )}
+                          {u.role !== "admin" && (
+                            <button
+                              onClick={() => requestUpdateRole(u.username, "admin")}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#30d158",
+                                borderRadius: 980,
+                                border: "1px solid #30d158",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              设为管理员
+                            </button>
+                          )}
+                          {u.role === "pro" && (
+                            <button
+                              onClick={() => requestUpdateRole(u.username, "user")}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: "#ff9f0a",
+                                borderRadius: 980,
+                                border: "1px solid #ff9f0a",
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              降为普通用户
+                            </button>
+                          )}
                           <button
                             onClick={() => requestDelete(u.username)}
                             className="cursor-pointer"
@@ -378,12 +420,12 @@ export default function AppUserList() {
       />
 
       <ConfirmDialog
-        visible={promoteVisible}
-        title="授予管理员权限"
-        message={`确定要将 ${promoteTarget} 设为管理员吗？提升后其当前登录态会被清除，需重新登录。`}
-        confirmText="设为管理员"
-        onConfirm={handlePromote}
-        onCancel={() => setPromoteVisible(false)}
+        visible={roleVisible}
+        title="变更用户角色"
+        message={`确定要将 ${roleTarget} 设为${targetRole === "admin" ? "管理员" : targetRole === "pro" ? "Pro 用户" : "普通用户"}吗？角色变更后其当前登录态会被清除，需重新登录。`}
+        confirmText="确认变更"
+        onConfirm={handleUpdateRole}
+        onCancel={() => setRoleVisible(false)}
       />
     </div>
   );

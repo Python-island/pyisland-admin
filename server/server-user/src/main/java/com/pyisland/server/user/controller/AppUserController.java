@@ -56,12 +56,15 @@ public class AppUserController {
      */
     @GetMapping
     public ResponseEntity<?> listUsers() {
-        List<User> users = userService.listByRole(User.ROLE_USER);
+        List<User> users = userService.listByRole(null).stream()
+                .filter(u -> isAppManagedRole(u.getRole()))
+                .toList();
         var safeList = users.stream().map(u -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", u.getId());
             m.put("username", u.getUsername());
             m.put("email", u.getEmail());
+            m.put("role", u.getRole());
             m.put("avatar", r2StorageService.rewriteLegacyUrl(u.getAvatar()));
             m.put("gender", u.getGender() != null ? u.getGender() : GenderPolicy.DEFAULT);
             m.put("genderCustom", u.getGenderCustom());
@@ -82,7 +85,9 @@ public class AppUserController {
      */
     @GetMapping("/count")
     public ResponseEntity<?> countUsers() {
-        int count = userService.countByRole(User.ROLE_USER);
+        int count = (int) userService.listByRole(null).stream()
+                .filter(u -> isAppManagedRole(u.getRole()))
+                .count();
         return ResponseEntity.ok(Map.of(
                 "code", 200,
                 "message", "success",
@@ -101,11 +106,15 @@ public class AppUserController {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(normalizedDays - 1L);
 
-        List<UserDailyActiveStat> stats = userService.listDailyActiveRange(startDate, endDate, User.ROLE_USER);
+        List<UserDailyActiveStat> stats = new ArrayList<>();
+        stats.addAll(userService.listDailyActiveRange(startDate, endDate, User.ROLE_USER));
+        stats.addAll(userService.listDailyActiveRange(startDate, endDate, User.ROLE_PRO));
         Map<LocalDate, Long> countByDate = new HashMap<>();
         for (UserDailyActiveStat stat : stats) {
             if (stat == null || stat.getStatDate() == null) continue;
-            countByDate.put(stat.getStatDate(), stat.getActiveCount() == null ? 0L : stat.getActiveCount());
+            long inc = stat.getActiveCount() == null ? 0L : stat.getActiveCount();
+            Long existing = countByDate.get(stat.getStatDate());
+            countByDate.put(stat.getStatDate(), (existing == null ? 0L : existing) + inc);
         }
 
         List<Map<String, Object>> series = new ArrayList<>();
@@ -193,7 +202,7 @@ public class AppUserController {
     @DeleteMapping
     public ResponseEntity<?> deleteUser(@RequestParam String username) {
         User target = userService.getByUsername(username);
-        if (target == null || !User.ROLE_USER.equals(target.getRole())) {
+        if (target == null || !isAppManagedRole(target.getRole())) {
             return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
                     "message", "普通用户不存在"
@@ -220,7 +229,7 @@ public class AppUserController {
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(@RequestParam String username) {
         User user = userService.getByUsername(username);
-        if (user == null || !User.ROLE_USER.equals(user.getRole())) {
+        if (user == null || !isAppManagedRole(user.getRole())) {
             return ResponseEntity.ok(Map.of(
                     "code", 404,
                     "message", "用户不存在"
@@ -255,7 +264,7 @@ public class AppUserController {
             ));
         }
         User user = userService.getByUsername(request.username());
-        if (user == null || !User.ROLE_USER.equals(user.getRole())) {
+        if (user == null || !isAppManagedRole(user.getRole())) {
             return ResponseEntity.status(404).body(Map.of(
                     "code", 404,
                     "message", "用户不存在"
@@ -319,5 +328,9 @@ public class AppUserController {
                                        String gender,
                                        String genderCustom,
                                        String birthday) {
+    }
+
+    private boolean isAppManagedRole(String role) {
+        return User.ROLE_USER.equals(role) || User.ROLE_PRO.equals(role);
     }
 }

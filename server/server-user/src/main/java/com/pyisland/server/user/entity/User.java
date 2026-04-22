@@ -10,6 +10,8 @@ public class User {
 
     /** 普通用户角色。 */
     public static final String ROLE_USER = "user";
+    /** Pro 用户角色。 */
+    public static final String ROLE_PRO = "pro";
     /** 管理员角色。 */
     public static final String ROLE_ADMIN = "admin";
 
@@ -94,7 +96,7 @@ public class User {
 
     /**
      * 获取角色。
-     * @return 角色，取值 admin/user。
+     * @return 角色，取值 admin/pro/user。
      */
     public String getRole() {
         return role;

@@ -35,12 +35,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 普通用户自助接口。面向已登录用户（role=user / admin）开放，用户只能操作自身资源。
- * 所有路径以 /v1/user 开头，由 Spring Security 统一保护：hasAnyRole("USER","ADMIN")。
+ * 普通用户自助接口。面向已登录用户（role=user / pro / admin）开放，用户只能操作自身资源。
+ * 所有路径以 /v1/user 开头，由 Spring Security 统一保护：hasAnyRole("USER","PRO","ADMIN")。
  */
 @RestController
 @RequestMapping("/v1/user")
-@PreAuthorize("hasAnyRole('USER','ADMIN')")
+@PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
 public class UserSelfController {
 
     private static final Logger log = LoggerFactory.getLogger(UserSelfController.class);
