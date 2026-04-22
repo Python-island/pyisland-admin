@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -54,6 +55,11 @@ public class UserSelfController {
     private final StringRedisTemplate verificationRedisTemplate;
     private final String verifyCodePepper;
     private final TotpSecurityService totpSecurityService;
+
+    @Value("${UPDATE_SOURCE_COS_URL:}")
+    private String updateSourceCosUrl;
+    @Value("${UPDATE_SOURCE_OSS_URL:}")
+    private String updateSourceOssUrl;
 
     /**
      * 构造用户自助控制器。
@@ -361,6 +367,42 @@ public class UserSelfController {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 not available", ex);
         }
+    }
+
+    /**
+     * 获取 PRO 专属更新源下载地址。仅 PRO 角色可调用。
+     * @param source 更新源标识（tencent-cos / aliyun-oss）。
+     * @param authentication 当前安全上下文。
+     * @return 更新源 URL。
+     */
+    @PreAuthorize("hasRole('PRO')")
+    @GetMapping("/update-source")
+    public ResponseEntity<?> getUpdateSourceUrl(@RequestParam String source,
+                                                Authentication authentication) {
+        String caller = callerName(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        if (source == null || source.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "source 参数不能为空"));
+        }
+        String url;
+        switch (source.trim().toLowerCase()) {
+            case "tencent-cos" -> url = updateSourceCosUrl;
+            case "aliyun-oss" -> url = updateSourceOssUrl;
+            default -> {
+                return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "不支持的更新源: " + source));
+            }
+        }
+        if (url == null || url.isBlank()) {
+            return ResponseEntity.status(503).body(Map.of("code", 503, "message", "该更新源暂未配置"));
+        }
+        log.info("update-source requested username={} source={}", caller, source);
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", Map.of("url", url)
+        ));
     }
 
     /**
