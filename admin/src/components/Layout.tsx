@@ -46,6 +46,8 @@ const navItems = [
     children: [
       { label: "支付配置", path: "/payment/config" },
       { label: "订单管理", path: "/payment/orders" },
+      { label: "支付DLQ", path: "/payment/dlq" },
+      { label: "邮件DLQ", path: "/email/dlq" },
     ],
   },
   {

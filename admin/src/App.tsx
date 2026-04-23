@@ -28,6 +28,8 @@ import TagManage from "./pages/TagManage";
 import UserFeedbackManage from "./pages/UserFeedbackManage";
 import PaymentConfig from "./pages/PaymentConfig";
 import PaymentOrders from "./pages/PaymentOrders";
+import PaymentDlq from "./pages/PaymentDlq";
+import EmailDlq from "./pages/EmailDlq";
 
 /**
  * 鉴权路由包装器。
@@ -68,6 +70,8 @@ export default function App() {
           <Route path="/api-debug" element={<ApiDebug />} />
           <Route path="/payment/config" element={<PaymentConfig />} />
           <Route path="/payment/orders" element={<PaymentOrders />} />
+          <Route path="/payment/dlq" element={<PaymentDlq />} />
+          <Route path="/email/dlq" element={<EmailDlq />} />
           <Route path="/wallpapers/review" element={<WallpaperReview />} />
           <Route path="/wallpapers/reports" element={<WallpaperReportManage />} />
           <Route path="/wallpapers/ratings" element={<WallpaperRatingManage />} />

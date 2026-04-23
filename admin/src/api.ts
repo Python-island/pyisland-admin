@@ -224,6 +224,27 @@ export interface WallpaperRatingItem {
   updatedAt?: string;
 }
 
+export interface PaymentDlqAdminItem {
+  id: number;
+  notifyId?: string;
+  outTradeNo?: string;
+  tradeState?: string;
+  retryCount?: number;
+  errorMessage?: string;
+  rawBody?: string;
+  createdAt?: string;
+}
+
+export interface EmailDlqAdminItem {
+  id: number;
+  traceId?: string;
+  email?: string;
+  scene?: string;
+  retryCount?: number;
+  errorMessage?: string;
+  createdAt?: string;
+}
+
 export interface IssueFeedbackAdminItem {
   id: number;
   username: string;
@@ -635,6 +656,29 @@ export const paymentAdmin = {
       method: "PUT",
       body: JSON.stringify({ outTradeNo }),
     });
+  },
+  listDlq(params?: { notifyId?: string; outTradeNo?: string; limit?: number }) {
+    const query = new URLSearchParams();
+    if (params?.notifyId) query.set("notifyId", params.notifyId);
+    if (params?.outTradeNo) query.set("outTradeNo", params.outTradeNo);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return request<ApiResponse<PaymentDlqAdminItem[]>>(
+      `/v1/admin/payment/notify-dlq${qs ? `?${qs}` : ""}`
+    );
+  },
+};
+
+export const emailAdmin = {
+  listDlq(params?: { traceId?: string; email?: string; limit?: number }) {
+    const query = new URLSearchParams();
+    if (params?.traceId) query.set("traceId", params.traceId);
+    if (params?.email) query.set("email", params.email);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return request<ApiResponse<EmailDlqAdminItem[]>>(
+      `/v1/admin/email/notify-dlq${qs ? `?${qs}` : ""}`
+    );
   },
 };
 
