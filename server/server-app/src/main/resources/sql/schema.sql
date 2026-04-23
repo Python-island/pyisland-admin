@@ -531,6 +531,19 @@ PREPARE issue_feedback_screenshot_url_stmt FROM @issue_feedback_screenshot_url_s
 EXECUTE issue_feedback_screenshot_url_stmt;
 DEALLOCATE PREPARE issue_feedback_screenshot_url_stmt;
 
+CREATE TABLE IF NOT EXISTS announcement_config (
+    id          BIGINT PRIMARY KEY,
+    title       VARCHAR(200),
+    content     TEXT,
+    enabled     TINYINT(1) NOT NULL DEFAULT 0,
+    start_at    DATETIME,
+    end_at      DATETIME,
+    updated_by  VARCHAR(100),
+    updated_at  DATETIME,
+    KEY idx_announcement_enabled (enabled),
+    KEY idx_announcement_window (start_at, end_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS user_active_daily (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     username    VARCHAR(100) NOT NULL,

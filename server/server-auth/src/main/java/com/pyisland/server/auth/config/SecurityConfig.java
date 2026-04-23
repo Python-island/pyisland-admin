@@ -84,6 +84,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/v1/version", "/v1/version/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/version/update-count").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/service-status", "/v1/service-status/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/v1/announcement/current").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/payment/wechat/notify").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/upload/user-avatar").hasAnyRole("USER", "PRO", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/v1/upload/feedback-log").hasAnyRole("USER", "PRO", "ADMIN")

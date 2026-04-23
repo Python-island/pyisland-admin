@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.mapper.AnnouncementConfigMapper">
+
+    <resultMap id="AnnouncementConfigResultMap" type="com.pyisland.server.user.entity.AnnouncementConfig">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="enabled" column="enabled"/>
+        <result property="startAt" column="start_at"/>
+        <result property="endAt" column="end_at"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="selectCurrent" resultMap="AnnouncementConfigResultMap">
+        SELECT id, title, content, enabled, start_at, end_at, updated_by, updated_at
+        FROM announcement_config
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
+    <select id="selectById" resultMap="AnnouncementConfigResultMap">
+        SELECT id, title, content, enabled, start_at, end_at, updated_by, updated_at
+        FROM announcement_config
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.pyisland.server.user.entity.AnnouncementConfig">
+        INSERT INTO announcement_config (id, title, content, enabled, start_at, end_at, updated_by, updated_at)
+        VALUES (#{id}, #{title}, #{content}, #{enabled}, #{startAt}, #{endAt}, #{updatedBy}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE announcement_config
+        SET title = #{title},
+            content = #{content},
+            enabled = #{enabled},
+            start_at = #{startAt},
+            end_at = #{endAt},
+            updated_by = #{updatedBy},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
