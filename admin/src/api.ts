@@ -247,6 +247,36 @@ export interface IssueFeedbackAdminListResponse {
   pageSize: number;
 }
 
+export interface PaymentConfigData {
+  enabled: boolean;
+  mchId: string;
+  appId: string;
+  serialNo: string;
+  notifyUrl: string;
+  publicKeyId: string;
+  publicKeyPath: string;
+  platformCertPath: string;
+  privateKeyPath: string;
+  apiV3KeyMasked: string;
+  orderExpireMinutes: number;
+  queryPendingBatchSize: number;
+}
+
+export interface PaymentConfigUpdatePayload {
+  enabled: boolean;
+  mchId: string;
+  appId: string;
+  apiV3Key?: string;
+  privateKeyPath: string;
+  serialNo: string;
+  notifyUrl: string;
+  publicKeyId: string;
+  publicKeyPath: string;
+  platformCertPath: string;
+  orderExpireMinutes: number;
+  queryPendingBatchSize: number;
+}
+
 export const auth = {
   adminLogin(username: string, password: string) {
     return request<ApiResponse<LoginData>>("/auth/admin/login", {
@@ -550,6 +580,18 @@ export const issueFeedbackAdmin = {
   },
   resolve(payload: { id: number; status: string; adminReply?: string }) {
     return request<ApiResponse>("/v1/admin/feedback/resolve", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
+export const paymentAdmin = {
+  getConfig() {
+    return request<ApiResponse<PaymentConfigData>>("/v1/admin/payment/config");
+  },
+  updateConfig(payload: PaymentConfigUpdatePayload) {
+    return request<ApiResponse>("/v1/admin/payment/config", {
       method: "PUT",
       body: JSON.stringify(payload),
     });
