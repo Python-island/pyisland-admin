@@ -58,6 +58,7 @@ const navItems = [
       { label: "评分管理", path: "/wallpapers/ratings" },
       { label: "标签管理", path: "/tags" },
       { label: "用户反馈", path: "/feedbacks" },
+      { label: "公告管理", path: "/announcement" },
     ],
   },
 ];

@@ -283,6 +283,25 @@ export interface PaymentConfigData {
   queryPendingBatchSize: number;
 }
 
+export interface AnnouncementConfigData {
+  id: number;
+  title: string;
+  content: string;
+  enabled: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
+  updatedBy?: string;
+  updatedAt?: string | null;
+}
+
+export interface AnnouncementConfigUpdatePayload {
+  title: string;
+  content: string;
+  enabled: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
+}
+
 export interface PaymentOrderAdminItem {
   id: number;
   outTradeNo: string;
@@ -619,6 +638,18 @@ export const issueFeedbackAdmin = {
   },
   resolve(payload: { id: number; status: string; adminReply?: string }) {
     return request<ApiResponse>("/v1/admin/feedback/resolve", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
+export const announcementAdmin = {
+  getConfig() {
+    return request<ApiResponse<AnnouncementConfigData>>("/v1/admin/announcement");
+  },
+  updateConfig(payload: AnnouncementConfigUpdatePayload) {
+    return request<ApiResponse<AnnouncementConfigData>>("/v1/admin/announcement", {
       method: "PUT",
       body: JSON.stringify(payload),
     });

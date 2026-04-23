@@ -26,6 +26,7 @@ import WallpaperReportManage from "./pages/WallpaperReportManage";
 import WallpaperRatingManage from "./pages/WallpaperRatingManage";
 import TagManage from "./pages/TagManage";
 import UserFeedbackManage from "./pages/UserFeedbackManage";
+import AnnouncementManage from "./pages/AnnouncementManage";
 import PaymentConfig from "./pages/PaymentConfig";
 import PaymentOrders from "./pages/PaymentOrders";
 import PaymentDlq from "./pages/PaymentDlq";
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/wallpapers/ratings" element={<WallpaperRatingManage />} />
           <Route path="/tags" element={<TagManage />} />
           <Route path="/feedbacks" element={<UserFeedbackManage />} />
+          <Route path="/announcement" element={<AnnouncementManage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
