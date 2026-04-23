@@ -17,6 +17,8 @@ public class WechatPayProperties {
     private String privateKeyPath;
     private String serialNo;
     private String notifyUrl;
+    private String publicKeyId;
+    private String publicKeyPath;
     private String platformCertPath;
     private int orderExpireMinutes = 15;
     private int queryPendingBatchSize = 100;
@@ -75,6 +77,22 @@ public class WechatPayProperties {
 
     public void setNotifyUrl(String notifyUrl) {
         this.notifyUrl = notifyUrl;
+    }
+
+    public String getPublicKeyId() {
+        return publicKeyId;
+    }
+
+    public void setPublicKeyId(String publicKeyId) {
+        this.publicKeyId = publicKeyId;
+    }
+
+    public String getPublicKeyPath() {
+        return publicKeyPath;
+    }
+
+    public void setPublicKeyPath(String publicKeyPath) {
+        this.publicKeyPath = publicKeyPath;
     }
 
     public String getPlatformCertPath() {

@@ -14,7 +14,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyFactory;
+import java.security.PublicKey;
 import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
@@ -84,6 +87,25 @@ public class WechatPayNotifyService {
         if (signature == null || signature.isBlank() || timestamp == null || nonce == null) {
             return false;
         }
+        String message = timestamp + "\n" + nonce + "\n" + body + "\n";
+        String publicKeyPath = properties.getPublicKeyPath();
+        if (publicKeyPath != null && !publicKeyPath.isBlank()) {
+            try {
+                String configuredPublicKeyId = properties.getPublicKeyId();
+                if (configuredPublicKeyId != null && !configuredPublicKeyId.isBlank()) {
+                    if (serial == null || serial.isBlank() || !configuredPublicKeyId.equalsIgnoreCase(serial)) {
+                        log.warn("wechat notify public key id mismatch header={} configured={}", serial, configuredPublicKeyId);
+                        return false;
+                    }
+                }
+                PublicKey publicKey = loadPublicKey(publicKeyPath);
+                return verifyByKey(message, signature, publicKey);
+            } catch (Exception ex) {
+                log.warn("wechat notify public key verify failed err={}", ex.getMessage());
+                return false;
+            }
+        }
+
         String certPath = properties.getPlatformCertPath();
         if (certPath == null || certPath.isBlank()) {
             return true;
@@ -96,15 +118,28 @@ public class WechatPayNotifyService {
             if (serial != null && !serial.isBlank() && !serialHex.equalsIgnoreCase(serial)) {
                 log.warn("wechat notify serial mismatch header={} cert={}", serial, serialHex);
             }
-            String message = timestamp + "\n" + nonce + "\n" + body + "\n";
-            Signature verifier = Signature.getInstance("SHA256withRSA");
-            verifier.initVerify(cert.getPublicKey());
-            verifier.update(message.getBytes(StandardCharsets.UTF_8));
-            return verifier.verify(Base64.getDecoder().decode(signature));
+            return verifyByKey(message, signature, cert.getPublicKey());
         } catch (Exception ex) {
             log.warn("wechat notify verify failed err={}", ex.getMessage());
             return false;
         }
+    }
+
+    private PublicKey loadPublicKey(String publicKeyPath) throws Exception {
+        String pem = Files.readString(Path.of(publicKeyPath), StandardCharsets.UTF_8)
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+        byte[] keyBytes = Base64.getDecoder().decode(pem);
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+        return KeyFactory.getInstance("RSA").generatePublic(spec);
+    }
+
+    private boolean verifyByKey(String message, String signature, PublicKey publicKey) throws Exception {
+        Signature verifier = Signature.getInstance("SHA256withRSA");
+        verifier.initVerify(publicKey);
+        verifier.update(message.getBytes(StandardCharsets.UTF_8));
+        return verifier.verify(Base64.getDecoder().decode(signature));
     }
 
     private String decryptResource(String associatedData, String nonce, String ciphertext) throws Exception {

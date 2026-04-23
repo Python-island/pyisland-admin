@@ -117,6 +117,8 @@ payment:
     private-key-path: ${WX_PAY_PRIVATE_KEY_PATH:}
     serial-no: ${WX_PAY_SERIAL_NO:}
     notify-url: ${WX_PAY_NOTIFY_URL:}
+    public-key-id: ${WX_PAY_PUBLIC_KEY_ID:}
+    public-key-path: ${WX_PAY_PUBLIC_KEY_PATH:}
     platform-cert-path: ${WX_PAY_PLATFORM_CERT_PATH:}
     order-expire-minutes: ${WX_PAY_ORDER_EXPIRE_MINUTES:15}
     query-pending-batch-size: ${WX_PAY_QUERY_PENDING_BATCH_SIZE:100}
