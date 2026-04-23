@@ -262,6 +262,24 @@ export interface PaymentConfigData {
   queryPendingBatchSize: number;
 }
 
+export interface PaymentOrderAdminItem {
+  id: number;
+  outTradeNo: string;
+  username: string;
+  productCode: string;
+  amountFen: number;
+  currency: string;
+  status: string;
+  wxPrepayId?: string;
+  wxCodeUrl?: string;
+  wxTransactionId?: string;
+  expireAt?: string;
+  paidAt?: string;
+  closedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface PaymentConfigUpdatePayload {
   enabled: boolean;
   mchId: string;
@@ -594,6 +612,28 @@ export const paymentAdmin = {
     return request<ApiResponse>("/v1/admin/payment/config", {
       method: "PUT",
       body: JSON.stringify(payload),
+    });
+  },
+  listOrders(params?: { username?: string; status?: string; limit?: number }) {
+    const query = new URLSearchParams();
+    if (params?.username) query.set("username", params.username);
+    if (params?.status) query.set("status", params.status);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return request<ApiResponse<PaymentOrderAdminItem[]>>(
+      `/v1/admin/payment/orders${qs ? `?${qs}` : ""}`
+    );
+  },
+  refreshOrder(outTradeNo: string) {
+    return request<ApiResponse<PaymentOrderAdminItem>>("/v1/admin/payment/orders/refresh", {
+      method: "PUT",
+      body: JSON.stringify({ outTradeNo }),
+    });
+  },
+  closeOrder(outTradeNo: string) {
+    return request<ApiResponse>("/v1/admin/payment/orders/close", {
+      method: "PUT",
+      body: JSON.stringify({ outTradeNo }),
     });
   },
 };

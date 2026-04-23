@@ -40,6 +40,30 @@ public class AdminPaymentController {
         return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", list));
     }
 
+    @PutMapping("/orders/refresh")
+    public ResponseEntity<?> refreshOrder(@RequestBody OrderActionRequest request) {
+        if (request == null || request.outTradeNo() == null || request.outTradeNo().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "outTradeNo 不能为空"));
+        }
+        PaymentOrder refreshed = paymentService.adminRefreshOrder(request.outTradeNo());
+        if (refreshed == null) {
+            return ResponseEntity.status(404).body(Map.of("code", 404, "message", "订单不存在"));
+        }
+        return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", refreshed));
+    }
+
+    @PutMapping("/orders/close")
+    public ResponseEntity<?> closeOrder(@RequestBody OrderActionRequest request) {
+        if (request == null || request.outTradeNo() == null || request.outTradeNo().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "outTradeNo 不能为空"));
+        }
+        boolean closed = paymentService.adminCloseOrder(request.outTradeNo());
+        if (!closed) {
+            return ResponseEntity.status(400).body(Map.of("code", 400, "message", "仅 PAYING 状态订单可关闭"));
+        }
+        return ResponseEntity.ok(Map.of("code", 200, "message", "订单已关闭"));
+    }
+
     @GetMapping("/config")
     public ResponseEntity<?> getConfig() {
         Map<String, Object> data = Map.ofEntries(
@@ -139,5 +163,8 @@ public class AdminPaymentController {
                                       String platformCertPath,
                                       Integer orderExpireMinutes,
                                       Integer queryPendingBatchSize) {
+    }
+
+    public record OrderActionRequest(String outTradeNo) {
     }
 }

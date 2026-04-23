@@ -113,6 +113,28 @@ public class PaymentService {
         return paymentOrderMapper.adminList(username, status, Math.max(1, Math.min(limit, 200)));
     }
 
+    public PaymentOrder adminRefreshOrder(String outTradeNo) {
+        if (outTradeNo == null || outTradeNo.isBlank()) {
+            return null;
+        }
+        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo.trim());
+        return refreshOrderIfNeeded(order);
+    }
+
+    @Transactional
+    public boolean adminCloseOrder(String outTradeNo) {
+        if (outTradeNo == null || outTradeNo.isBlank()) {
+            return false;
+        }
+        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo.trim());
+        if (order == null || !PaymentOrder.STATUS_PAYING.equals(order.getStatus())) {
+            return false;
+        }
+        wechatPayClient.closeOrder(order.getOutTradeNo());
+        int updated = paymentOrderMapper.markClosed(order.getOutTradeNo(), LocalDateTime.now(), LocalDateTime.now());
+        return updated > 0;
+    }
+
     @Transactional
     public boolean completeOrderIfPending(String outTradeNo,
                                           String wxTransactionId,
