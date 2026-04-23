@@ -71,13 +71,33 @@ public class PaymentNotifyConsumer {
         if (message == null) {
             return;
         }
-        log.error("payment notify entered dlq notifyId={} outTradeNo={} retryCount={}",
-                message.notifyId(), message.outTradeNo(), retryCount == null ? 0 : retryCount);
+        int deadRetry = retryCount == null ? 0 : Math.max(0, retryCount);
+        paymentService.logDlqNotify(
+                message.notifyId(),
+                message.outTradeNo(),
+                message.tradeState(),
+                deadRetry,
+                message.lastError(),
+                message.rawBody()
+        );
+        log.error("payment notify entered dlq notifyId={} outTradeNo={} retryCount={}"
+                , message.notifyId(), message.outTradeNo(), deadRetry);
     }
 
     private void routeToRetryOrDlq(PaymentNotifyMessage message, Integer retryCount, Exception ex) {
         int currentRetry = retryCount == null ? 0 : Math.max(0, retryCount);
         int nextRetry = currentRetry + 1;
+        String errorMessage = ex == null ? "unknown" : ex.getMessage();
+        PaymentNotifyMessage failedMessage = new PaymentNotifyMessage(
+                message.notifyId(),
+                message.outTradeNo(),
+                message.transactionId(),
+                message.tradeState(),
+                message.successTime(),
+                message.verifyOk(),
+                message.rawBody(),
+                errorMessage
+        );
         MessagePostProcessor setRetryHeader = m -> {
             m.getMessageProperties().setHeader(PaymentMqConfig.PAYMENT_RETRY_HEADER, nextRetry);
             return m;
@@ -87,21 +107,21 @@ public class PaymentNotifyConsumer {
             rabbitTemplate.convertAndSend(
                     PaymentMqConfig.PAYMENT_NOTIFY_EXCHANGE,
                     PaymentMqConfig.PAYMENT_NOTIFY_RETRY_ROUTING_KEY,
-                    message,
+                    failedMessage,
                     setRetryHeader
             );
-            log.warn("payment notify routed to retry notifyId={} outTradeNo={} retry={}/{} err={}",
-                    message.notifyId(), message.outTradeNo(), nextRetry, notifyMaxRetries, ex.getMessage());
+            log.warn("payment notify routed to retry notifyId={} outTradeNo={} retry={}/{} err={}"
+                    , message.notifyId(), message.outTradeNo(), nextRetry, notifyMaxRetries, errorMessage);
             return;
         }
 
         rabbitTemplate.convertAndSend(
                 PaymentMqConfig.PAYMENT_NOTIFY_EXCHANGE,
                 PaymentMqConfig.PAYMENT_NOTIFY_DLQ_ROUTING_KEY,
-                message,
+                failedMessage,
                 setRetryHeader
         );
         log.error("payment notify routed to dlq notifyId={} outTradeNo={} retry={} err={}",
-                message.notifyId(), message.outTradeNo(), nextRetry, ex.getMessage());
+                message.notifyId(), message.outTradeNo(), nextRetry, errorMessage);
     }
 }

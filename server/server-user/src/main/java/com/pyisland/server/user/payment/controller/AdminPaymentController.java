@@ -1,6 +1,7 @@
 package com.pyisland.server.user.payment.controller;
 
 import com.pyisland.server.user.payment.config.WechatPayProperties;
+import com.pyisland.server.user.payment.entity.PaymentDlqLog;
 import com.pyisland.server.user.payment.entity.PaymentOrder;
 import com.pyisland.server.user.payment.service.PaymentService;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,14 @@ public class AdminPaymentController {
                                         @RequestParam(required = false) String status,
                                         @RequestParam(defaultValue = "100") int limit) {
         List<PaymentOrder> list = paymentService.adminList(username, status, limit);
+        return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", list));
+    }
+
+    @GetMapping("/notify-dlq")
+    public ResponseEntity<?> listNotifyDlq(@RequestParam(required = false) String notifyId,
+                                           @RequestParam(required = false) String outTradeNo,
+                                           @RequestParam(defaultValue = "50") int limit) {
+        List<PaymentDlqLog> list = paymentService.adminListDlq(notifyId, outTradeNo, limit);
         return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", list));
     }
 

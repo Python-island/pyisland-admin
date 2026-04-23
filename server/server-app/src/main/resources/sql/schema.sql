@@ -632,3 +632,30 @@ CREATE TABLE IF NOT EXISTS payment_reconcile_record (
     created_at      DATETIME NOT NULL,
     UNIQUE KEY uk_payment_reconcile_bill_channel (bill_date, channel)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_dlq_log (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    notify_id      VARCHAR(100),
+    out_trade_no   VARCHAR(64),
+    trade_state    VARCHAR(30),
+    retry_count    INT NOT NULL DEFAULT 0,
+    error_message  VARCHAR(500),
+    raw_body       LONGTEXT,
+    created_at     DATETIME NOT NULL,
+    KEY idx_payment_dlq_notify_id (notify_id),
+    KEY idx_payment_dlq_out_trade_no (out_trade_no),
+    KEY idx_payment_dlq_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS email_dispatch_dlq_log (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    trace_id       VARCHAR(100),
+    email          VARCHAR(150),
+    scene          VARCHAR(50),
+    retry_count    INT NOT NULL DEFAULT 0,
+    error_message  VARCHAR(500),
+    created_at     DATETIME NOT NULL,
+    KEY idx_email_dispatch_dlq_trace_id (trace_id),
+    KEY idx_email_dispatch_dlq_email (email),
+    KEY idx_email_dispatch_dlq_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

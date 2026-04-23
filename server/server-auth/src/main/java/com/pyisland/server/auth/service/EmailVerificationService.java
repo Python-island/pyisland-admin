@@ -1,20 +1,25 @@
 package com.pyisland.server.auth.service;
 
 import com.pyisland.server.auth.config.EmailVerificationMqConfig;
+import com.pyisland.server.auth.entity.EmailDispatchDlqLog;
+import com.pyisland.server.auth.mapper.EmailDispatchDlqLogMapper;
 import com.pyisland.server.auth.mq.EmailCodeDispatchMessage;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -34,15 +39,18 @@ public class EmailVerificationService {
 
     private final StringRedisTemplate verificationRedisTemplate;
     private final RabbitTemplate rabbitTemplate;
+    private final EmailDispatchDlqLogMapper emailDispatchDlqLogMapper;
     private final String verifyCodePepper;
 
     public EmailVerificationService(
             @Qualifier("verificationRedisTemplate") StringRedisTemplate verificationRedisTemplate,
             RabbitTemplate rabbitTemplate,
+            EmailDispatchDlqLogMapper emailDispatchDlqLogMapper,
             @Value("${VERIFY_CODE_PEPPER:pyisland-verify-pepper}") String verifyCodePepper
     ) {
         this.verificationRedisTemplate = verificationRedisTemplate;
         this.rabbitTemplate = rabbitTemplate;
+        this.emailDispatchDlqLogMapper = emailDispatchDlqLogMapper;
         this.verifyCodePepper = verifyCodePepper;
     }
 
@@ -220,6 +228,28 @@ public class EmailVerificationService {
         } catch (Exception ex) {
             return new VerifyCodeResult(false, 503, "验证码服务暂不可用");
         }
+    }
+
+    @Transactional
+    public void logDispatchDlq(String traceId,
+                               String email,
+                               String scene,
+                               int retryCount,
+                               String errorMessage) {
+        EmailDispatchDlqLog logItem = new EmailDispatchDlqLog();
+        logItem.setTraceId(traceId);
+        logItem.setEmail(email);
+        logItem.setScene(scene);
+        logItem.setRetryCount(Math.max(0, retryCount));
+        logItem.setErrorMessage(errorMessage);
+        logItem.setCreatedAt(LocalDateTime.now());
+        emailDispatchDlqLogMapper.insert(logItem);
+    }
+
+    public List<EmailDispatchDlqLog> adminListDispatchDlq(String traceId, String email, int limit) {
+        String normalizedTraceId = traceId == null ? null : traceId.trim();
+        String normalizedEmail = email == null ? null : email.trim().toLowerCase();
+        return emailDispatchDlqLogMapper.adminList(normalizedTraceId, normalizedEmail, Math.max(1, Math.min(limit, 200)));
     }
 
     private String generateNumericCode(int length) {

@@ -21,13 +21,16 @@ public class EmailCodeDispatchConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(EmailCodeDispatchConsumer.class);
     private final ResendEmailService resendEmailService;
+    private final EmailVerificationService emailVerificationService;
     private final RabbitTemplate rabbitTemplate;
     private final int emailNotifyMaxRetries;
 
     public EmailCodeDispatchConsumer(ResendEmailService resendEmailService,
+                                     EmailVerificationService emailVerificationService,
                                      RabbitTemplate rabbitTemplate,
                                      @Value("${email.notify-max-retries:3}") int emailNotifyMaxRetries) {
         this.resendEmailService = resendEmailService;
+        this.emailVerificationService = emailVerificationService;
         this.rabbitTemplate = rabbitTemplate;
         this.emailNotifyMaxRetries = Math.max(0, emailNotifyMaxRetries);
     }
@@ -68,13 +71,30 @@ public class EmailCodeDispatchConsumer {
         if (message == null) {
             return;
         }
+        int deadRetry = retryCount == null ? 0 : Math.max(0, retryCount);
+        emailVerificationService.logDispatchDlq(
+                message.traceId(),
+                message.email(),
+                message.scene(),
+                deadRetry,
+                message.lastError()
+        );
         log.error("email code entered dlq traceId={} email={} scene={} retryCount={}",
-                message.traceId(), message.email(), message.scene(), retryCount == null ? 0 : retryCount);
+                message.traceId(), message.email(), message.scene(), deadRetry);
     }
 
     private void routeToRetryOrDlq(EmailCodeDispatchMessage message, Integer retryCount, Exception ex) {
         int currentRetry = retryCount == null ? 0 : Math.max(0, retryCount);
         int nextRetry = currentRetry + 1;
+        String errorMessage = ex == null ? "unknown" : ex.getMessage();
+        EmailCodeDispatchMessage failedMessage = new EmailCodeDispatchMessage(
+                message.traceId(),
+                message.email(),
+                message.scene(),
+                message.code(),
+                message.createdAtEpochSeconds(),
+                errorMessage
+        );
         MessagePostProcessor setRetryHeader = m -> {
             m.getMessageProperties().setHeader(EmailVerificationMqConfig.EMAIL_RETRY_HEADER, nextRetry);
             return m;
@@ -84,21 +104,21 @@ public class EmailCodeDispatchConsumer {
             rabbitTemplate.convertAndSend(
                     EmailVerificationMqConfig.EMAIL_CODE_EXCHANGE,
                     EmailVerificationMqConfig.EMAIL_CODE_RETRY_ROUTING_KEY,
-                    message,
+                    failedMessage,
                     setRetryHeader
             );
             log.warn("email code routed to retry traceId={} email={} retry={}/{} err={}",
-                    message.traceId(), message.email(), nextRetry, emailNotifyMaxRetries, ex.getMessage());
+                    message.traceId(), message.email(), nextRetry, emailNotifyMaxRetries, errorMessage);
             return;
         }
 
         rabbitTemplate.convertAndSend(
                 EmailVerificationMqConfig.EMAIL_CODE_EXCHANGE,
                 EmailVerificationMqConfig.EMAIL_CODE_DLQ_ROUTING_KEY,
-                message,
+                failedMessage,
                 setRetryHeader
         );
         log.error("email code routed to dlq traceId={} email={} retry={} err={}",
-                message.traceId(), message.email(), nextRetry, ex.getMessage());
+                message.traceId(), message.email(), nextRetry, errorMessage);
     }
 }

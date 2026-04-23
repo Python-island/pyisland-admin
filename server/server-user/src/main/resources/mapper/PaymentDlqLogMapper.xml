@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.payment.mapper.PaymentDlqLogMapper">
+
+    <resultMap id="PaymentDlqLogMap" type="com.pyisland.server.user.payment.entity.PaymentDlqLog">
+        <id property="id" column="id"/>
+        <result property="notifyId" column="notify_id"/>
+        <result property="outTradeNo" column="out_trade_no"/>
+        <result property="tradeState" column="trade_state"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="rawBody" column="raw_body"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO payment_dlq_log
+        (notify_id, out_trade_no, trade_state, retry_count, error_message, raw_body, created_at)
+        VALUES
+        (#{notifyId}, #{outTradeNo}, #{tradeState}, #{retryCount}, #{errorMessage}, #{rawBody}, #{createdAt})
+    </insert>
+
+    <select id="adminList" resultMap="PaymentDlqLogMap">
+        SELECT id,
+               notify_id,
+               out_trade_no,
+               trade_state,
+               retry_count,
+               error_message,
+               raw_body,
+               created_at
+        FROM payment_dlq_log
+        WHERE (#{notifyId} IS NULL OR #{notifyId} = '' OR notify_id = #{notifyId})
+          AND (#{outTradeNo} IS NULL OR #{outTradeNo} = '' OR out_trade_no = #{outTradeNo})
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

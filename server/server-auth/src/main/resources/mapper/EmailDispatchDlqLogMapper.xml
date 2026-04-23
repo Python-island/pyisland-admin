@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.auth.mapper.EmailDispatchDlqLogMapper">
+
+    <resultMap id="EmailDispatchDlqLogMap" type="com.pyisland.server.auth.entity.EmailDispatchDlqLog">
+        <id property="id" column="id"/>
+        <result property="traceId" column="trace_id"/>
+        <result property="email" column="email"/>
+        <result property="scene" column="scene"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO email_dispatch_dlq_log
+        (trace_id, email, scene, retry_count, error_message, created_at)
+        VALUES
+        (#{traceId}, #{email}, #{scene}, #{retryCount}, #{errorMessage}, #{createdAt})
+    </insert>
+
+    <select id="adminList" resultMap="EmailDispatchDlqLogMap">
+        SELECT id,
+               trace_id,
+               email,
+               scene,
+               retry_count,
+               error_message,
+               created_at
+        FROM email_dispatch_dlq_log
+        WHERE (#{traceId} IS NULL OR #{traceId} = '' OR trace_id = #{traceId})
+          AND (#{email} IS NULL OR #{email} = '' OR email = #{email})
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

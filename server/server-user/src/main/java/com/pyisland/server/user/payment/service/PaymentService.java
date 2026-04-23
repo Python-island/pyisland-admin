@@ -2,9 +2,11 @@ package com.pyisland.server.user.payment.service;
 
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.payment.config.WechatPayProperties;
+import com.pyisland.server.user.payment.entity.PaymentDlqLog;
 import com.pyisland.server.user.payment.entity.PaymentNotifyLog;
 import com.pyisland.server.user.payment.entity.PaymentOrder;
 import com.pyisland.server.user.payment.entity.PaymentTransaction;
+import com.pyisland.server.user.payment.mapper.PaymentDlqLogMapper;
 import com.pyisland.server.user.payment.mapper.PaymentNotifyLogMapper;
 import com.pyisland.server.user.payment.mapper.PaymentOrderMapper;
 import com.pyisland.server.user.payment.mapper.PaymentTransactionMapper;
@@ -38,6 +40,7 @@ public class PaymentService {
     private final PaymentOrderMapper paymentOrderMapper;
     private final PaymentTransactionMapper paymentTransactionMapper;
     private final PaymentNotifyLogMapper paymentNotifyLogMapper;
+    private final PaymentDlqLogMapper paymentDlqLogMapper;
     private final WechatPayClient wechatPayClient;
     private final WechatPayProperties properties;
     private final UserService userService;
@@ -46,6 +49,7 @@ public class PaymentService {
     public PaymentService(PaymentOrderMapper paymentOrderMapper,
                           PaymentTransactionMapper paymentTransactionMapper,
                           PaymentNotifyLogMapper paymentNotifyLogMapper,
+                          PaymentDlqLogMapper paymentDlqLogMapper,
                           WechatPayClient wechatPayClient,
                           WechatPayProperties properties,
                           UserService userService,
@@ -53,6 +57,7 @@ public class PaymentService {
         this.paymentOrderMapper = paymentOrderMapper;
         this.paymentTransactionMapper = paymentTransactionMapper;
         this.paymentNotifyLogMapper = paymentNotifyLogMapper;
+        this.paymentDlqLogMapper = paymentDlqLogMapper;
         this.wechatPayClient = wechatPayClient;
         this.properties = properties;
         this.userService = userService;
@@ -205,6 +210,30 @@ public class PaymentService {
         logItem.setRawBody(rawBody);
         logItem.setCreatedAt(LocalDateTime.now());
         paymentNotifyLogMapper.insertIgnore(logItem);
+    }
+
+    @Transactional
+    public void logDlqNotify(String notifyId,
+                             String outTradeNo,
+                             String tradeState,
+                             int retryCount,
+                             String errorMessage,
+                             String rawBody) {
+        PaymentDlqLog logItem = new PaymentDlqLog();
+        logItem.setNotifyId(notifyId);
+        logItem.setOutTradeNo(outTradeNo);
+        logItem.setTradeState(tradeState);
+        logItem.setRetryCount(Math.max(0, retryCount));
+        logItem.setErrorMessage(errorMessage);
+        logItem.setRawBody(rawBody);
+        logItem.setCreatedAt(LocalDateTime.now());
+        paymentDlqLogMapper.insert(logItem);
+    }
+
+    public List<PaymentDlqLog> adminListDlq(String notifyId, String outTradeNo, int limit) {
+        String normalizedNotifyId = notifyId == null ? null : notifyId.trim();
+        String normalizedOutTradeNo = outTradeNo == null ? null : outTradeNo.trim();
+        return paymentDlqLogMapper.adminList(normalizedNotifyId, normalizedOutTradeNo, Math.max(1, Math.min(limit, 200)));
     }
 
     @Transactional

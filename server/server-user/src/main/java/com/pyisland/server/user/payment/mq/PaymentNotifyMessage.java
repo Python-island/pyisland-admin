@@ -11,5 +11,16 @@ public record PaymentNotifyMessage(String notifyId,
                                    String tradeState,
                                    OffsetDateTime successTime,
                                    boolean verifyOk,
-                                   String rawBody) {
+                                   String rawBody,
+                                   String lastError) {
+
+    public PaymentNotifyMessage(String notifyId,
+                                String outTradeNo,
+                                String transactionId,
+                                String tradeState,
+                                OffsetDateTime successTime,
+                                boolean verifyOk,
+                                String rawBody) {
+        this(notifyId, outTradeNo, transactionId, tradeState, successTime, verifyOk, rawBody, null);
+    }
 }
