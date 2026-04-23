@@ -110,6 +110,8 @@ issue-feedback:
 
 payment:
   redis-database: ${REDIS_PAYMENT_DATABASE:10}
+  notify-max-retries: ${PAYMENT_NOTIFY_MAX_RETRIES:5}
+  notify-retry-delay-ms: ${PAYMENT_NOTIFY_RETRY_DELAY_MS:15000}
   wechat:
     enabled: ${WX_PAY_ENABLED:false}
     mch-id: ${WX_PAY_MCH_ID:}
