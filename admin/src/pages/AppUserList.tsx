@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { appUsers, userAccounts, type AppUserInfo, type Gender, sanitizeUrl } from "../api";
+import { appUsers, userAccounts, type UserAccountItem, type Gender, sanitizeUrl } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -47,7 +47,7 @@ const tdStyle: React.CSSProperties = {
 
 export default function AppUserList() {
   const navigate = useNavigate();
-  const [list, setList] = useState<AppUserInfo[]>([]);
+  const [list, setList] = useState<UserAccountItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -73,12 +73,28 @@ export default function AppUserList() {
 
   const fetchUsers = async () => {
     try {
-      const res = await appUsers.list();
-      if (res.code === 200 && res.data) setList(res.data);
+      const res = await userAccounts.list();
+      if (res.code === 200 && res.data) {
+        setList(res.data.filter((u) => u.role !== "admin"));
+      }
     } catch {
       /* ignore */
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleBan = async (username: string, banned: boolean) => {
+    try {
+      const res = await userAccounts.updateBan(username, !banned);
+      if (res.code === 200) {
+        showMsg(!banned ? `已封禁 ${username}` : `已解除封禁 ${username}`);
+        fetchUsers();
+      } else {
+        showMsg(res.message, "err");
+      }
+    } catch {
+      showMsg(!banned ? "封禁失败" : "解除封禁失败", "err");
     }
   };
 
@@ -316,6 +332,21 @@ export default function AppUserList() {
                               降为普通用户
                             </button>
                           )}
+                          <button
+                            onClick={() => void handleToggleBan(u.username, Boolean(u.banned))}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "2px 12px",
+                              backgroundColor: "transparent",
+                              color: Boolean(u.banned) ? "#34c759" : "#ff375f",
+                              borderRadius: 980,
+                              border: `1px solid ${Boolean(u.banned) ? "#34c759" : "#ff375f"}`,
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                            }}
+                          >
+                            {Boolean(u.banned) ? "解除封禁" : "封禁"}
+                          </button>
                           <button
                             onClick={() => requestDelete(u.username)}
                             className="cursor-pointer"

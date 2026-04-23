@@ -1,6 +1,7 @@
 package com.pyisland.server.user.controller;
 
 import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.UserBanBloomService;
 import com.pyisland.server.user.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,13 +30,17 @@ public class UserAdminController {
     private static final Logger log = LoggerFactory.getLogger(UserAdminController.class);
 
     private final UserService userService;
+    private final UserBanBloomService userBanBloomService;
 
     /**
      * 构造管理员端用户管理控制器。
      * @param userService 用户服务。
+     * @param userBanBloomService 用户封禁布隆过滤器服务。
      */
-    public UserAdminController(UserService userService) {
+    public UserAdminController(UserService userService,
+                               UserBanBloomService userBanBloomService) {
         this.userService = userService;
+        this.userBanBloomService = userBanBloomService;
     }
 
     /**
@@ -119,6 +124,44 @@ public class UserAdminController {
         return ResponseEntity.ok(Map.of("code", 200, "message", enabled ? "账号已启用" : "账号已禁用"));
     }
 
+    /**
+     * 封禁或解封账号。封禁会写入布隆过滤器并踢出会话；解封会从精确名单移除。
+     * @param request 封禁请求。
+     * @param authentication 当前登录管理员。
+     * @return 操作结果。
+     */
+    @PutMapping("/ban")
+    public ResponseEntity<?> updateBan(@RequestBody UpdateBanRequest request, Authentication authentication) {
+        if (request.username() == null || request.username().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "用户名不能为空"));
+        }
+        if (request.banned() == null) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "banned 不能为空"));
+        }
+        String username = request.username().trim();
+        User target = userService.getByUsername(username);
+        if (target == null) {
+            return ResponseEntity.status(404).body(Map.of("code", 404, "message", "用户不存在"));
+        }
+
+        String caller = authentication != null ? authentication.getName() : null;
+        boolean banned = Boolean.TRUE.equals(request.banned());
+        if (caller != null && caller.equals(username) && banned) {
+            return ResponseEntity.status(400).body(Map.of("code", 400, "message", "不能封禁当前登录账号"));
+        }
+
+        if (banned) {
+            userBanBloomService.ban(username);
+            userService.updateEnabled(username, false);
+            userService.updateSessionToken(username, null);
+        } else {
+            userBanBloomService.unban(username);
+            userService.updateEnabled(username, true);
+        }
+        log.info("admin updated ban username={} -> {} by={}", username, banned, caller);
+        return ResponseEntity.ok(Map.of("code", 200, "message", banned ? "账号已封禁" : "账号已解除封禁"));
+    }
+
     private Map<String, Object> toListItem(User u) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", u.getId());
@@ -130,6 +173,7 @@ public class UserAdminController {
         m.put("genderCustom", u.getGenderCustom());
         m.put("birthday", u.getBirthday() != null ? u.getBirthday().toString() : null);
         m.put("enabled", u.getEnabled() == null ? Boolean.TRUE : u.getEnabled());
+        m.put("banned", userBanBloomService.isBanned(u.getUsername()));
         m.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
         return m;
     }
@@ -148,5 +192,13 @@ public class UserAdminController {
      * @param enabled 是否启用。
      */
     public record UpdateEnabledRequest(String username, Boolean enabled) {
+    }
+
+    /**
+     * 封禁请求体。
+     * @param username 用户名。
+     * @param banned 是否封禁。
+     */
+    public record UpdateBanRequest(String username, Boolean banned) {
     }
 }

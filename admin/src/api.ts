@@ -642,6 +642,7 @@ export interface UserAccountItem {
   genderCustom?: string | null;
   birthday?: string | null;
   enabled: boolean;
+  banned?: boolean;
   createdAt: string;
 }
 
@@ -674,6 +675,15 @@ export const userAccounts = {
     return request<ApiResponse>("/v1/admin/users/enabled", {
       method: "PUT",
       body: JSON.stringify({ username, enabled }),
+    });
+  },
+  /**
+   * 封禁或解封账号。
+   */
+  updateBan(username: string, banned: boolean) {
+    return request<ApiResponse>("/v1/admin/users/ban", {
+      method: "PUT",
+      body: JSON.stringify({ username, banned }),
     });
   },
 };

@@ -2,6 +2,7 @@ package com.pyisland.server.auth.security;
 
 import tools.jackson.databind.ObjectMapper;
 import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.UserBanBloomService;
 import com.pyisland.server.user.service.UserService;
 import com.pyisland.server.auth.util.JwtUtil;
 import jakarta.servlet.FilterChain;
@@ -34,24 +35,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /** 会话已在其他设备登录时使用的扩展业务码。 */
     public static final int CODE_SESSION_KICKED = 4011;
+    /** 用户被封禁时使用的扩展业务码。 */
+    public static final int CODE_USER_BANNED = 4031;
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtUtil jwtUtil;
     private final UserService userService;
+    private final UserBanBloomService userBanBloomService;
     private final ObjectMapper objectMapper;
 
     /**
      * 构造过滤器。
      * @param jwtUtil JWT 工具。
      * @param userService 用户服务。
+     * @param userBanBloomService 用户封禁布隆过滤器服务。
      * @param objectMapper Jackson 序列化器。
      */
     public JwtAuthenticationFilter(JwtUtil jwtUtil,
                                    UserService userService,
+                                   UserBanBloomService userBanBloomService,
                                    ObjectMapper objectMapper) {
         this.jwtUtil = jwtUtil;
         this.userService = userService;
+        this.userBanBloomService = userBanBloomService;
         this.objectMapper = objectMapper;
     }
 
@@ -91,15 +98,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         User user = userService.getByUsername(username);
         if (user == null) {
-            writeError(response, 401, "账号已被删除");
+            writeError(response, HttpServletResponse.SC_UNAUTHORIZED, 401, "账号已被删除");
+            return;
+        }
+        if (userBanBloomService.isBanned(user.getUsername())) {
+            writeError(response, HttpServletResponse.SC_FORBIDDEN, CODE_USER_BANNED, "账号已被封禁");
             return;
         }
         if (Boolean.FALSE.equals(user.getEnabled())) {
-            writeError(response, 401, "账号已被禁用");
+            writeError(response, HttpServletResponse.SC_UNAUTHORIZED, 401, "账号已被禁用");
             return;
         }
         if (user.getSessionToken() != null && !token.equals(user.getSessionToken())) {
-            writeError(response, CODE_SESSION_KICKED, "账号已在其他设备登录");
+            writeError(response, HttpServletResponse.SC_UNAUTHORIZED, CODE_SESSION_KICKED, "账号已在其他设备登录");
             return;
         }
 
@@ -122,8 +133,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private void writeError(HttpServletResponse response, int code, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    private void writeError(HttpServletResponse response, int status, int code, String message) throws IOException {
+        response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         Map<String, Object> body = new LinkedHashMap<>();

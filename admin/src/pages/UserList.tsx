@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { adminUsers, userAccounts, getUsername, sanitizeUrl, type AdminUserInfo } from "../api";
+import { adminUsers, userAccounts, getUsername, sanitizeUrl, type UserAccountItem } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -40,7 +40,7 @@ const tdStyle: React.CSSProperties = {
  * @returns 渲染管理员列表与删除交互。
  */
 export default function UserList() {
-  const [list, setList] = useState<AdminUserInfo[]>([]);
+  const [list, setList] = useState<UserAccountItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -65,9 +65,23 @@ export default function UserList() {
     setMsgType(type);
   };
 
+  const handleToggleBan = async (username: string, banned: boolean) => {
+    try {
+      const res = await userAccounts.updateBan(username, !banned);
+      if (res.code === 200) {
+        showMsg(!banned ? `已封禁 ${username}` : `已解除封禁 ${username}`);
+        fetchUsers();
+      } else {
+        showMsg(res.message, "err");
+      }
+    } catch {
+      showMsg(!banned ? "封禁失败" : "解除封禁失败", "err");
+    }
+  };
+
   const fetchUsers = async () => {
     try {
-      const res = await adminUsers.list();
+      const res = await userAccounts.list("admin");
       if (res.code === 200 && res.data) setList(res.data);
     } catch {
       /* ignore */
@@ -326,6 +340,21 @@ export default function UserList() {
                               }}
                             >
                               降为普通用户
+                            </button>
+                            <button
+                              onClick={() => void handleToggleBan(u.username, Boolean(u.banned))}
+                              className="cursor-pointer"
+                              style={{
+                                padding: "2px 12px",
+                                backgroundColor: "transparent",
+                                color: Boolean(u.banned) ? "#34c759" : "#ff375f",
+                                borderRadius: 980,
+                                border: `1px solid ${Boolean(u.banned) ? "#34c759" : "#ff375f"}`,
+                                fontSize: 12,
+                                lineHeight: 1.43,
+                              }}
+                            >
+                              {Boolean(u.banned) ? "解除封禁" : "封禁"}
                             </button>
                             <button
                               onClick={() => requestDelete(u.username)}
