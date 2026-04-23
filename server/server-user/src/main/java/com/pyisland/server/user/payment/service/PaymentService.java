@@ -9,6 +9,8 @@ import com.pyisland.server.user.payment.mapper.PaymentNotifyLogMapper;
 import com.pyisland.server.user.payment.mapper.PaymentOrderMapper;
 import com.pyisland.server.user.payment.mapper.PaymentTransactionMapper;
 import com.pyisland.server.user.service.UserService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 支付核心服务。
@@ -38,45 +41,63 @@ public class PaymentService {
     private final WechatPayClient wechatPayClient;
     private final WechatPayProperties properties;
     private final UserService userService;
+    private final StringRedisTemplate paymentRedisTemplate;
 
     public PaymentService(PaymentOrderMapper paymentOrderMapper,
                           PaymentTransactionMapper paymentTransactionMapper,
                           PaymentNotifyLogMapper paymentNotifyLogMapper,
                           WechatPayClient wechatPayClient,
                           WechatPayProperties properties,
-                          UserService userService) {
+                          UserService userService,
+                          @Qualifier("paymentRedisTemplate") StringRedisTemplate paymentRedisTemplate) {
         this.paymentOrderMapper = paymentOrderMapper;
         this.paymentTransactionMapper = paymentTransactionMapper;
         this.paymentNotifyLogMapper = paymentNotifyLogMapper;
         this.wechatPayClient = wechatPayClient;
         this.properties = properties;
         this.userService = userService;
+        this.paymentRedisTemplate = paymentRedisTemplate;
     }
 
     @Transactional
     public PaymentOrder createProMonthOrder(String username) throws Exception {
-        String outTradeNo = buildOutTradeNo(username);
-        WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
-                outTradeNo,
-                "eIsland Pro 月付",
-                PRO_MONTH_AMOUNT_FEN
-        );
-        LocalDateTime now = LocalDateTime.now();
+        String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
+        String lockKey = "payment:lock:create:pro-month:" + (normalizedUsername.isBlank() ? "unknown" : normalizedUsername);
+        String lockValue = UUID.randomUUID().toString();
+        Boolean locked = paymentRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, 15, TimeUnit.SECONDS);
+        if (!Boolean.TRUE.equals(locked)) {
+            throw new IllegalStateException("订单创建过于频繁，请稍后重试");
+        }
 
-        PaymentOrder order = new PaymentOrder();
-        order.setOutTradeNo(outTradeNo);
-        order.setUsername(username);
-        order.setProductCode(PRODUCT_PRO_MONTH);
-        order.setAmountFen(PRO_MONTH_AMOUNT_FEN);
-        order.setCurrency("CNY");
-        order.setStatus(PaymentOrder.STATUS_PAYING);
-        order.setWxPrepayId(result.prepayId());
-        order.setWxCodeUrl(result.codeUrl());
-        order.setExpireAt(now.plusMinutes(Math.max(5, properties.getOrderExpireMinutes())));
-        order.setCreatedAt(now);
-        order.setUpdatedAt(now);
-        paymentOrderMapper.insert(order);
-        return order;
+        try {
+            String outTradeNo = buildOutTradeNo(username);
+            WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
+                    outTradeNo,
+                    "eIsland Pro 月付",
+                    PRO_MONTH_AMOUNT_FEN
+            );
+            LocalDateTime now = LocalDateTime.now();
+
+            PaymentOrder order = new PaymentOrder();
+            order.setOutTradeNo(outTradeNo);
+            order.setUsername(username);
+            order.setProductCode(PRODUCT_PRO_MONTH);
+            order.setAmountFen(PRO_MONTH_AMOUNT_FEN);
+            order.setCurrency("CNY");
+            order.setStatus(PaymentOrder.STATUS_PAYING);
+            order.setWxPrepayId(result.prepayId());
+            order.setWxCodeUrl(result.codeUrl());
+            order.setExpireAt(now.plusMinutes(Math.max(5, properties.getOrderExpireMinutes())));
+            order.setCreatedAt(now);
+            order.setUpdatedAt(now);
+            paymentOrderMapper.insert(order);
+            return order;
+        } finally {
+            String currentValue = paymentRedisTemplate.opsForValue().get(lockKey);
+            if (lockValue.equals(currentValue)) {
+                paymentRedisTemplate.delete(lockKey);
+            }
+        }
     }
 
     public PaymentOrder findOrder(String outTradeNo) {

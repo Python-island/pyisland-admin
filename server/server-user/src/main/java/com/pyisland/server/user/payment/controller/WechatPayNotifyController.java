@@ -1,7 +1,10 @@
 package com.pyisland.server.user.payment.controller;
 
+import com.pyisland.server.user.payment.config.PaymentMqConfig;
+import com.pyisland.server.user.payment.mq.PaymentNotifyMessage;
 import com.pyisland.server.user.payment.service.PaymentService;
 import com.pyisland.server.user.payment.service.WechatPayNotifyService;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,11 +23,14 @@ public class WechatPayNotifyController {
 
     private final WechatPayNotifyService notifyService;
     private final PaymentService paymentService;
+    private final RabbitTemplate rabbitTemplate;
 
     public WechatPayNotifyController(WechatPayNotifyService notifyService,
-                                     PaymentService paymentService) {
+                                     PaymentService paymentService,
+                                     RabbitTemplate rabbitTemplate) {
         this.notifyService = notifyService;
         this.paymentService = paymentService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @PostMapping("/notify")
@@ -40,18 +46,23 @@ public class WechatPayNotifyController {
                     notifyData.outTradeNo(),
                     notifyData.eventType(),
                     notifyData.verifyOk(),
-                    "RECEIVED",
+                    "QUEUED",
                     notifyData.rawBody()
             );
-            if (notifyData.success() && notifyData.outTradeNo() != null && !notifyData.outTradeNo().isBlank()) {
-                paymentService.completeOrderIfPending(
-                        notifyData.outTradeNo(),
-                        notifyData.transactionId(),
-                        notifyData.successTime(),
-                        notifyData.tradeState(),
-                        notifyData.rawBody()
-                );
-            }
+
+            rabbitTemplate.convertAndSend(
+                    PaymentMqConfig.PAYMENT_NOTIFY_EXCHANGE,
+                    PaymentMqConfig.PAYMENT_NOTIFY_ROUTING_KEY,
+                    new PaymentNotifyMessage(
+                            notifyData.notifyId(),
+                            notifyData.outTradeNo(),
+                            notifyData.transactionId(),
+                            notifyData.tradeState(),
+                            notifyData.successTime(),
+                            notifyData.verifyOk(),
+                            notifyData.rawBody()
+                    )
+            );
             return ResponseEntity.ok(Map.of("code", "SUCCESS", "message", "成功"));
         } catch (Exception ex) {
             paymentService.logNotify(null, null, "UNKNOWN", false, "FAILED", body == null ? "" : body);

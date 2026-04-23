@@ -109,6 +109,7 @@ issue-feedback:
   redis-database: ${REDIS_ISSUE_FEEDBACK_DATABASE}
 
 payment:
+  redis-database: ${REDIS_PAYMENT_DATABASE:10}
   wechat:
     enabled: ${WX_PAY_ENABLED:false}
     mch-id: ${WX_PAY_MCH_ID:}
