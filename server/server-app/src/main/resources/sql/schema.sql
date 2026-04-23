@@ -540,3 +540,95 @@ CREATE TABLE IF NOT EXISTS user_active_daily (
     UNIQUE KEY uk_user_active_daily_user_role_date (username, role, active_date),
     KEY idx_user_active_daily_date_role (active_date, role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @user_account_pro_expire_at_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'user_account'
+      AND COLUMN_NAME = 'pro_expire_at'
+);
+SET @user_account_pro_expire_at_sql := IF(
+    @user_account_pro_expire_at_exists = 0,
+    'ALTER TABLE user_account ADD COLUMN pro_expire_at DATETIME AFTER role',
+    'SELECT 1'
+);
+PREPARE user_account_pro_expire_at_stmt FROM @user_account_pro_expire_at_sql;
+EXECUTE user_account_pro_expire_at_stmt;
+DEALLOCATE PREPARE user_account_pro_expire_at_stmt;
+
+SET @user_account_pro_expire_at_idx_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'user_account'
+      AND INDEX_NAME = 'idx_user_account_pro_expire_at'
+);
+SET @user_account_pro_expire_at_idx_sql := IF(
+    @user_account_pro_expire_at_idx_exists = 0,
+    'ALTER TABLE user_account ADD INDEX idx_user_account_pro_expire_at (pro_expire_at)',
+    'SELECT 1'
+);
+PREPARE user_account_pro_expire_at_idx_stmt FROM @user_account_pro_expire_at_idx_sql;
+EXECUTE user_account_pro_expire_at_idx_stmt;
+DEALLOCATE PREPARE user_account_pro_expire_at_idx_stmt;
+
+CREATE TABLE IF NOT EXISTS payment_order (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    out_trade_no     VARCHAR(64) NOT NULL,
+    username         VARCHAR(100) NOT NULL,
+    product_code     VARCHAR(40) NOT NULL,
+    amount_fen       INT NOT NULL,
+    currency         VARCHAR(12) NOT NULL DEFAULT 'CNY',
+    status           VARCHAR(20) NOT NULL,
+    wx_prepay_id     VARCHAR(100),
+    wx_code_url      LONGTEXT,
+    wx_transaction_id VARCHAR(100),
+    expire_at        DATETIME NOT NULL,
+    paid_at          DATETIME,
+    closed_at        DATETIME,
+    created_at       DATETIME NOT NULL,
+    updated_at       DATETIME NOT NULL,
+    UNIQUE KEY uk_payment_order_out_trade_no (out_trade_no),
+    KEY idx_payment_order_username_created (username, created_at),
+    KEY idx_payment_order_status_expire (status, expire_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_transaction (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    out_trade_no     VARCHAR(64) NOT NULL,
+    wx_transaction_id VARCHAR(100) NOT NULL,
+    trade_state      VARCHAR(30) NOT NULL,
+    payer_openid     VARCHAR(128),
+    success_time     DATETIME,
+    raw_json         LONGTEXT,
+    created_at       DATETIME NOT NULL,
+    UNIQUE KEY uk_payment_tx_wx_transaction_id (wx_transaction_id),
+    KEY idx_payment_tx_out_trade_no (out_trade_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_notify_log (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    notify_id     VARCHAR(100),
+    out_trade_no  VARCHAR(64),
+    event_type    VARCHAR(50),
+    verify_ok     TINYINT(1) NOT NULL DEFAULT 0,
+    process_status VARCHAR(20) NOT NULL,
+    raw_body      LONGTEXT,
+    created_at    DATETIME NOT NULL,
+    UNIQUE KEY uk_payment_notify_id (notify_id),
+    KEY idx_payment_notify_out_trade_no (out_trade_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_reconcile_record (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    bill_date       DATE NOT NULL,
+    channel         VARCHAR(20) NOT NULL,
+    download_status VARCHAR(20) NOT NULL,
+    local_total     INT NOT NULL DEFAULT 0,
+    wechat_total    INT NOT NULL DEFAULT 0,
+    diff_count      INT NOT NULL DEFAULT 0,
+    report_path     VARCHAR(500),
+    created_at      DATETIME NOT NULL,
+    UNIQUE KEY uk_payment_reconcile_bill_channel (bill_date, channel)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

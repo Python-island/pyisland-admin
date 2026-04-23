@@ -20,6 +20,7 @@ public class User {
     private String email;
     private String password;
     private String role;
+    private LocalDateTime proExpireAt;
     private String avatar;
     private String gender;
     private String genderCustom;
@@ -108,6 +109,22 @@ public class User {
      */
     public void setRole(String role) {
         this.role = role;
+    }
+
+    /**
+     * 获取 Pro 到期时间。
+     * @return Pro 到期时间。
+     */
+    public LocalDateTime getProExpireAt() {
+        return proExpireAt;
+    }
+
+    /**
+     * 设置 Pro 到期时间。
+     * @param proExpireAt Pro 到期时间。
+     */
+    public void setProExpireAt(LocalDateTime proExpireAt) {
+        this.proExpireAt = proExpireAt;
     }
 
     /**

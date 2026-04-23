@@ -100,6 +100,8 @@ public class UserSelfController {
         Map<String, Object> data = new HashMap<>();
         data.put("username", user.getUsername());
         data.put("email", user.getEmail());
+        data.put("role", user.getRole());
+        data.put("proExpireAt", user.getProExpireAt() != null ? user.getProExpireAt().toString() : null);
         data.put("avatar", r2StorageService.rewriteLegacyUrl(userService.getAvatarByUsername(user.getUsername())));
         data.put("gender", user.getGender() != null ? user.getGender() : GenderPolicy.DEFAULT);
         data.put("genderCustom", user.getGenderCustom());

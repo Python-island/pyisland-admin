@@ -7,6 +7,7 @@ import com.pyisland.server.user.policy.PasswordHashService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -86,6 +87,12 @@ public class UserService {
         }
         if (Boolean.FALSE.equals(user.getEnabled())) {
             return null;
+        }
+        if (User.ROLE_PRO.equals(user.getRole())
+                && user.getProExpireAt() != null
+                && !user.getProExpireAt().isAfter(LocalDateTime.now())) {
+            userMapper.updateRole(user.getUsername(), User.ROLE_USER);
+            user.setRole(User.ROLE_USER);
         }
         if (!passwordHashService.isBcrypt(user.getPassword())) {
             String upgraded = passwordHashService.hash(password);
@@ -254,6 +261,48 @@ public class UserService {
      */
     public boolean updateRole(String username, String role) {
         return userMapper.updateRole(username, role) > 0;
+    }
+
+    /**
+     * 更新 Pro 到期时间。
+     * @param username 用户名。
+     * @param proExpireAt 到期时间。
+     * @return 是否成功。
+     */
+    public boolean updateProExpireAt(String username, LocalDateTime proExpireAt) {
+        return userMapper.updateProExpireAt(username, proExpireAt) > 0;
+    }
+
+    /**
+     * 为用户发放 1 个月 Pro 权益（按自然月顺延）。
+     * @param username 用户名。
+     * @return 新到期时间；用户不存在时返回 null。
+     */
+    @Transactional
+    public LocalDateTime grantProOneMonth(String username) {
+        User user = userMapper.selectByUsername(username);
+        if (user == null) {
+            return null;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime base = user.getProExpireAt() != null && user.getProExpireAt().isAfter(now)
+                ? user.getProExpireAt()
+                : now;
+        LocalDateTime nextExpireAt = base.plusMonths(1);
+        userMapper.updateProExpireAt(username, nextExpireAt);
+        if (!User.ROLE_ADMIN.equals(user.getRole())) {
+            userMapper.updateRole(username, User.ROLE_PRO);
+        }
+        return nextExpireAt;
+    }
+
+    /**
+     * 自动降级已过期 Pro 用户。
+     * @param now 当前时间。
+     * @return 降级数量。
+     */
+    public int demoteExpiredProUsers(LocalDateTime now) {
+        return userMapper.demoteExpiredProUsers(now == null ? LocalDateTime.now() : now);
     }
 
     /**

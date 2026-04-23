@@ -9,6 +9,7 @@
         <result property="email" column="email"/>
         <result property="password" column="password"/>
         <result property="role" column="role"/>
+        <result property="proExpireAt" column="pro_expire_at"/>
         <result property="avatar" column="avatar"/>
         <result property="gender" column="gender"/>
         <result property="genderCustom" column="gender_custom"/>
@@ -21,7 +22,7 @@
     </resultMap>
 
     <sql id="baseColumns">
-        id, username, email, password, role, avatar, gender, gender_custom,
+        id, username, email, password, role, pro_expire_at, avatar, gender, gender_custom,
         birthday, enabled, session_token, totp_secret_ciphertext, totp_secret_updated_at, created_at
     </sql>
 
@@ -45,10 +46,10 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user_account
-            (username, email, password, role, avatar, gender, gender_custom,
+            (username, email, password, role, pro_expire_at, avatar, gender, gender_custom,
              birthday, enabled, session_token, created_at)
         VALUES
-            (#{username}, #{email}, #{password}, #{role}, #{avatar}, #{gender},
+            (#{username}, #{email}, #{password}, #{role}, #{proExpireAt}, #{avatar}, #{gender},
              #{genderCustom}, #{birthday}, #{enabled}, #{sessionToken}, #{createdAt})
     </insert>
 
@@ -116,6 +117,20 @@
         UPDATE user_account
         SET role = #{role}
         WHERE username = #{username}
+    </update>
+
+    <update id="updateProExpireAt">
+        UPDATE user_account
+        SET pro_expire_at = #{proExpireAt}
+        WHERE username = #{username}
+    </update>
+
+    <update id="demoteExpiredProUsers">
+        UPDATE user_account
+        SET role = 'user'
+        WHERE role = 'pro'
+          AND pro_expire_at IS NOT NULL
+          AND pro_expire_at <![CDATA[<=]]> #{now}
     </update>
 
     <update id="updateEnabled">

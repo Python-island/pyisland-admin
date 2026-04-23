@@ -136,6 +136,22 @@ public interface UserMapper {
                    @Param("role") String role);
 
     /**
+     * 更新 Pro 到期时间。
+     * @param username 用户名。
+     * @param proExpireAt Pro 到期时间。
+     * @return 影响行数。
+     */
+    int updateProExpireAt(@Param("username") String username,
+                          @Param("proExpireAt") LocalDateTime proExpireAt);
+
+    /**
+     * 将已过期的 Pro 用户降级为普通用户。
+     * @param now 当前时间。
+     * @return 影响行数。
+     */
+    int demoteExpiredProUsers(@Param("now") LocalDateTime now);
+
+    /**
      * 更新启用状态。
      * @param username 用户名。
      * @param enabled 启用时为 true。

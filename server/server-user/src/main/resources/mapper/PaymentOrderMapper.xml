@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.payment.mapper.PaymentOrderMapper">
+
+    <resultMap id="PaymentOrderResultMap" type="com.pyisland.server.user.payment.entity.PaymentOrder">
+        <id property="id" column="id"/>
+        <result property="outTradeNo" column="out_trade_no"/>
+        <result property="username" column="username"/>
+        <result property="productCode" column="product_code"/>
+        <result property="amountFen" column="amount_fen"/>
+        <result property="currency" column="currency"/>
+        <result property="status" column="status"/>
+        <result property="wxPrepayId" column="wx_prepay_id"/>
+        <result property="wxCodeUrl" column="wx_code_url"/>
+        <result property="wxTransactionId" column="wx_transaction_id"/>
+        <result property="expireAt" column="expire_at"/>
+        <result property="paidAt" column="paid_at"/>
+        <result property="closedAt" column="closed_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="baseColumns">
+        id, out_trade_no, username, product_code, amount_fen, currency, status,
+        wx_prepay_id, wx_code_url, wx_transaction_id, expire_at, paid_at, closed_at,
+        created_at, updated_at
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment_order
+        (out_trade_no, username, product_code, amount_fen, currency, status,
+         wx_prepay_id, wx_code_url, expire_at, created_at, updated_at)
+        VALUES
+        (#{outTradeNo}, #{username}, #{productCode}, #{amountFen}, #{currency}, #{status},
+         #{wxPrepayId}, #{wxCodeUrl}, #{expireAt}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="selectByOutTradeNo" resultMap="PaymentOrderResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM payment_order
+        WHERE out_trade_no = #{outTradeNo}
+    </select>
+
+    <select id="selectByUsername" resultMap="PaymentOrderResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM payment_order
+        WHERE username = #{username}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markSuccess">
+        UPDATE payment_order
+        SET status = 'SUCCESS',
+            wx_transaction_id = #{wxTransactionId},
+            paid_at = #{paidAt},
+            updated_at = #{updatedAt}
+        WHERE out_trade_no = #{outTradeNo}
+          AND status = 'PAYING'
+    </update>
+
+    <update id="markClosed">
+        UPDATE payment_order
+        SET status = 'CLOSED',
+            closed_at = #{closedAt},
+            updated_at = #{updatedAt}
+        WHERE out_trade_no = #{outTradeNo}
+          AND status = 'PAYING'
+    </update>
+
+    <select id="listNeedClose" resultMap="PaymentOrderResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM payment_order
+        WHERE status = 'PAYING'
+          AND expire_at <![CDATA[<=]]> #{now}
+        ORDER BY expire_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listPendingForQuery" resultMap="PaymentOrderResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM payment_order
+        WHERE status = 'PAYING'
+          AND created_at <![CDATA[<=]]> #{now}
+        ORDER BY created_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="adminList" resultMap="PaymentOrderResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM payment_order
+        <where>
+            <if test="username != null and username != ''">
+                username = #{username}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
