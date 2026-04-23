@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import MessageDialog from "../components/MessageDialog";
 import {
   announcementAdmin,
@@ -190,8 +191,54 @@ export default function AnnouncementManage() {
                   style={{ ...inputStyle, minHeight: 160, resize: "vertical", fontFamily: "inherit" }}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="输入要下发给客户端展示的公告正文"
+                  placeholder="输入公告正文（支持 Markdown 语法）"
                 />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Markdown 预览</label>
+                <div
+                  style={{
+                    minHeight: 120,
+                    padding: "12px 14px",
+                    backgroundColor: "var(--apple-surface-2)",
+                    borderRadius: 8,
+                    color: "#fff",
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    overflowX: "auto",
+                  }}
+                >
+                  {content.trim() ? (
+                    <ReactMarkdown
+                      components={{
+                        h1: ({ children }) => <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 10px" }}>{children}</h1>,
+                        h2: ({ children }) => <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>{children}</h2>,
+                        h3: ({ children }) => <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>{children}</h3>,
+                        p: ({ children }) => <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap" }}>{children}</p>,
+                        ul: ({ children }) => <ul style={{ margin: "0 0 8px", paddingLeft: 18, listStyle: "disc" }}>{children}</ul>,
+                        ol: ({ children }) => <ol style={{ margin: "0 0 8px", paddingLeft: 20, listStyle: "decimal" }}>{children}</ol>,
+                        li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
+                        strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+                        em: ({ children }) => <em style={{ fontStyle: "italic" }}>{children}</em>,
+                        code: ({ children }) => (
+                          <code style={{ fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", background: "rgba(255,255,255,0.08)", borderRadius: 4, padding: "1px 4px" }}>
+                            {children}
+                          </code>
+                        ),
+                        a: ({ href, children }) => (
+                          <a href={href} target="_blank" rel="noreferrer" style={{ color: "#5db3ff", textDecoration: "underline" }}>
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {content}
+                    </ReactMarkdown>
+                  ) : (
+                    <span style={{ color: "rgba(255,255,255,0.48)" }}>暂无内容</span>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
