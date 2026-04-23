@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pyisland.server.user.entity.AnnouncementConfig;
 import com.pyisland.server.user.mapper.AnnouncementConfigMapper;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,8 +23,12 @@ import java.util.Map;
 public class AnnouncementConfigService {
 
     private static final Long SINGLETON_ID = 1L;
-    private static final String ANNOUNCEMENT_CACHE_KEY = "announcement:current:v1";
+    private static final String ANNOUNCEMENT_CACHE_KEY = "announcement:current:v2";
     private static final String ANNOUNCEMENT_NONE_CACHE_VALUE = "__NONE__";
+    private static final Parser MARKDOWN_PARSER = Parser.builder().build();
+    private static final HtmlRenderer MARKDOWN_RENDERER = HtmlRenderer.builder()
+            .escapeHtml(true)
+            .build();
 
     private final AnnouncementConfigMapper announcementConfigMapper;
     private final StringRedisTemplate announcementRedisTemplate;
@@ -130,11 +136,25 @@ public class AnnouncementConfigService {
         }
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("title", safe(config.getTitle()));
-        data.put("content", safe(config.getContent()));
+        String markdownContent = safe(config.getContent());
+        data.put("content", markdownContent);
+        data.put("contentHtml", renderMarkdown(markdownContent));
+        data.put("contentFormat", "markdown");
         data.put("startAt", config.getStartAt() == null ? null : config.getStartAt().toString());
         data.put("endAt", config.getEndAt() == null ? null : config.getEndAt().toString());
         data.put("updatedAt", config.getUpdatedAt() == null ? null : config.getUpdatedAt().toString());
         return data;
+    }
+
+    private String renderMarkdown(String markdown) {
+        if (markdown == null || markdown.isBlank()) {
+            return "";
+        }
+        try {
+            return MARKDOWN_RENDERER.render(MARKDOWN_PARSER.parse(markdown));
+        } catch (Exception ignored) {
+            return markdown;
+        }
     }
 
     private String readCacheRaw() {
