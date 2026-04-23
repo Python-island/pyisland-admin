@@ -82,6 +82,10 @@ resend:
   from: ${RESEND_FROM}
   endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
 
+email:
+  notify-max-retries: ${EMAIL_NOTIFY_MAX_RETRIES:3}
+  notify-retry-delay-ms: ${EMAIL_NOTIFY_RETRY_DELAY_MS:10000}
+
 captcha:
   slider:
     enabled: ${SLIDER_CAPTCHA_ENABLED}
