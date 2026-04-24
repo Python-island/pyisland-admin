@@ -112,6 +112,30 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     ('admin.tags.delete',           1, '', 'DELETE /v1/admin/tags/delete - 管理端删除标签'),
 
     -- --------------------------------------------------------
+    --  支付管理（管理员侧）  /v1/admin/payment
+    -- --------------------------------------------------------
+    ('admin.payment.orders.list',       1, '', 'GET /v1/admin/payment/orders - 管理端支付订单列表'),
+    ('admin.payment.orders.refresh',    1, '', 'PUT /v1/admin/payment/orders/refresh - 管理端刷新订单状态'),
+    ('admin.payment.orders.close',      1, '', 'PUT /v1/admin/payment/orders/close - 管理端关闭订单'),
+    ('admin.payment.orders.test',       1, '', 'POST /v1/admin/payment/orders/test - 管理端创建测试支付单'),
+    ('admin.payment.notify-dlq.list',   1, '', 'GET /v1/admin/payment/notify-dlq - 管理端通知死信列表'),
+    ('admin.payment.config.get',        1, '', 'GET /v1/admin/payment/config - 管理端获取支付与定价权益配置'),
+    ('admin.payment.config.update',     1, '', 'PUT /v1/admin/payment/config - 管理端更新支付与定价权益配置'),
+
+    -- --------------------------------------------------------
+    --  支付能力（用户侧）  /v1/user/payment
+    -- --------------------------------------------------------
+    ('user.payment.orders.pro-month.create', 1, '', 'POST /v1/user/payment/orders/pro-month - 创建 Pro 月付订单'),
+    ('user.payment.pricing.pro-month.get',   1, '', 'GET /v1/user/payment/pricing/pro-month - 获取 Pro 月付定价与权益'),
+    ('user.payment.orders.detail.get',       1, '', 'GET /v1/user/payment/orders/{outTradeNo} - 获取订单详情'),
+
+    -- --------------------------------------------------------
+    --  支付回调（三方通知）  /v1/payment
+    -- --------------------------------------------------------
+    ('payment.wechat.notify',                1, '', 'POST /v1/payment/wechat/notify - 微信支付回调通知'),
+    ('payment.alipay.notify',                1, '', 'POST /v1/payment/alipay/notify - 支付宝支付回调通知'),
+
+    -- --------------------------------------------------------
     --  接口状态管理  /v1/service-status
     -- --------------------------------------------------------
     ('service-status.get',          1, '', 'GET /v1/service-status - 获取单个接口状态'),
