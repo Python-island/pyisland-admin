@@ -545,6 +545,13 @@ public class PaymentService {
         return data;
     }
 
+    public Map<String, Object> getPaymentChannelsPayload() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("wechatEnabled", wechatPayClient.isAvailable());
+        data.put("alipayEnabled", alipaySdkClient.isAvailable());
+        return data;
+    }
+
     public int getProMonthAmountFen() {
         int fallbackAmount = Math.max(1, proMonthAmountFen);
         try {

@@ -83,6 +83,19 @@ public class UserPaymentController {
         ));
     }
 
+    @GetMapping("/channels")
+    public ResponseEntity<?> getPaymentChannels(Authentication authentication) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", paymentService.getPaymentChannelsPayload()
+        ));
+    }
+
     @GetMapping("/orders/{outTradeNo}")
     public ResponseEntity<?> getOrder(@PathVariable String outTradeNo,
                                       Authentication authentication) {
