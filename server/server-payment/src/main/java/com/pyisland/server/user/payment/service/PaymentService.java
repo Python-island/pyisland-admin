@@ -573,8 +573,7 @@ public class PaymentService {
                 current.proDesc,
                 current.proFeatures
         );
-        savePricingSnapshotToDb(next);
-        applySnapshotToMemoryAndCache(next);
+        persistSnapshotAndRefresh(next);
     }
 
     public String getFreePlanDesc() {
@@ -617,8 +616,7 @@ public class PaymentService {
                 normalized,
                 current.proFeatures
         );
-        savePricingSnapshotToDb(next);
-        applySnapshotToMemoryAndCache(next);
+        persistSnapshotAndRefresh(next);
     }
 
     public void setFreePlanFeatures(List<String> features) {
@@ -645,8 +643,12 @@ public class PaymentService {
                 current.proDesc,
                 normalized
         );
-        savePricingSnapshotToDb(next);
-        applySnapshotToMemoryAndCache(next);
+        persistSnapshotAndRefresh(next);
+    }
+
+    private void persistSnapshotAndRefresh(PricingSnapshot snapshot) {
+        savePricingSnapshotToDb(snapshot);
+        applySnapshotToMemoryAndCache(snapshot);
     }
 
     private String readTextWithCache(String key,
@@ -744,8 +746,14 @@ public class PaymentService {
             creating.setProDesc(defaultSnapshot.proDesc);
             creating.setProFeaturesText(String.join("\n", defaultSnapshot.proFeatures));
             creating.setUpdatedAt(LocalDateTime.now());
-            paymentPricingConfigMapper.insert(creating);
-            return defaultSnapshot;
+            int inserted = paymentPricingConfigMapper.insert(creating);
+            if (inserted > 0) {
+                return defaultSnapshot;
+            }
+            dbConfig = paymentPricingConfigMapper.selectById(PRICING_CONFIG_SINGLETON_ID);
+            if (dbConfig == null) {
+                throw new IllegalStateException("初始化 payment_pricing_config 失败");
+            }
         }
 
         int normalizedAmount = Math.max(1, dbConfig.getProMonthAmountFen() == null ? DEFAULT_PRO_MONTH_AMOUNT_FEN : dbConfig.getProMonthAmountFen());
@@ -763,7 +771,24 @@ public class PaymentService {
     }
 
     private synchronized void savePricingSnapshotToDb(PricingSnapshot snapshot) {
-        paymentPricingConfigMapper.update(
+        PaymentPricingConfig existing = paymentPricingConfigMapper.selectById(PRICING_CONFIG_SINGLETON_ID);
+        if (existing == null) {
+            PaymentPricingConfig creating = new PaymentPricingConfig();
+            creating.setId(PRICING_CONFIG_SINGLETON_ID);
+            creating.setProMonthAmountFen(snapshot.proMonthAmountFen);
+            creating.setFreeDesc(snapshot.freeDesc);
+            creating.setFreeFeaturesText(String.join("\n", snapshot.freeFeatures));
+            creating.setProDesc(snapshot.proDesc);
+            creating.setProFeaturesText(String.join("\n", snapshot.proFeatures));
+            creating.setUpdatedAt(LocalDateTime.now());
+            int inserted = paymentPricingConfigMapper.insert(creating);
+            if (inserted <= 0) {
+                throw new IllegalStateException("写入 payment_pricing_config 失败");
+            }
+            return;
+        }
+
+        int updated = paymentPricingConfigMapper.update(
                 PRICING_CONFIG_SINGLETON_ID,
                 snapshot.proMonthAmountFen,
                 snapshot.freeDesc,
@@ -772,6 +797,9 @@ public class PaymentService {
                 String.join("\n", snapshot.proFeatures),
                 LocalDateTime.now()
         );
+        if (updated <= 0) {
+            throw new IllegalStateException("更新 payment_pricing_config 失败");
+        }
     }
 
     private void applySnapshotToMemoryAndCache(PricingSnapshot snapshot) {
