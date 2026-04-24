@@ -660,6 +660,17 @@ CREATE TABLE IF NOT EXISTS payment_dlq_log (
     KEY idx_payment_dlq_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS payment_pricing_config (
+    id                  BIGINT PRIMARY KEY,
+    pro_month_amount_fen INT NOT NULL DEFAULT 1500,
+    free_desc           VARCHAR(500),
+    free_features_text  TEXT,
+    pro_desc            VARCHAR(500),
+    pro_features_text   TEXT,
+    updated_at          DATETIME,
+    KEY idx_payment_pricing_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS email_dispatch_dlq_log (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     trace_id       VARCHAR(100),

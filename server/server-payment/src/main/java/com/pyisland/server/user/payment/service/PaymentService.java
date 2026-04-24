@@ -6,10 +6,12 @@ import com.pyisland.server.user.payment.config.WechatPayProperties;
 import com.pyisland.server.user.payment.entity.PaymentDlqLog;
 import com.pyisland.server.user.payment.entity.PaymentNotifyLog;
 import com.pyisland.server.user.payment.entity.PaymentOrder;
+import com.pyisland.server.user.payment.entity.PaymentPricingConfig;
 import com.pyisland.server.user.payment.entity.PaymentTransaction;
 import com.pyisland.server.user.payment.mapper.PaymentDlqLogMapper;
 import com.pyisland.server.user.payment.mapper.PaymentNotifyLogMapper;
 import com.pyisland.server.user.payment.mapper.PaymentOrderMapper;
+import com.pyisland.server.user.payment.mapper.PaymentPricingConfigMapper;
 import com.pyisland.server.user.payment.mapper.PaymentTransactionMapper;
 import com.pyisland.server.user.service.UserService;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -49,6 +51,7 @@ public class PaymentService {
     private static final String REDIS_PRO_FEATURES_KEY = "payment:pricing:pro:features";
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
+    private static final Long PRICING_CONFIG_SINGLETON_ID = 1L;
     private static final String DEFAULT_FREE_DESC = "基础功能可用，适合轻度日常使用。";
     private static final String DEFAULT_PRO_DESC = "完整高级能力与持续更新支持。";
     private static final List<String> DEFAULT_FREE_FEATURES = List.of(
@@ -63,6 +66,7 @@ public class PaymentService {
     );
 
     private final PaymentOrderMapper paymentOrderMapper;
+    private final PaymentPricingConfigMapper paymentPricingConfigMapper;
     private final PaymentTransactionMapper paymentTransactionMapper;
     private final PaymentNotifyLogMapper paymentNotifyLogMapper;
     private final PaymentDlqLogMapper paymentDlqLogMapper;
@@ -79,6 +83,7 @@ public class PaymentService {
     private volatile List<String> proPlanFeatures = DEFAULT_PRO_FEATURES;
 
     public PaymentService(PaymentOrderMapper paymentOrderMapper,
+                          PaymentPricingConfigMapper paymentPricingConfigMapper,
                           PaymentTransactionMapper paymentTransactionMapper,
                           PaymentNotifyLogMapper paymentNotifyLogMapper,
                           PaymentDlqLogMapper paymentDlqLogMapper,
@@ -89,6 +94,7 @@ public class PaymentService {
                           UserService userService,
                           @Qualifier("paymentRedisTemplate") StringRedisTemplate paymentRedisTemplate) {
         this.paymentOrderMapper = paymentOrderMapper;
+        this.paymentPricingConfigMapper = paymentPricingConfigMapper;
         this.paymentTransactionMapper = paymentTransactionMapper;
         this.paymentNotifyLogMapper = paymentNotifyLogMapper;
         this.paymentDlqLogMapper = paymentDlqLogMapper;
@@ -540,8 +546,9 @@ public class PaymentService {
         try {
             String cachedValue = paymentRedisTemplate.opsForValue().get(REDIS_PRO_MONTH_AMOUNT_FEN_KEY);
             if (cachedValue == null || cachedValue.isBlank()) {
-                paymentRedisTemplate.opsForValue().set(REDIS_PRO_MONTH_AMOUNT_FEN_KEY, String.valueOf(fallbackAmount));
-                return fallbackAmount;
+                PricingSnapshot snapshot = loadPricingSnapshotFromDb();
+                applySnapshotToMemoryAndCache(snapshot);
+                return snapshot.proMonthAmountFen;
             }
             int cachedAmount = Integer.parseInt(cachedValue.trim());
             int normalizedCachedAmount = Math.max(1, cachedAmount);
@@ -558,12 +565,16 @@ public class PaymentService {
 
     public void setProMonthAmountFen(int amountFen) {
         int normalizedAmount = Math.max(1, amountFen);
-        proMonthAmountFen = normalizedAmount;
-        try {
-            paymentRedisTemplate.opsForValue().set(REDIS_PRO_MONTH_AMOUNT_FEN_KEY, String.valueOf(normalizedAmount));
-        } catch (Exception ex) {
-            log.warn("write pro month pricing to redis failed amountFen={} err={}", normalizedAmount, ex.getMessage());
-        }
+        PricingSnapshot current = loadPricingSnapshotFromDb();
+        PricingSnapshot next = new PricingSnapshot(
+                normalizedAmount,
+                current.freeDesc,
+                current.freeFeatures,
+                current.proDesc,
+                current.proFeatures
+        );
+        savePricingSnapshotToDb(next);
+        applySnapshotToMemoryAndCache(next);
     }
 
     public String getFreePlanDesc() {
@@ -584,26 +595,58 @@ public class PaymentService {
 
     public void setFreePlanDesc(String value) {
         String normalized = normalizeText(value, DEFAULT_FREE_DESC);
-        freePlanDesc = normalized;
-        writeTextCache(REDIS_FREE_DESC_KEY, normalized);
+        PricingSnapshot current = loadPricingSnapshotFromDb();
+        PricingSnapshot next = new PricingSnapshot(
+                current.proMonthAmountFen,
+                normalized,
+                current.freeFeatures,
+                current.proDesc,
+                current.proFeatures
+        );
+        savePricingSnapshotToDb(next);
+        applySnapshotToMemoryAndCache(next);
     }
 
     public void setProPlanDesc(String value) {
         String normalized = normalizeText(value, DEFAULT_PRO_DESC);
-        proPlanDesc = normalized;
-        writeTextCache(REDIS_PRO_DESC_KEY, normalized);
+        PricingSnapshot current = loadPricingSnapshotFromDb();
+        PricingSnapshot next = new PricingSnapshot(
+                current.proMonthAmountFen,
+                current.freeDesc,
+                current.freeFeatures,
+                normalized,
+                current.proFeatures
+        );
+        savePricingSnapshotToDb(next);
+        applySnapshotToMemoryAndCache(next);
     }
 
     public void setFreePlanFeatures(List<String> features) {
         List<String> normalized = normalizeFeatures(features, DEFAULT_FREE_FEATURES);
-        freePlanFeatures = normalized;
-        writeLinesCache(REDIS_FREE_FEATURES_KEY, normalized);
+        PricingSnapshot current = loadPricingSnapshotFromDb();
+        PricingSnapshot next = new PricingSnapshot(
+                current.proMonthAmountFen,
+                current.freeDesc,
+                normalized,
+                current.proDesc,
+                current.proFeatures
+        );
+        savePricingSnapshotToDb(next);
+        applySnapshotToMemoryAndCache(next);
     }
 
     public void setProPlanFeatures(List<String> features) {
         List<String> normalized = normalizeFeatures(features, DEFAULT_PRO_FEATURES);
-        proPlanFeatures = normalized;
-        writeLinesCache(REDIS_PRO_FEATURES_KEY, normalized);
+        PricingSnapshot current = loadPricingSnapshotFromDb();
+        PricingSnapshot next = new PricingSnapshot(
+                current.proMonthAmountFen,
+                current.freeDesc,
+                current.freeFeatures,
+                current.proDesc,
+                normalized
+        );
+        savePricingSnapshotToDb(next);
+        applySnapshotToMemoryAndCache(next);
     }
 
     private String readTextWithCache(String key,
@@ -614,7 +657,14 @@ public class PaymentService {
         try {
             String cached = paymentRedisTemplate.opsForValue().get(key);
             if (cached == null || cached.isBlank()) {
-                paymentRedisTemplate.opsForValue().set(key, normalizedFallback);
+                PricingSnapshot snapshot = loadPricingSnapshotFromDb();
+                applySnapshotToMemoryAndCache(snapshot);
+                if (REDIS_FREE_DESC_KEY.equals(key)) {
+                    return snapshot.freeDesc;
+                }
+                if (REDIS_PRO_DESC_KEY.equals(key)) {
+                    return snapshot.proDesc;
+                }
                 return normalizedFallback;
             }
             String normalizedCached = normalizeText(cached, fallback);
@@ -637,7 +687,14 @@ public class PaymentService {
         try {
             String cached = paymentRedisTemplate.opsForValue().get(key);
             if (cached == null || cached.isBlank()) {
-                paymentRedisTemplate.opsForValue().set(key, String.join("\n", normalizedFallback));
+                PricingSnapshot snapshot = loadPricingSnapshotFromDb();
+                applySnapshotToMemoryAndCache(snapshot);
+                if (REDIS_FREE_FEATURES_KEY.equals(key)) {
+                    return snapshot.freeFeatures;
+                }
+                if (REDIS_PRO_FEATURES_KEY.equals(key)) {
+                    return snapshot.proFeatures;
+                }
                 return normalizedFallback;
             }
             List<String> normalizedCached = normalizeFeatures(Arrays.asList(cached.split("\\r?\\n")), fallback);
@@ -669,6 +726,74 @@ public class PaymentService {
         }
     }
 
+    private synchronized PricingSnapshot loadPricingSnapshotFromDb() {
+        PaymentPricingConfig dbConfig = paymentPricingConfigMapper.selectById(PRICING_CONFIG_SINGLETON_ID);
+        if (dbConfig == null) {
+            PricingSnapshot defaultSnapshot = new PricingSnapshot(
+                    Math.max(1, proMonthAmountFen),
+                    normalizeText(freePlanDesc, DEFAULT_FREE_DESC),
+                    normalizeFeatures(freePlanFeatures, DEFAULT_FREE_FEATURES),
+                    normalizeText(proPlanDesc, DEFAULT_PRO_DESC),
+                    normalizeFeatures(proPlanFeatures, DEFAULT_PRO_FEATURES)
+            );
+            PaymentPricingConfig creating = new PaymentPricingConfig();
+            creating.setId(PRICING_CONFIG_SINGLETON_ID);
+            creating.setProMonthAmountFen(defaultSnapshot.proMonthAmountFen);
+            creating.setFreeDesc(defaultSnapshot.freeDesc);
+            creating.setFreeFeaturesText(String.join("\n", defaultSnapshot.freeFeatures));
+            creating.setProDesc(defaultSnapshot.proDesc);
+            creating.setProFeaturesText(String.join("\n", defaultSnapshot.proFeatures));
+            creating.setUpdatedAt(LocalDateTime.now());
+            paymentPricingConfigMapper.insert(creating);
+            return defaultSnapshot;
+        }
+
+        int normalizedAmount = Math.max(1, dbConfig.getProMonthAmountFen() == null ? DEFAULT_PRO_MONTH_AMOUNT_FEN : dbConfig.getProMonthAmountFen());
+        String normalizedFreeDesc = normalizeText(dbConfig.getFreeDesc(), DEFAULT_FREE_DESC);
+        List<String> normalizedFreeFeatures = normalizeFeatures(parseFeatureText(dbConfig.getFreeFeaturesText()), DEFAULT_FREE_FEATURES);
+        String normalizedProDesc = normalizeText(dbConfig.getProDesc(), DEFAULT_PRO_DESC);
+        List<String> normalizedProFeatures = normalizeFeatures(parseFeatureText(dbConfig.getProFeaturesText()), DEFAULT_PRO_FEATURES);
+        return new PricingSnapshot(
+                normalizedAmount,
+                normalizedFreeDesc,
+                normalizedFreeFeatures,
+                normalizedProDesc,
+                normalizedProFeatures
+        );
+    }
+
+    private synchronized void savePricingSnapshotToDb(PricingSnapshot snapshot) {
+        paymentPricingConfigMapper.update(
+                PRICING_CONFIG_SINGLETON_ID,
+                snapshot.proMonthAmountFen,
+                snapshot.freeDesc,
+                String.join("\n", snapshot.freeFeatures),
+                snapshot.proDesc,
+                String.join("\n", snapshot.proFeatures),
+                LocalDateTime.now()
+        );
+    }
+
+    private void applySnapshotToMemoryAndCache(PricingSnapshot snapshot) {
+        proMonthAmountFen = snapshot.proMonthAmountFen;
+        freePlanDesc = snapshot.freeDesc;
+        freePlanFeatures = snapshot.freeFeatures;
+        proPlanDesc = snapshot.proDesc;
+        proPlanFeatures = snapshot.proFeatures;
+        writeTextCache(REDIS_PRO_MONTH_AMOUNT_FEN_KEY, String.valueOf(snapshot.proMonthAmountFen));
+        writeTextCache(REDIS_FREE_DESC_KEY, snapshot.freeDesc);
+        writeLinesCache(REDIS_FREE_FEATURES_KEY, snapshot.freeFeatures);
+        writeTextCache(REDIS_PRO_DESC_KEY, snapshot.proDesc);
+        writeLinesCache(REDIS_PRO_FEATURES_KEY, snapshot.proFeatures);
+    }
+
+    private List<String> parseFeatureText(String text) {
+        if (text == null || text.isBlank()) {
+            return Collections.emptyList();
+        }
+        return Arrays.asList(text.split("\\r?\\n"));
+    }
+
     private String normalizeText(String value, String fallback) {
         if (value == null || value.isBlank()) {
             return fallback;
@@ -694,6 +819,26 @@ public class PaymentService {
             return fallback;
         }
         return Collections.unmodifiableList(normalized);
+    }
+
+    private static class PricingSnapshot {
+        private final int proMonthAmountFen;
+        private final String freeDesc;
+        private final List<String> freeFeatures;
+        private final String proDesc;
+        private final List<String> proFeatures;
+
+        private PricingSnapshot(int proMonthAmountFen,
+                                String freeDesc,
+                                List<String> freeFeatures,
+                                String proDesc,
+                                List<String> proFeatures) {
+            this.proMonthAmountFen = proMonthAmountFen;
+            this.freeDesc = freeDesc;
+            this.freeFeatures = freeFeatures;
+            this.proDesc = proDesc;
+            this.proFeatures = proFeatures;
+        }
     }
 
     private int getOrderExpireMinutes(PaymentChannel channel) {

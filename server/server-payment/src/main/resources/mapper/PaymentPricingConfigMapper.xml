@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.payment.mapper.PaymentPricingConfigMapper">
+
+    <resultMap id="PaymentPricingConfigResultMap" type="com.pyisland.server.user.payment.entity.PaymentPricingConfig">
+        <id property="id" column="id"/>
+        <result property="proMonthAmountFen" column="pro_month_amount_fen"/>
+        <result property="freeDesc" column="free_desc"/>
+        <result property="freeFeaturesText" column="free_features_text"/>
+        <result property="proDesc" column="pro_desc"/>
+        <result property="proFeaturesText" column="pro_features_text"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="PaymentPricingConfigResultMap">
+        SELECT id,
+               pro_month_amount_fen,
+               free_desc,
+               free_features_text,
+               pro_desc,
+               pro_features_text,
+               updated_at
+        FROM payment_pricing_config
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.pyisland.server.user.payment.entity.PaymentPricingConfig">
+        INSERT INTO payment_pricing_config
+        (id, pro_month_amount_fen, free_desc, free_features_text, pro_desc, pro_features_text, updated_at)
+        VALUES
+        (#{id}, #{proMonthAmountFen}, #{freeDesc}, #{freeFeaturesText}, #{proDesc}, #{proFeaturesText}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE payment_pricing_config
+        SET pro_month_amount_fen = #{proMonthAmountFen},
+            free_desc = #{freeDesc},
+            free_features_text = #{freeFeaturesText},
+            pro_desc = #{proDesc},
+            pro_features_text = #{proFeaturesText},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
