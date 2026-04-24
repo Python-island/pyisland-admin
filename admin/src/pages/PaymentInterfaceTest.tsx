@@ -164,6 +164,28 @@ function PaymentInterfaceTestPage({ channel }: { channel: Channel }) {
               <div><strong>金额：</strong>{(result.amountFen / 100).toFixed(2)} 元</div>
               <div><strong>状态：</strong>{result.status}</div>
               <div><strong>过期时间：</strong>{result.expireAt || "-"}</div>
+              <div><strong>二维码：</strong></div>
+              {result.qrCodeUrl ? (
+                <div
+                  style={{
+                    marginTop: 4,
+                    width: 224,
+                    backgroundColor: "#ffffff",
+                    borderRadius: 12,
+                    padding: 12,
+                  }}
+                >
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(result.qrCodeUrl)}`}
+                    alt="支付二维码"
+                    style={{ display: "block", width: "100%", height: "auto", borderRadius: 6 }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              ) : (
+                <div style={{ color: "rgba(255,255,255,0.64)" }}>-</div>
+              )}
               <div>
                 <strong>二维码地址：</strong>
                 {result.qrCodeUrl ? (
@@ -173,17 +195,12 @@ function PaymentInterfaceTestPage({ channel }: { channel: Channel }) {
                     rel="noreferrer"
                     style={{ color: "var(--apple-link-dark)", wordBreak: "break-all", marginLeft: 6 }}
                   >
-                    查看二维码
+                    查看原始地址
                   </a>
                 ) : (
                   <span style={{ marginLeft: 6 }}>-</span>
                 )}
               </div>
-              {result.qrCodeUrl && (
-                <div style={{ marginTop: 8, wordBreak: "break-all", color: "rgba(255,255,255,0.64)" }}>
-                  {result.qrCodeUrl}
-                </div>
-              )}
             </div>
           )}
         </div>
