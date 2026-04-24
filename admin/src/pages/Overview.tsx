@@ -6,7 +6,16 @@
  */
 
 import { useState, useEffect } from "react";
-import { version, adminUsers, appUsers, apiStatus, type AppVersion, type DailyActiveStats } from "../api";
+import {
+  version,
+  adminUsers,
+  appUsers,
+  apiStatus,
+  wallpaperAdmin,
+  issueFeedbackAdmin,
+  type AppVersion,
+  type DailyActiveStats,
+} from "../api";
 
 const headingStyle: React.CSSProperties = {
   fontFamily: "var(--font-display)",
@@ -29,19 +38,23 @@ export default function Overview() {
   const [proCount, setProCount] = useState(0);
   const [apiAvailable, setApiAvailable] = useState(0);
   const [apiUnavailable, setApiUnavailable] = useState(0);
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
+  const [pendingFeedbackCount, setPendingFeedbackCount] = useState(0);
   const [dailyActive, setDailyActive] = useState<DailyActiveStats>({ today: 0, days: 7, series: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, adminRes, userRes, userListRes, sRes, dauRes] = await Promise.all([
+        const [vRes, adminRes, userRes, userListRes, sRes, dauRes, reviewRes, feedbackRes] = await Promise.all([
           version.list(),
           adminUsers.count(),
           appUsers.count(),
           appUsers.list(),
           apiStatus.list(),
           appUsers.dailyActive(7),
+          wallpaperAdmin.list({ status: "pending", page: 1, pageSize: 1000 }),
+          issueFeedbackAdmin.list({ status: "pending", page: 1, pageSize: 1 }),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
         if (adminRes.code === 200 && adminRes.data !== undefined) setAdminCount(adminRes.data);
@@ -55,6 +68,12 @@ export default function Overview() {
         }
         if (dauRes.code === 200 && dauRes.data) {
           setDailyActive(dauRes.data);
+        }
+        if (reviewRes.code === 200 && Array.isArray(reviewRes.data)) {
+          setPendingReviewCount(reviewRes.data.length);
+        }
+        if (feedbackRes.code === 200 && feedbackRes.data) {
+          setPendingFeedbackCount(Number(feedbackRes.data.total || 0));
         }
       } catch {
         /* ignore */
@@ -107,7 +126,7 @@ export default function Overview() {
         <UserCountCard userCount={userCount} proCount={proCount} adminCount={adminCount} />
         <DailyActiveCard data={dailyActive} />
         <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
-        <StatCard label="应用版本数" value={versions.length} />
+        <TodoPendingCard pendingReviewCount={pendingReviewCount} pendingFeedbackCount={pendingFeedbackCount} />
         <VersionUpdateCard versions={versions} />
       </div>
 
@@ -218,13 +237,14 @@ function VersionUpdateCard({ versions }: { versions: AppVersion[] }) {
           color: "rgba(255,255,255,0.48)",
           textTransform: "uppercase",
           marginBottom: 12,
+          whiteSpace: "nowrap",
         }}
       >
         应用更新数据
       </div>
 
       {versions.length === 0 ? (
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)" }}>暂无版本数据</div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)", whiteSpace: "nowrap" }}>暂无版本数据</div>
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
           {versions.map((v) => (
@@ -260,7 +280,14 @@ function VersionUpdateCard({ versions }: { versions: AppVersion[] }) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function TodoPendingCard({
+  pendingReviewCount,
+  pendingFeedbackCount,
+}: {
+  pendingReviewCount: number;
+  pendingFeedbackCount: number;
+}) {
+  const total = pendingReviewCount + pendingFeedbackCount;
   return (
     <div
       style={{
@@ -278,21 +305,62 @@ function StatCard({ label, value }: { label: string; value: number }) {
           letterSpacing: "-0.12px",
           color: "rgba(255,255,255,0.48)",
           textTransform: "uppercase",
-          marginBottom: 8,
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          whiteSpace: "nowrap",
         }}
       >
-        {label}
+        <span>待办事项</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.56)",
+            textTransform: "none",
+            letterSpacing: 0,
+            whiteSpace: "nowrap",
+          }}
+        >
+          总 {total}
+        </span>
       </div>
-      <div
-        style={{
-          fontFamily: "var(--font-display)",
-          fontSize: 40,
-          fontWeight: 600,
-          lineHeight: 1.1,
-          color: "#ffffff",
-        }}
-      >
-        {value}
+      <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "#ffd60a",
+            }}
+          >
+            {pendingReviewCount}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            待审核
+          </div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "var(--apple-link-dark)",
+            }}
+          >
+            {pendingFeedbackCount}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            待反馈处理
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -339,7 +407,7 @@ function UserCountCard({
           gap: 8,
         }}
       >
-        <span>用户数量</span>
+        <span style={{ whiteSpace: "nowrap" }}>用户数量</span>
         <span
           style={{
             fontSize: 11,
@@ -347,6 +415,7 @@ function UserCountCard({
             color: "rgba(255,255,255,0.56)",
             textTransform: "none",
             letterSpacing: 0,
+            whiteSpace: "nowrap",
           }}
           title="总计"
         >
@@ -366,7 +435,7 @@ function UserCountCard({
           >
             {normalUserCount}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>普通用户</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>普通用户</div>
         </div>
         <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
         <div>
@@ -381,7 +450,7 @@ function UserCountCard({
           >
             {proCount}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>Pro 用户</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>Pro 用户</div>
         </div>
         <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
         <div>
@@ -396,7 +465,7 @@ function UserCountCard({
           >
             {adminCount}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>管理员</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>管理员</div>
         </div>
       </div>
     </div>
@@ -433,7 +502,7 @@ function DailyActiveCard({ data }: { data: DailyActiveStats }) {
           gap: 8,
         }}
       >
-        <span>日活跃用户</span>
+        <span style={{ whiteSpace: "nowrap" }}>日活跃用户</span>
         <span
           style={{
             fontSize: 11,
@@ -441,6 +510,7 @@ function DailyActiveCard({ data }: { data: DailyActiveStats }) {
             color: "rgba(255,255,255,0.56)",
             textTransform: "none",
             letterSpacing: 0,
+            whiteSpace: "nowrap",
           }}
           title="最近统计日期"
         >
@@ -460,7 +530,7 @@ function DailyActiveCard({ data }: { data: DailyActiveStats }) {
           >
             {data.today}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>今日活跃</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>今日活跃</div>
         </div>
         <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
         <div>
@@ -475,7 +545,7 @@ function DailyActiveCard({ data }: { data: DailyActiveStats }) {
           >
             {avgText}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>近{data.days}天均值</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>近{data.days}天均值</div>
         </div>
       </div>
     </div>
@@ -501,6 +571,7 @@ function ApiStatusCard({ available, unavailable }: { available: number; unavaila
           color: "rgba(255,255,255,0.48)",
           textTransform: "uppercase",
           marginBottom: 16,
+          whiteSpace: "nowrap",
         }}
       >
         接口状态
@@ -518,7 +589,7 @@ function ApiStatusCard({ available, unavailable }: { available: number; unavaila
           >
             {available}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>可用</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>可用</div>
         </div>
         <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
         <div>
@@ -533,7 +604,7 @@ function ApiStatusCard({ available, unavailable }: { available: number; unavaila
           >
             {unavailable}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4 }}>不可用</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>不可用</div>
         </div>
       </div>
     </div>
