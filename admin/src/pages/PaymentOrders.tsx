@@ -60,6 +60,7 @@ export default function PaymentOrders() {
 
   const [username, setUsername] = useState("");
   const [status, setStatus] = useState("");
+  const [channel, setChannel] = useState<"" | "WECHAT" | "ALIPAY">("");
   const [limit, setLimit] = useState(100);
 
   const [msg, setMsg] = useState("");
@@ -76,6 +77,7 @@ export default function PaymentOrders() {
       const res = await paymentAdmin.listOrders({
         username: username.trim() || undefined,
         status: status || undefined,
+        channel: channel || undefined,
         limit,
       });
       if (res.code === 200 && res.data) {
@@ -162,7 +164,7 @@ export default function PaymentOrders() {
       <MessageDialog visible={!!msg} type={msgType} message={msg} onClose={() => setMsg("")} />
 
       <div style={cardStyle}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 10, marginBottom: 16 }}>
           <input
             placeholder="按用户名筛选"
             value={username}
@@ -175,6 +177,11 @@ export default function PaymentOrders() {
             <option value="SUCCESS">SUCCESS</option>
             <option value="CLOSED">CLOSED</option>
             <option value="FAILED">FAILED</option>
+          </select>
+          <select value={channel} onChange={(e) => setChannel(e.target.value as "" | "WECHAT" | "ALIPAY")} style={inputStyle}>
+            <option value="">全部通道</option>
+            <option value="WECHAT">WECHAT</option>
+            <option value="ALIPAY">ALIPAY</option>
           </select>
           <input
             type="number"
@@ -212,6 +219,7 @@ export default function PaymentOrders() {
                   <th style={thStyle}>订单号</th>
                   <th style={thStyle}>用户</th>
                   <th style={thStyle}>商品</th>
+                  <th style={thStyle}>通道</th>
                   <th style={thStyle}>金额</th>
                   <th style={thStyle}>状态</th>
                   <th style={thStyle}>创建时间</th>
@@ -227,6 +235,7 @@ export default function PaymentOrders() {
                       <td style={tdStyle}>{row.outTradeNo}</td>
                       <td style={tdStyle}>{row.username || "-"}</td>
                       <td style={tdStyle}>{row.productCode || "-"}</td>
+                      <td style={tdStyle}>{row.channel || "-"}</td>
                       <td style={tdStyle}>{moneyFenToYuan(row.amountFen)} {row.currency || "CNY"}</td>
                       <td style={tdStyle}>
                         <span

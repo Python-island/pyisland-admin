@@ -31,7 +31,29 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-type FormState = Omit<PaymentConfigUpdatePayload, "apiV3Key"> & { apiV3Key: string };
+type FormState = {
+  enabled: boolean;
+  mchId: string;
+  appId: string;
+  apiV3Key: string;
+  privateKeyPath: string;
+  serialNo: string;
+  notifyUrl: string;
+  publicKeyId: string;
+  publicKeyPath: string;
+  platformCertPath: string;
+  alipayEnabled: boolean;
+  alipayGatewayUrl: string;
+  alipayAppId: string;
+  alipayNotifyUrl: string;
+  alipayPrivateKeyPath: string;
+  alipayPublicKeyPath: string;
+  alipaySignType: string;
+  alipayCharset: string;
+  alipayQueryPendingBatchSize: number;
+  orderExpireMinutes: number;
+  queryPendingBatchSize: number;
+};
 
 function emptyForm(): FormState {
   return {
@@ -45,7 +67,15 @@ function emptyForm(): FormState {
     publicKeyId: "",
     publicKeyPath: "",
     platformCertPath: "",
-    proMonthAmountFen: 1500,
+    alipayEnabled: false,
+    alipayGatewayUrl: "https://openapi.alipay.com/gateway.do",
+    alipayAppId: "",
+    alipayNotifyUrl: "",
+    alipayPrivateKeyPath: "",
+    alipayPublicKeyPath: "",
+    alipaySignType: "RSA2",
+    alipayCharset: "UTF-8",
+    alipayQueryPendingBatchSize: 100,
     orderExpireMinutes: 15,
     queryPendingBatchSize: 100,
   };
@@ -84,7 +114,15 @@ export default function PaymentConfig() {
         publicKeyId: data.publicKeyId || "",
         publicKeyPath: data.publicKeyPath || "",
         platformCertPath: data.platformCertPath || "",
-        proMonthAmountFen: data.proMonthAmountFen || 1500,
+        alipayEnabled: !!data.alipayEnabled,
+        alipayGatewayUrl: data.alipayGatewayUrl || "https://openapi.alipay.com/gateway.do",
+        alipayAppId: data.alipayAppId || "",
+        alipayNotifyUrl: data.alipayNotifyUrl || "",
+        alipayPrivateKeyPath: data.alipayPrivateKeyPath || "",
+        alipayPublicKeyPath: data.alipayPublicKeyPath || "",
+        alipaySignType: data.alipaySignType || "RSA2",
+        alipayCharset: data.alipayCharset || "UTF-8",
+        alipayQueryPendingBatchSize: data.alipayQueryPendingBatchSize || 100,
         orderExpireMinutes: data.orderExpireMinutes || 15,
         queryPendingBatchSize: data.queryPendingBatchSize || 100,
       });
@@ -117,8 +155,8 @@ export default function PaymentConfig() {
       showMsg("待查单批次不能小于 1", "err");
       return;
     }
-    if (form.proMonthAmountFen < 1) {
-      showMsg("Pro 月付价格（分）不能小于 1", "err");
+    if (form.alipayQueryPendingBatchSize < 1) {
+      showMsg("支付宝待查单批次不能小于 1", "err");
       return;
     }
 
@@ -132,7 +170,15 @@ export default function PaymentConfig() {
       publicKeyId: form.publicKeyId.trim(),
       publicKeyPath: form.publicKeyPath.trim(),
       platformCertPath: form.platformCertPath.trim(),
-      proMonthAmountFen: Number(form.proMonthAmountFen),
+      alipayEnabled: form.alipayEnabled,
+      alipayGatewayUrl: form.alipayGatewayUrl.trim(),
+      alipayAppId: form.alipayAppId.trim(),
+      alipayNotifyUrl: form.alipayNotifyUrl.trim(),
+      alipayPrivateKeyPath: form.alipayPrivateKeyPath.trim(),
+      alipayPublicKeyPath: form.alipayPublicKeyPath.trim(),
+      alipaySignType: form.alipaySignType.trim(),
+      alipayCharset: form.alipayCharset.trim(),
+      alipayQueryPendingBatchSize: Number(form.alipayQueryPendingBatchSize),
       orderExpireMinutes: Number(form.orderExpireMinutes),
       queryPendingBatchSize: Number(form.queryPendingBatchSize),
       ...(form.apiV3Key.trim() ? { apiV3Key: form.apiV3Key.trim() } : {}),
@@ -179,7 +225,7 @@ export default function PaymentConfig() {
           marginBottom: 40,
         }}
       >
-        管理微信支付配置与运行开关
+        管理微信与支付宝配置与运行开关
       </p>
 
       <MessageDialog visible={!!msg} type={msgType} message={msg} onClose={() => setMsg("")} />
@@ -289,20 +335,6 @@ export default function PaymentConfig() {
             </label>
 
             <label style={{ color: "#fff", fontSize: 13 }}>
-              <div style={{ marginBottom: 6 }}>Pro 月付价格（分）</div>
-              <input
-                type="number"
-                min={1}
-                value={form.proMonthAmountFen}
-                onChange={(e) => patchForm("proMonthAmountFen", Number(e.target.value || 1500))}
-                style={inputStyle}
-              />
-              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.48)" }}>
-                当前约 ¥{(Math.max(1, Number(form.proMonthAmountFen) || 0) / 100).toFixed(2)} / 月
-              </div>
-            </label>
-
-            <label style={{ color: "#fff", fontSize: 13 }}>
               <div style={{ marginBottom: 6 }}>订单过期分钟数</div>
               <input
                 type="number"
@@ -320,6 +352,68 @@ export default function PaymentConfig() {
                 min={1}
                 value={form.queryPendingBatchSize}
                 onChange={(e) => patchForm("queryPendingBatchSize", Number(e.target.value || 100))}
+                style={inputStyle}
+              />
+            </label>
+
+            <div style={{ gridColumn: "span 2", height: 1, backgroundColor: "rgba(255,255,255,0.08)", margin: "6px 0" }} />
+
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 15, fontWeight: 600, gridColumn: "span 2" }}>支付宝支付</div>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>启用支付宝</div>
+              <select
+                value={form.alipayEnabled ? "true" : "false"}
+                onChange={(e) => patchForm("alipayEnabled", e.target.value === "true")}
+                style={inputStyle}
+              >
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>网关地址 gatewayUrl</div>
+              <input value={form.alipayGatewayUrl} onChange={(e) => patchForm("alipayGatewayUrl", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>应用 AppID</div>
+              <input value={form.alipayAppId} onChange={(e) => patchForm("alipayAppId", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>回调地址 notifyUrl</div>
+              <input value={form.alipayNotifyUrl} onChange={(e) => patchForm("alipayNotifyUrl", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>应用私钥路径</div>
+              <input value={form.alipayPrivateKeyPath} onChange={(e) => patchForm("alipayPrivateKeyPath", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>支付宝公钥路径</div>
+              <input value={form.alipayPublicKeyPath} onChange={(e) => patchForm("alipayPublicKeyPath", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>签名算法 signType</div>
+              <input value={form.alipaySignType} onChange={(e) => patchForm("alipaySignType", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>字符集 charset</div>
+              <input value={form.alipayCharset} onChange={(e) => patchForm("alipayCharset", e.target.value)} style={inputStyle} />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>支付宝待查单批次大小</div>
+              <input
+                type="number"
+                min={1}
+                value={form.alipayQueryPendingBatchSize}
+                onChange={(e) => patchForm("alipayQueryPendingBatchSize", Number(e.target.value || 100))}
                 style={inputStyle}
               />
             </label>

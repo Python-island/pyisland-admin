@@ -471,6 +471,27 @@ public class PaymentService {
         return data;
     }
 
+    public Map<String, Object> toAdminOrderPayload(PaymentOrder order) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", order.getId());
+        data.put("outTradeNo", order.getOutTradeNo());
+        data.put("username", order.getUsername());
+        data.put("productCode", order.getProductCode());
+        data.put("amountFen", order.getAmountFen());
+        data.put("currency", order.getCurrency());
+        data.put("status", order.getStatus());
+        data.put("channel", resolveOrderChannel(order).name());
+        data.put("wxPrepayId", order.getWxPrepayId());
+        data.put("wxCodeUrl", order.getWxCodeUrl());
+        data.put("wxTransactionId", order.getWxTransactionId());
+        data.put("expireAt", order.getExpireAt() != null ? order.getExpireAt().toString() : null);
+        data.put("paidAt", order.getPaidAt() != null ? order.getPaidAt().toString() : null);
+        data.put("closedAt", order.getClosedAt() != null ? order.getClosedAt().toString() : null);
+        data.put("createdAt", order.getCreatedAt() != null ? order.getCreatedAt().toString() : null);
+        data.put("updatedAt", order.getUpdatedAt() != null ? order.getUpdatedAt().toString() : null);
+        return data;
+    }
+
     public Map<String, Object> getProMonthPricingPayload() {
         int amountFen = getProMonthAmountFen();
         Map<String, Object> data = new HashMap<>();

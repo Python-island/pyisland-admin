@@ -1,5 +1,6 @@
 package com.pyisland.server.user.payment.controller;
 
+import com.pyisland.server.user.payment.config.AlipayProperties;
 import com.pyisland.server.user.payment.config.WechatPayProperties;
 import com.pyisland.server.user.payment.entity.PaymentDlqLog;
 import com.pyisland.server.user.payment.entity.PaymentOrder;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 管理端支付查询接口。
@@ -29,19 +31,29 @@ public class AdminPaymentController {
 
     private final PaymentService paymentService;
     private final WechatPayProperties wechatPayProperties;
+    private final AlipayProperties alipayProperties;
 
     public AdminPaymentController(PaymentService paymentService,
-                                  WechatPayProperties wechatPayProperties) {
+                                  WechatPayProperties wechatPayProperties,
+                                  AlipayProperties alipayProperties) {
         this.paymentService = paymentService;
         this.wechatPayProperties = wechatPayProperties;
+        this.alipayProperties = alipayProperties;
     }
 
     @GetMapping("/orders")
     public ResponseEntity<?> listOrders(@RequestParam(required = false) String username,
                                         @RequestParam(required = false) String status,
+                                        @RequestParam(required = false) String channel,
                                         @RequestParam(defaultValue = "100") int limit) {
         List<PaymentOrder> list = paymentService.adminList(username, status, limit);
-        return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", list));
+        String normalizedChannel = channel == null ? "" : channel.trim().toUpperCase();
+        List<Map<String, Object>> payload = list.stream()
+                .map(paymentService::toAdminOrderPayload)
+                .filter(item -> normalizedChannel.isBlank()
+                        || normalizedChannel.equals(String.valueOf(item.get("channel"))))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", payload));
     }
 
     @GetMapping("/notify-dlq")
@@ -129,6 +141,15 @@ public class AdminPaymentController {
                 Map.entry("platformCertPath", blankToEmpty(wechatPayProperties.getPlatformCertPath())),
                 Map.entry("privateKeyPath", blankToEmpty(wechatPayProperties.getPrivateKeyPath())),
                 Map.entry("apiV3KeyMasked", maskSecret(wechatPayProperties.getApiV3Key())),
+                Map.entry("alipayEnabled", alipayProperties.isEnabled()),
+                Map.entry("alipayGatewayUrl", blankToEmpty(alipayProperties.getGatewayUrl())),
+                Map.entry("alipayAppId", blankToEmpty(alipayProperties.getAppId())),
+                Map.entry("alipayNotifyUrl", blankToEmpty(alipayProperties.getNotifyUrl())),
+                Map.entry("alipayPrivateKeyPath", blankToEmpty(alipayProperties.getPrivateKeyPath())),
+                Map.entry("alipayPublicKeyPath", blankToEmpty(alipayProperties.getPublicKeyPath())),
+                Map.entry("alipaySignType", blankToEmpty(alipayProperties.getSignType())),
+                Map.entry("alipayCharset", blankToEmpty(alipayProperties.getCharset())),
+                Map.entry("alipayQueryPendingBatchSize", alipayProperties.getQueryPendingBatchSize()),
                 Map.entry("proMonthAmountFen", paymentService.getProMonthAmountFen()),
                 Map.entry("orderExpireMinutes", wechatPayProperties.getOrderExpireMinutes()),
                 Map.entry("queryPendingBatchSize", wechatPayProperties.getQueryPendingBatchSize())
@@ -150,6 +171,9 @@ public class AdminPaymentController {
         }
         if (request.queryPendingBatchSize() != null && request.queryPendingBatchSize() < 1) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "queryPendingBatchSize 不能小于 1"));
+        }
+        if (request.alipayQueryPendingBatchSize() != null && request.alipayQueryPendingBatchSize() < 1) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "alipayQueryPendingBatchSize 不能小于 1"));
         }
         if (request.proMonthAmountFen() != null && request.proMonthAmountFen() < 1) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "proMonthAmountFen 不能小于 1"));
@@ -191,6 +215,33 @@ public class AdminPaymentController {
         if (request.queryPendingBatchSize() != null) {
             wechatPayProperties.setQueryPendingBatchSize(request.queryPendingBatchSize());
         }
+        if (request.alipayEnabled() != null) {
+            alipayProperties.setEnabled(request.alipayEnabled());
+        }
+        if (request.alipayGatewayUrl() != null) {
+            alipayProperties.setGatewayUrl(request.alipayGatewayUrl().trim());
+        }
+        if (request.alipayAppId() != null) {
+            alipayProperties.setAppId(request.alipayAppId().trim());
+        }
+        if (request.alipayNotifyUrl() != null) {
+            alipayProperties.setNotifyUrl(request.alipayNotifyUrl().trim());
+        }
+        if (request.alipayPrivateKeyPath() != null) {
+            alipayProperties.setPrivateKeyPath(request.alipayPrivateKeyPath().trim());
+        }
+        if (request.alipayPublicKeyPath() != null) {
+            alipayProperties.setPublicKeyPath(request.alipayPublicKeyPath().trim());
+        }
+        if (request.alipaySignType() != null) {
+            alipayProperties.setSignType(request.alipaySignType().trim());
+        }
+        if (request.alipayCharset() != null) {
+            alipayProperties.setCharset(request.alipayCharset().trim());
+        }
+        if (request.alipayQueryPendingBatchSize() != null) {
+            alipayProperties.setQueryPendingBatchSize(request.alipayQueryPendingBatchSize());
+        }
         if (request.proMonthAmountFen() != null) {
             paymentService.setProMonthAmountFen(request.proMonthAmountFen());
         }
@@ -220,6 +271,15 @@ public class AdminPaymentController {
                                       String publicKeyId,
                                       String publicKeyPath,
                                       String platformCertPath,
+                                      Boolean alipayEnabled,
+                                      String alipayGatewayUrl,
+                                      String alipayAppId,
+                                      String alipayNotifyUrl,
+                                      String alipayPrivateKeyPath,
+                                      String alipayPublicKeyPath,
+                                      String alipaySignType,
+                                      String alipayCharset,
+                                      Integer alipayQueryPendingBatchSize,
                                       Integer proMonthAmountFen,
                                       Integer orderExpireMinutes,
                                       Integer queryPendingBatchSize) {

@@ -29,6 +29,7 @@ import TagManage from "./pages/TagManage";
 import UserFeedbackManage from "./pages/UserFeedbackManage";
 import AnnouncementManage from "./pages/AnnouncementManage";
 import PaymentConfig from "./pages/PaymentConfig";
+import PaymentPricing from "./pages/PaymentPricing";
 import PaymentOrders from "./pages/PaymentOrders";
 import PaymentDlq from "./pages/PaymentDlq";
 import EmailDlq from "./pages/EmailDlq";
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/api-test/payment-wechat" element={<WechatPaymentInterfaceTest />} />
           <Route path="/api-test/payment-alipay" element={<AlipayPaymentInterfaceTest />} />
           <Route path="/payment/config" element={<PaymentConfig />} />
+          <Route path="/payment/pricing" element={<PaymentPricing />} />
           <Route path="/payment/orders" element={<PaymentOrders />} />
           <Route path="/payment/dlq" element={<PaymentDlq />} />
           <Route path="/email/dlq" element={<EmailDlq />} />

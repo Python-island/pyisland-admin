@@ -291,6 +291,15 @@ export interface PaymentConfigData {
   platformCertPath: string;
   privateKeyPath: string;
   apiV3KeyMasked: string;
+  alipayEnabled: boolean;
+  alipayGatewayUrl: string;
+  alipayAppId: string;
+  alipayNotifyUrl: string;
+  alipayPrivateKeyPath: string;
+  alipayPublicKeyPath: string;
+  alipaySignType: string;
+  alipayCharset: string;
+  alipayQueryPendingBatchSize: number;
   proMonthAmountFen: number;
   orderExpireMinutes: number;
   queryPendingBatchSize: number;
@@ -323,6 +332,7 @@ export interface PaymentOrderAdminItem {
   amountFen: number;
   currency: string;
   status: string;
+  channel?: "WECHAT" | "ALIPAY";
   wxPrepayId?: string;
   wxCodeUrl?: string;
   wxTransactionId?: string;
@@ -334,19 +344,28 @@ export interface PaymentOrderAdminItem {
 }
 
 export interface PaymentConfigUpdatePayload {
-  enabled: boolean;
-  mchId: string;
-  appId: string;
+  enabled?: boolean;
+  mchId?: string;
+  appId?: string;
   apiV3Key?: string;
-  privateKeyPath: string;
-  serialNo: string;
-  notifyUrl: string;
-  publicKeyId: string;
-  publicKeyPath: string;
-  platformCertPath: string;
-  proMonthAmountFen: number;
-  orderExpireMinutes: number;
-  queryPendingBatchSize: number;
+  privateKeyPath?: string;
+  serialNo?: string;
+  notifyUrl?: string;
+  publicKeyId?: string;
+  publicKeyPath?: string;
+  platformCertPath?: string;
+  alipayEnabled?: boolean;
+  alipayGatewayUrl?: string;
+  alipayAppId?: string;
+  alipayNotifyUrl?: string;
+  alipayPrivateKeyPath?: string;
+  alipayPublicKeyPath?: string;
+  alipaySignType?: string;
+  alipayCharset?: string;
+  alipayQueryPendingBatchSize?: number;
+  proMonthAmountFen?: number;
+  orderExpireMinutes?: number;
+  queryPendingBatchSize?: number;
 }
 
 export const auth = {
@@ -680,10 +699,11 @@ export const paymentAdmin = {
       body: JSON.stringify(payload),
     });
   },
-  listOrders(params?: { username?: string; status?: string; limit?: number }) {
+  listOrders(params?: { username?: string; status?: string; channel?: "WECHAT" | "ALIPAY"; limit?: number }) {
     const query = new URLSearchParams();
     if (params?.username) query.set("username", params.username);
     if (params?.status) query.set("status", params.status);
+    if (params?.channel) query.set("channel", params.channel);
     if (params?.limit) query.set("limit", String(params.limit));
     const qs = query.toString();
     return request<ApiResponse<PaymentOrderAdminItem[]>>(
