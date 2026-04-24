@@ -47,8 +47,7 @@ public class AlipaySdkClient {
                                            String description,
                                            int amountFen) throws Exception {
         if (!isAvailable()) {
-            String pseudo = "https://qr.alipay.com/bax" + outTradeNo;
-            return new PlaceOrderResult(null, pseudo);
+            throw new IllegalStateException("支付宝支付未启用或配置不完整");
         }
         AlipayClient client = buildClient();
         AlipayTradePrecreateRequest request = new AlipayTradePrecreateRequest();

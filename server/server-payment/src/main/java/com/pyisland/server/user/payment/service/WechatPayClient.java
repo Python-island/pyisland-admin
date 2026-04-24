@@ -58,8 +58,7 @@ public class WechatPayClient {
                                               String description,
                                               int amountFen) throws Exception {
         if (!isAvailable()) {
-            String pseudo = "weixin://wxpay/bizpayurl?pr=" + outTradeNo;
-            return new PlaceOrderResult(null, pseudo);
+            throw new IllegalStateException("微信支付未启用或配置不完整");
         }
         String path = "/v3/pay/transactions/native";
         String body = objectMapper.writeValueAsString(Map.of(
