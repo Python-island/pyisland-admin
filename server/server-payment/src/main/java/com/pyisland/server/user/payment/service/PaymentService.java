@@ -39,6 +39,7 @@ public class PaymentService {
     public static final String PRODUCT_PRO_MONTH = "PRO_MONTH";
     public static final String PRODUCT_TEST_PAY = "TEST_PAY";
     public static final int DEFAULT_PRO_MONTH_AMOUNT_FEN = 1500;
+    private static final String REDIS_PRO_MONTH_AMOUNT_FEN_KEY = "payment:pricing:pro-month:amount-fen";
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
 
@@ -483,11 +484,34 @@ public class PaymentService {
     }
 
     public int getProMonthAmountFen() {
-        return Math.max(1, proMonthAmountFen);
+        int fallbackAmount = Math.max(1, proMonthAmountFen);
+        try {
+            String cachedValue = paymentRedisTemplate.opsForValue().get(REDIS_PRO_MONTH_AMOUNT_FEN_KEY);
+            if (cachedValue == null || cachedValue.isBlank()) {
+                paymentRedisTemplate.opsForValue().set(REDIS_PRO_MONTH_AMOUNT_FEN_KEY, String.valueOf(fallbackAmount));
+                return fallbackAmount;
+            }
+            int cachedAmount = Integer.parseInt(cachedValue.trim());
+            int normalizedCachedAmount = Math.max(1, cachedAmount);
+            if (normalizedCachedAmount != cachedAmount) {
+                paymentRedisTemplate.opsForValue().set(REDIS_PRO_MONTH_AMOUNT_FEN_KEY, String.valueOf(normalizedCachedAmount));
+            }
+            proMonthAmountFen = normalizedCachedAmount;
+            return normalizedCachedAmount;
+        } catch (Exception ex) {
+            log.warn("read pro month pricing from redis failed, fallback to memory value={} err={}", fallbackAmount, ex.getMessage());
+            return fallbackAmount;
+        }
     }
 
     public void setProMonthAmountFen(int amountFen) {
-        proMonthAmountFen = Math.max(1, amountFen);
+        int normalizedAmount = Math.max(1, amountFen);
+        proMonthAmountFen = normalizedAmount;
+        try {
+            paymentRedisTemplate.opsForValue().set(REDIS_PRO_MONTH_AMOUNT_FEN_KEY, String.valueOf(normalizedAmount));
+        } catch (Exception ex) {
+            log.warn("write pro month pricing to redis failed amountFen={} err={}", normalizedAmount, ex.getMessage());
+        }
     }
 
     private int getOrderExpireMinutes(PaymentChannel channel) {
