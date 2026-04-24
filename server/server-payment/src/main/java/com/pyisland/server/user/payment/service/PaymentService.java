@@ -324,6 +324,21 @@ public class PaymentService {
         return refreshed;
     }
 
+    public boolean validateAlipayNotifyBusiness(String outTradeNo, Integer totalAmountFen) {
+        if (outTradeNo == null || outTradeNo.isBlank() || totalAmountFen == null || totalAmountFen <= 0) {
+            return false;
+        }
+        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo.trim());
+        if (order == null) {
+            return false;
+        }
+        if (resolveOrderChannel(order) != PaymentChannel.ALIPAY) {
+            return false;
+        }
+        Integer orderAmountFen = order.getAmountFen();
+        return orderAmountFen != null && orderAmountFen.equals(totalAmountFen);
+    }
+
     @Transactional
     public boolean closeOrderForUser(String username, String outTradeNo) {
         if (username == null || username.isBlank() || outTradeNo == null || outTradeNo.isBlank()) {

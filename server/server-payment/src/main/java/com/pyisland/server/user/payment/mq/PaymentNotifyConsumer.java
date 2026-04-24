@@ -38,12 +38,13 @@ public class PaymentNotifyConsumer {
         if (message == null) {
             return;
         }
+        PaymentChannel channel = PaymentChannel.from(message.channel());
         if (!message.verifyOk()) {
             log.warn("skip payment notify due to signature verify failed notifyId={} outTradeNo={}",
                     message.notifyId(), message.outTradeNo());
             return;
         }
-        if (!"SUCCESS".equalsIgnoreCase(message.tradeState())) {
+        if (!isSuccessTradeState(channel, message.tradeState())) {
             return;
         }
         if (message.outTradeNo() == null || message.outTradeNo().isBlank()) {
@@ -53,7 +54,7 @@ public class PaymentNotifyConsumer {
 
         try {
             paymentService.completeOrderIfPending(
-                    PaymentChannel.from(message.channel()),
+                    channel,
                     message.outTradeNo(),
                     message.transactionId(),
                     message.successTime(),
@@ -126,5 +127,13 @@ public class PaymentNotifyConsumer {
         );
         log.error("payment notify routed to dlq notifyId={} outTradeNo={} retry={} err={}",
                 message.notifyId(), message.outTradeNo(), nextRetry, errorMessage);
+    }
+
+    private boolean isSuccessTradeState(PaymentChannel channel, String tradeState) {
+        if (channel == PaymentChannel.ALIPAY) {
+            return "TRADE_SUCCESS".equalsIgnoreCase(tradeState)
+                    || "TRADE_FINISHED".equalsIgnoreCase(tradeState);
+        }
+        return "SUCCESS".equalsIgnoreCase(tradeState);
     }
 }

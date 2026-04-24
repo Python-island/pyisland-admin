@@ -37,11 +37,13 @@ public class AlipayNotifyController {
     public ResponseEntity<String> notify(@RequestParam Map<String, String> params) {
         try {
             AlipayNotifyService.NotifyData notifyData = notifyService.parse(params);
+            boolean verifyOk = notifyData.verifyOk()
+                    && paymentService.validateAlipayNotifyBusiness(notifyData.outTradeNo(), notifyData.totalAmountFen());
             paymentService.logNotify(
                     notifyData.notifyId(),
                     notifyData.outTradeNo(),
                     notifyData.eventType(),
-                    notifyData.verifyOk(),
+                    verifyOk,
                     "QUEUED",
                     notifyData.rawBody()
             );
@@ -56,7 +58,7 @@ public class AlipayNotifyController {
                             notifyData.transactionId(),
                             notifyData.tradeState(),
                             notifyData.successTime(),
-                            notifyData.verifyOk(),
+                            verifyOk,
                             notifyData.rawBody()
                     )
             );

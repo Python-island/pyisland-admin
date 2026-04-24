@@ -4,6 +4,7 @@ import com.alipay.api.internal.util.AlipaySignature;
 import com.pyisland.server.user.payment.config.AlipayProperties;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -28,14 +29,24 @@ public class AlipayNotifyService {
         Map<String, String> params = requestParams == null ? Map.of() : new HashMap<>(requestParams);
         String notifyId = trimToNull(params.get("notify_id"));
         String eventType = trimToNull(params.get("notify_type"));
+        String appId = trimToNull(params.get("app_id"));
         String outTradeNo = trimToNull(params.get("out_trade_no"));
         String tradeNo = trimToNull(params.get("trade_no"));
         String tradeStatus = trimToNull(params.get("trade_status"));
+        Integer totalAmountFen = parseAmountFen(params.get("total_amount"));
         OffsetDateTime successTime = parseTime(params.get("gmt_payment"));
-        boolean verifyOk = verifySignature(params);
+        boolean verifyOk = verifySignature(params) && appIdMatches(appId);
         String rawBody = params.toString();
 
-        return new NotifyData(notifyId, eventType, outTradeNo, tradeNo, tradeStatus, successTime, verifyOk, rawBody);
+        return new NotifyData(notifyId, eventType, appId, outTradeNo, tradeNo, tradeStatus, totalAmountFen, successTime, verifyOk, rawBody);
+    }
+
+    private boolean appIdMatches(String appId) {
+        String configuredAppId = trimToNull(properties.getAppId());
+        if (configuredAppId == null) {
+            return false;
+        }
+        return configuredAppId.equals(appId);
     }
 
     private boolean verifySignature(Map<String, String> params) throws Exception {
@@ -68,6 +79,19 @@ public class AlipayNotifyService {
         }
     }
 
+    private Integer parseAmountFen(String text) {
+        String value = trimToNull(text);
+        if (value == null) {
+            return null;
+        }
+        try {
+            BigDecimal yuan = new BigDecimal(value);
+            return yuan.multiply(BigDecimal.valueOf(100)).intValueExact();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -78,9 +102,11 @@ public class AlipayNotifyService {
 
     public record NotifyData(String notifyId,
                              String eventType,
+                             String appId,
                              String outTradeNo,
                              String transactionId,
                              String tradeState,
+                             Integer totalAmountFen,
                              OffsetDateTime successTime,
                              boolean verifyOk,
                              String rawBody) {
