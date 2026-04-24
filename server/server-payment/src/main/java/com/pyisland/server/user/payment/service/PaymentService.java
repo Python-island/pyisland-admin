@@ -38,7 +38,7 @@ public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     public static final String PRODUCT_PRO_MONTH = "PRO_MONTH";
     public static final String PRODUCT_TEST_PAY = "TEST_PAY";
-    public static final int PRO_MONTH_AMOUNT_FEN = 1500;
+    public static final int DEFAULT_PRO_MONTH_AMOUNT_FEN = 1500;
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
 
@@ -52,6 +52,7 @@ public class PaymentService {
     private final AlipayProperties alipayProperties;
     private final UserService userService;
     private final StringRedisTemplate paymentRedisTemplate;
+    private volatile int proMonthAmountFen = DEFAULT_PRO_MONTH_AMOUNT_FEN;
 
     public PaymentService(PaymentOrderMapper paymentOrderMapper,
                           PaymentTransactionMapper paymentTransactionMapper,
@@ -83,6 +84,7 @@ public class PaymentService {
     @Transactional
     public PaymentOrder createProMonthOrder(String username, PaymentChannel channel) throws Exception {
         PaymentChannel actualChannel = channel == null ? PaymentChannel.WECHAT : channel;
+        int proAmountFen = getProMonthAmountFen();
         String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
         String lockKey = "payment:lock:create:pro-month:"
                 + actualChannel.name().toLowerCase() + ":"
@@ -101,7 +103,7 @@ public class PaymentService {
                 AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPreOrder(
                         outTradeNo,
                         "eIsland Pro 月付",
-                        PRO_MONTH_AMOUNT_FEN
+                        proAmountFen
                 );
                 prepayId = result.tradeNo();
                 codeUrl = result.qrCode();
@@ -109,7 +111,7 @@ public class PaymentService {
                 WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
                         outTradeNo,
                         "eIsland Pro 月付",
-                        PRO_MONTH_AMOUNT_FEN
+                        proAmountFen
                 );
                 prepayId = result.prepayId();
                 codeUrl = result.codeUrl();
@@ -120,7 +122,7 @@ public class PaymentService {
             order.setOutTradeNo(outTradeNo);
             order.setUsername(username);
             order.setProductCode(PRODUCT_PRO_MONTH);
-            order.setAmountFen(PRO_MONTH_AMOUNT_FEN);
+            order.setAmountFen(proAmountFen);
             order.setCurrency("CNY");
             order.setStatus(PaymentOrder.STATUS_PAYING);
             order.setWxPrepayId(prepayId);
@@ -469,14 +471,23 @@ public class PaymentService {
     }
 
     public Map<String, Object> getProMonthPricingPayload() {
+        int amountFen = getProMonthAmountFen();
         Map<String, Object> data = new HashMap<>();
         data.put("productCode", PRODUCT_PRO_MONTH);
-        data.put("amountFen", PRO_MONTH_AMOUNT_FEN);
+        data.put("amountFen", amountFen);
         data.put("currency", "CNY");
         data.put("billingCycle", "MONTH");
-        data.put("amountYuan", String.format(Locale.ROOT, "%.2f", PRO_MONTH_AMOUNT_FEN / 100.0));
+        data.put("amountYuan", String.format(Locale.ROOT, "%.2f", amountFen / 100.0));
         data.put("subject", "eIsland Pro 月付");
         return data;
+    }
+
+    public int getProMonthAmountFen() {
+        return Math.max(1, proMonthAmountFen);
+    }
+
+    public void setProMonthAmountFen(int amountFen) {
+        proMonthAmountFen = Math.max(1, amountFen);
     }
 
     private int getOrderExpireMinutes(PaymentChannel channel) {

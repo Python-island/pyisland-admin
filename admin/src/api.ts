@@ -291,6 +291,7 @@ export interface PaymentConfigData {
   platformCertPath: string;
   privateKeyPath: string;
   apiV3KeyMasked: string;
+  proMonthAmountFen: number;
   orderExpireMinutes: number;
   queryPendingBatchSize: number;
 }
@@ -343,6 +344,7 @@ export interface PaymentConfigUpdatePayload {
   publicKeyId: string;
   publicKeyPath: string;
   platformCertPath: string;
+  proMonthAmountFen: number;
   orderExpireMinutes: number;
   queryPendingBatchSize: number;
 }

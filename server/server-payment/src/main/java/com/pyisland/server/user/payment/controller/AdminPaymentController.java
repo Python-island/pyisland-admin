@@ -129,6 +129,7 @@ public class AdminPaymentController {
                 Map.entry("platformCertPath", blankToEmpty(wechatPayProperties.getPlatformCertPath())),
                 Map.entry("privateKeyPath", blankToEmpty(wechatPayProperties.getPrivateKeyPath())),
                 Map.entry("apiV3KeyMasked", maskSecret(wechatPayProperties.getApiV3Key())),
+                Map.entry("proMonthAmountFen", paymentService.getProMonthAmountFen()),
                 Map.entry("orderExpireMinutes", wechatPayProperties.getOrderExpireMinutes()),
                 Map.entry("queryPendingBatchSize", wechatPayProperties.getQueryPendingBatchSize())
         );
@@ -149,6 +150,9 @@ public class AdminPaymentController {
         }
         if (request.queryPendingBatchSize() != null && request.queryPendingBatchSize() < 1) {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "queryPendingBatchSize 不能小于 1"));
+        }
+        if (request.proMonthAmountFen() != null && request.proMonthAmountFen() < 1) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "proMonthAmountFen 不能小于 1"));
         }
 
         if (request.enabled() != null) {
@@ -187,6 +191,9 @@ public class AdminPaymentController {
         if (request.queryPendingBatchSize() != null) {
             wechatPayProperties.setQueryPendingBatchSize(request.queryPendingBatchSize());
         }
+        if (request.proMonthAmountFen() != null) {
+            paymentService.setProMonthAmountFen(request.proMonthAmountFen());
+        }
 
         return ResponseEntity.ok(Map.of("code", 200, "message", "支付配置已更新（仅当前运行实例生效）"));
     }
@@ -213,6 +220,7 @@ public class AdminPaymentController {
                                       String publicKeyId,
                                       String publicKeyPath,
                                       String platformCertPath,
+                                      Integer proMonthAmountFen,
                                       Integer orderExpireMinutes,
                                       Integer queryPendingBatchSize) {
     }

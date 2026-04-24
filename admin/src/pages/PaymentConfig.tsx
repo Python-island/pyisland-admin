@@ -45,6 +45,7 @@ function emptyForm(): FormState {
     publicKeyId: "",
     publicKeyPath: "",
     platformCertPath: "",
+    proMonthAmountFen: 1500,
     orderExpireMinutes: 15,
     queryPendingBatchSize: 100,
   };
@@ -83,6 +84,7 @@ export default function PaymentConfig() {
         publicKeyId: data.publicKeyId || "",
         publicKeyPath: data.publicKeyPath || "",
         platformCertPath: data.platformCertPath || "",
+        proMonthAmountFen: data.proMonthAmountFen || 1500,
         orderExpireMinutes: data.orderExpireMinutes || 15,
         queryPendingBatchSize: data.queryPendingBatchSize || 100,
       });
@@ -115,6 +117,10 @@ export default function PaymentConfig() {
       showMsg("待查单批次不能小于 1", "err");
       return;
     }
+    if (form.proMonthAmountFen < 1) {
+      showMsg("Pro 月付价格（分）不能小于 1", "err");
+      return;
+    }
 
     const payload: PaymentConfigUpdatePayload = {
       enabled: form.enabled,
@@ -126,6 +132,7 @@ export default function PaymentConfig() {
       publicKeyId: form.publicKeyId.trim(),
       publicKeyPath: form.publicKeyPath.trim(),
       platformCertPath: form.platformCertPath.trim(),
+      proMonthAmountFen: Number(form.proMonthAmountFen),
       orderExpireMinutes: Number(form.orderExpireMinutes),
       queryPendingBatchSize: Number(form.queryPendingBatchSize),
       ...(form.apiV3Key.trim() ? { apiV3Key: form.apiV3Key.trim() } : {}),
@@ -279,6 +286,20 @@ export default function PaymentConfig() {
                 placeholder={maskedApiV3 ? `当前：${maskedApiV3}` : "未设置"}
                 style={inputStyle}
               />
+            </label>
+
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>Pro 月付价格（分）</div>
+              <input
+                type="number"
+                min={1}
+                value={form.proMonthAmountFen}
+                onChange={(e) => patchForm("proMonthAmountFen", Number(e.target.value || 1500))}
+                style={inputStyle}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.48)" }}>
+                当前约 ¥{(Math.max(1, Number(form.proMonthAmountFen) || 0) / 100).toFixed(2)} / 月
+              </div>
             </label>
 
             <label style={{ color: "#fff", fontSize: 13 }}>
