@@ -8,6 +8,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 应用版本服务。
@@ -16,13 +17,32 @@ import java.time.LocalDateTime;
 public class AppVersionService {
 
     private final AppVersionMapper appVersionMapper;
+    private final VersionAppBloomService versionAppBloomService;
 
     /**
      * 构造版本服务。
      * @param appVersionMapper 版本数据访问接口。
      */
-    public AppVersionService(AppVersionMapper appVersionMapper) {
+    public AppVersionService(AppVersionMapper appVersionMapper,
+                             VersionAppBloomService versionAppBloomService) {
         this.appVersionMapper = appVersionMapper;
+        this.versionAppBloomService = versionAppBloomService;
+        rebuildVersionAppBloom();
+    }
+
+    private void rebuildVersionAppBloom() {
+        List<AppVersion> versions = appVersionMapper.selectAll();
+        versionAppBloomService.rebuildFromAppNames(versions.stream()
+                .map(AppVersion::getAppName)
+                .toList());
+    }
+
+    private String normalizeAppName(String appName) {
+        if (appName == null) {
+            return null;
+        }
+        String normalized = appName.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     /**
@@ -32,7 +52,14 @@ public class AppVersionService {
      */
     @Cacheable(cacheNames = "app-version", key = "#appName")
     public AppVersion getVersion(String appName) {
-        return appVersionMapper.selectByAppName(appName);
+        String normalizedAppName = normalizeAppName(appName);
+        if (normalizedAppName == null) {
+            return null;
+        }
+        if (!versionAppBloomService.mightContain(normalizedAppName)) {
+            return null;
+        }
+        return appVersionMapper.selectByAppName(normalizedAppName);
     }
 
     /**
@@ -54,7 +81,15 @@ public class AppVersionService {
             @CacheEvict(cacheNames = "app-version-list", key = "'all'", condition = "#result")
     })
     public boolean deleteVersion(String appName) {
-        return appVersionMapper.deleteByAppName(appName) > 0;
+        String normalizedAppName = normalizeAppName(appName);
+        if (normalizedAppName == null) {
+            return false;
+        }
+        boolean deleted = appVersionMapper.deleteByAppName(normalizedAppName) > 0;
+        if (deleted) {
+            versionAppBloomService.remove(normalizedAppName);
+        }
+        return deleted;
     }
 
     /**
@@ -70,12 +105,17 @@ public class AppVersionService {
             @CacheEvict(cacheNames = "app-version-list", key = "'all'", condition = "#result != null")
     })
     public AppVersion createVersion(String appName, String version, String description, String downloadUrl) {
-        AppVersion existing = appVersionMapper.selectByAppName(appName);
+        String normalizedAppName = normalizeAppName(appName);
+        if (normalizedAppName == null) {
+            return null;
+        }
+        AppVersion existing = appVersionMapper.selectByAppName(normalizedAppName);
         if (existing != null) {
             return null;
         }
-        AppVersion appVersion = new AppVersion(appName, version, description, downloadUrl);
+        AppVersion appVersion = new AppVersion(normalizedAppName, version, description, downloadUrl);
         appVersionMapper.insert(appVersion);
+        versionAppBloomService.add(normalizedAppName);
         return appVersion;
     }
 
@@ -92,17 +132,23 @@ public class AppVersionService {
             @CacheEvict(cacheNames = "app-version-list", key = "'all'")
     })
     public AppVersion updateVersion(String appName, String version, String description, String downloadUrl) {
-        AppVersion existing = appVersionMapper.selectByAppName(appName);
+        String normalizedAppName = normalizeAppName(appName);
+        if (normalizedAppName == null) {
+            return null;
+        }
+        AppVersion existing = appVersionMapper.selectByAppName(normalizedAppName);
         if (existing != null) {
             existing.setVersion(version);
             existing.setDescription(description);
             existing.setDownloadUrl(downloadUrl);
             existing.setUpdatedAt(LocalDateTime.now());
             appVersionMapper.updateByAppName(existing);
+            versionAppBloomService.add(normalizedAppName);
             return existing;
         } else {
-            AppVersion appVersion = new AppVersion(appName, version, description, downloadUrl);
+            AppVersion appVersion = new AppVersion(normalizedAppName, version, description, downloadUrl);
             appVersionMapper.insert(appVersion);
+            versionAppBloomService.add(normalizedAppName);
             return appVersion;
         }
     }
@@ -118,6 +164,10 @@ public class AppVersionService {
             @CacheEvict(cacheNames = "app-version-list", key = "'all'", condition = "#result")
     })
     public boolean incrementUpdateCount(String appName, String version) {
-        return appVersionMapper.incrementUpdateCountByAppNameAndVersion(appName, version) > 0;
+        String normalizedAppName = normalizeAppName(appName);
+        if (normalizedAppName == null) {
+            return false;
+        }
+        return appVersionMapper.incrementUpdateCountByAppNameAndVersion(normalizedAppName, version) > 0;
     }
 }
