@@ -3,10 +3,13 @@ package com.pyisland.server.user.payment.controller;
 import com.pyisland.server.user.payment.config.WechatPayProperties;
 import com.pyisland.server.user.payment.entity.PaymentDlqLog;
 import com.pyisland.server.user.payment.entity.PaymentOrder;
+import com.pyisland.server.user.payment.service.PaymentChannel;
 import com.pyisland.server.user.payment.service.PaymentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -71,6 +74,46 @@ public class AdminPaymentController {
             return ResponseEntity.status(400).body(Map.of("code", 400, "message", "仅 PAYING 状态订单可关闭"));
         }
         return ResponseEntity.ok(Map.of("code", 200, "message", "订单已关闭"));
+    }
+
+    @PostMapping("/orders/test")
+    public ResponseEntity<?> createTestOrder(@RequestBody CreateTestOrderRequest request,
+                                             Authentication authentication) {
+        if (request == null || request.amountFen() == null) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "amountFen 不能为空"));
+        }
+        if (request.amountFen() < 1 || request.amountFen() > 1_000_000) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "amountFen 需在 1~1000000 分之间"));
+        }
+        String caller = authentication == null ? null : authentication.getName();
+        if (caller == null || caller.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+
+        PaymentChannel channel;
+        if (request.channel() == null || request.channel().isBlank()) {
+            channel = PaymentChannel.WECHAT;
+        } else {
+            try {
+                channel = PaymentChannel.valueOf(request.channel().trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "仅支持 WECHAT 或 ALIPAY"));
+            }
+        }
+
+        try {
+            PaymentOrder order = paymentService.createAdminTestOrder(caller, channel, request.amountFen(), request.subject());
+            return ResponseEntity.ok(Map.of(
+                    "code", 200,
+                    "message", "success",
+                    "data", paymentService.toOrderPayload(order, null)
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "code", 500,
+                    "message", "创建测试单失败: " + ex.getMessage()
+            ));
+        }
     }
 
     @GetMapping("/config")
@@ -175,5 +218,10 @@ public class AdminPaymentController {
     }
 
     public record OrderActionRequest(String outTradeNo) {
+    }
+
+    public record CreateTestOrderRequest(String channel,
+                                         Integer amountFen,
+                                         String subject) {
     }
 }

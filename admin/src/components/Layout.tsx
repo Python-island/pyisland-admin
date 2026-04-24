@@ -39,6 +39,8 @@ const navItems = [
       { label: "接口状态", path: "/api-status" },
       { label: "状态管理", path: "/api-message" },
       { label: "调试接口", path: "/api-debug" },
+      { label: "支付测试-微信", path: "/api-test/payment-wechat" },
+      { label: "支付测试-支付宝", path: "/api-test/payment-alipay" },
     ],
   },
   {

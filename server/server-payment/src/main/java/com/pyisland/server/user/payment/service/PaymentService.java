@@ -36,6 +36,7 @@ public class PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     public static final String PRODUCT_PRO_MONTH = "PRO_MONTH";
+    public static final String PRODUCT_TEST_PAY = "TEST_PAY";
     public static final int PRO_MONTH_AMOUNT_FEN = 1500;
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
@@ -119,6 +120,69 @@ public class PaymentService {
             order.setUsername(username);
             order.setProductCode(PRODUCT_PRO_MONTH);
             order.setAmountFen(PRO_MONTH_AMOUNT_FEN);
+            order.setCurrency("CNY");
+            order.setStatus(PaymentOrder.STATUS_PAYING);
+            order.setWxPrepayId(prepayId);
+            order.setWxCodeUrl(codeUrl);
+            order.setExpireAt(now.plusMinutes(Math.max(5, getOrderExpireMinutes(actualChannel))));
+            order.setCreatedAt(now);
+            order.setUpdatedAt(now);
+            paymentOrderMapper.insert(order);
+            saveOrderChannel(outTradeNo, actualChannel);
+            return order;
+        } finally {
+            String currentValue = paymentRedisTemplate.opsForValue().get(lockKey);
+            if (lockValue.equals(currentValue)) {
+                paymentRedisTemplate.delete(lockKey);
+            }
+        }
+    }
+
+    @Transactional
+    public PaymentOrder createAdminTestOrder(String username,
+                                             PaymentChannel channel,
+                                             int amountFen,
+                                             String subject) throws Exception {
+        PaymentChannel actualChannel = channel == null ? PaymentChannel.WECHAT : channel;
+        String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
+        String lockKey = "payment:lock:create:test:"
+                + actualChannel.name().toLowerCase() + ":"
+                + (normalizedUsername.isBlank() ? "unknown" : normalizedUsername);
+        String lockValue = UUID.randomUUID().toString();
+        Boolean locked = paymentRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, 15, TimeUnit.SECONDS);
+        if (!Boolean.TRUE.equals(locked)) {
+            throw new IllegalStateException("测试单创建过于频繁，请稍后重试");
+        }
+
+        try {
+            String outTradeNo = buildOutTradeNo(username, actualChannel);
+            String prepayId = null;
+            String codeUrl;
+            String normalizedSubject = subject == null || subject.isBlank() ? "eIsland 支付测试" : subject.trim();
+            if (actualChannel == PaymentChannel.ALIPAY) {
+                AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPreOrder(
+                        outTradeNo,
+                        normalizedSubject,
+                        amountFen
+                );
+                prepayId = result.tradeNo();
+                codeUrl = result.qrCode();
+            } else {
+                WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
+                        outTradeNo,
+                        normalizedSubject,
+                        amountFen
+                );
+                prepayId = result.prepayId();
+                codeUrl = result.codeUrl();
+            }
+            LocalDateTime now = LocalDateTime.now();
+
+            PaymentOrder order = new PaymentOrder();
+            order.setOutTradeNo(outTradeNo);
+            order.setUsername(username);
+            order.setProductCode(PRODUCT_TEST_PAY);
+            order.setAmountFen(amountFen);
             order.setCurrency("CNY");
             order.setStatus(PaymentOrder.STATUS_PAYING);
             order.setWxPrepayId(prepayId);

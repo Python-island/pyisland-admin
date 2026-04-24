@@ -224,6 +224,18 @@ export interface WallpaperRatingItem {
   updatedAt?: string;
 }
 
+export interface PaymentTestOrderData {
+  outTradeNo: string;
+  productCode: string;
+  amountFen: number;
+  currency: string;
+  status: string;
+  channel: string;
+  qrCodeUrl?: string;
+  expireAt?: string;
+  paidAt?: string;
+}
+
 export interface PaymentDlqAdminItem {
   id: number;
   notifyId?: string;
@@ -686,6 +698,12 @@ export const paymentAdmin = {
     return request<ApiResponse>("/v1/admin/payment/orders/close", {
       method: "PUT",
       body: JSON.stringify({ outTradeNo }),
+    });
+  },
+  createTestOrder(payload: { channel: "WECHAT" | "ALIPAY"; amountFen: number; subject?: string }) {
+    return request<ApiResponse<PaymentTestOrderData>>("/v1/admin/payment/orders/test", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
   },
   listDlq(params?: { notifyId?: string; outTradeNo?: string; limit?: number }) {

@@ -21,6 +21,7 @@ import Profile from "./pages/Profile";
 import ApiStatusPage from "./pages/ApiStatus";
 import ApiStatusManage from "./pages/ApiStatusManage";
 import ApiDebug from "./pages/ApiDebug";
+import { AlipayPaymentInterfaceTest, WechatPaymentInterfaceTest } from "./pages/PaymentInterfaceTest";
 import WallpaperReview from "./pages/WallpaperReview";
 import WallpaperReportManage from "./pages/WallpaperReportManage";
 import WallpaperRatingManage from "./pages/WallpaperRatingManage";
@@ -69,6 +70,8 @@ export default function App() {
           <Route path="/api-status" element={<ApiStatusPage />} />
           <Route path="/api-message" element={<ApiStatusManage />} />
           <Route path="/api-debug" element={<ApiDebug />} />
+          <Route path="/api-test/payment-wechat" element={<WechatPaymentInterfaceTest />} />
+          <Route path="/api-test/payment-alipay" element={<AlipayPaymentInterfaceTest />} />
           <Route path="/payment/config" element={<PaymentConfig />} />
           <Route path="/payment/orders" element={<PaymentOrders />} />
           <Route path="/payment/dlq" element={<PaymentDlq />} />
