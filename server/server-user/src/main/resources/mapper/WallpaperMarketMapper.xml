@@ -118,6 +118,12 @@
           AND wa.deleted = 0
     </select>
 
+    <select id="listActiveAssetIds" resultType="long">
+        SELECT id
+        FROM wallpaper_asset
+        WHERE deleted = 0
+    </select>
+
     <select id="listPublished" resultType="map">
         SELECT wa.id,
                wa.owner_username AS ownerUsername,

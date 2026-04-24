@@ -38,15 +38,23 @@ public class WallpaperMarketService {
     private final WallpaperR2StorageService wallpaperR2StorageService;
     private final StringRedisTemplate uploadRateRedisTemplate;
     private final WallpaperTagService tagService;
+    private final WallpaperDetailBloomService wallpaperDetailBloomService;
 
     public WallpaperMarketService(WallpaperMarketMapper mapper,
                                   WallpaperR2StorageService wallpaperR2StorageService,
                                   @Qualifier("uploadRateRedisTemplate") StringRedisTemplate uploadRateRedisTemplate,
-                                  WallpaperTagService tagService) {
+                                  WallpaperTagService tagService,
+                                  WallpaperDetailBloomService wallpaperDetailBloomService) {
         this.mapper = mapper;
         this.wallpaperR2StorageService = wallpaperR2StorageService;
         this.uploadRateRedisTemplate = uploadRateRedisTemplate;
         this.tagService = tagService;
+        this.wallpaperDetailBloomService = wallpaperDetailBloomService;
+        rebuildWallpaperDetailBloom();
+    }
+
+    private void rebuildWallpaperDetailBloom() {
+        wallpaperDetailBloomService.rebuildFromIds(mapper.listActiveAssetIds());
     }
 
     @CacheEvict(cacheNames = {"wallpaper-list", "wallpaper-admin-list", "wallpaper-my-list"}, allEntries = true, cacheManager = "wallpaperCacheManager")
@@ -130,6 +138,7 @@ public class WallpaperMarketService {
                 now);
 
         tagService.syncTagsForWallpaper(asset.getId(), asset.getTagsText(), ownerUsername);
+        wallpaperDetailBloomService.add(asset.getId());
 
         return asset.getId();
     }
@@ -198,6 +207,12 @@ public class WallpaperMarketService {
         unless = "#result == null"
     )
     public Map<String, Object> detail(Long id) {
+        if (id == null || id <= 0) {
+            return null;
+        }
+        if (!wallpaperDetailBloomService.mightContain(id)) {
+            return null;
+        }
         return mapper.selectAssetById(id);
     }
 
@@ -323,6 +338,7 @@ public class WallpaperMarketService {
             mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
             purgeR2Assets(id, current);
+            wallpaperDetailBloomService.remove(id);
         }
         return removed;
     }
@@ -341,6 +357,7 @@ public class WallpaperMarketService {
             mapper.deleteVideoMetaByWallpaperId(id);
             tagService.clearWallpaperTags(id);
             purgeR2Assets(id, current);
+            wallpaperDetailBloomService.remove(id);
         }
         return removed;
     }
