@@ -232,6 +232,7 @@ export interface PaymentTestOrderData {
   status: string;
   channel: string;
   qrCodeUrl?: string;
+  payUrl?: string;
   expireAt?: string;
   paidAt?: string;
 }

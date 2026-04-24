@@ -16,6 +16,7 @@ public class AlipayProperties {
     private String privateKeyPath;
     private String publicKeyPath;
     private String notifyUrl;
+    private String returnUrl;
     private String signType = "RSA2";
     private String charset = "UTF-8";
     private int queryPendingBatchSize = 100;
@@ -66,6 +67,14 @@ public class AlipayProperties {
 
     public void setNotifyUrl(String notifyUrl) {
         this.notifyUrl = notifyUrl;
+    }
+
+    public String getReturnUrl() {
+        return returnUrl;
+    }
+
+    public void setReturnUrl(String returnUrl) {
+        this.returnUrl = returnUrl;
     }
 
     public String getSignType() {

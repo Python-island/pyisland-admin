@@ -34,7 +34,7 @@ function PaymentInterfaceTestPage({ channel }: { channel: Channel }) {
   const title = channel === "WECHAT" ? "微信支付接口测试" : "支付宝支付接口测试";
   const subtitle = channel === "WECHAT"
     ? "创建微信 Native 测试订单并返回收款二维码"
-    : "创建支付宝预下单测试订单并返回收款二维码";
+    : "创建支付宝 PC 测试订单并返回收银台链接";
 
   const amountFen = useMemo(() => {
     const value = Number(amountYuan);
@@ -156,7 +156,9 @@ function PaymentInterfaceTestPage({ channel }: { channel: Channel }) {
         <div style={cardStyle}>
           <div style={{ color: "#ffffff", fontSize: 20, fontWeight: 600, marginBottom: 16 }}>结果</div>
           {!result ? (
-            <div style={{ color: "rgba(255,255,255,0.40)", fontSize: 14 }}>创建测试订单后显示二维码与订单信息</div>
+            <div style={{ color: "rgba(255,255,255,0.40)", fontSize: 14 }}>
+              创建测试订单后显示订单信息与支付地址
+            </div>
           ) : (
             <div style={{ display: "grid", gap: 10, color: "rgba(255,255,255,0.84)", fontSize: 13 }}>
               <div><strong>订单号：</strong>{result.outTradeNo}</div>
@@ -164,43 +166,65 @@ function PaymentInterfaceTestPage({ channel }: { channel: Channel }) {
               <div><strong>金额：</strong>{(result.amountFen / 100).toFixed(2)} 元</div>
               <div><strong>状态：</strong>{result.status}</div>
               <div><strong>过期时间：</strong>{result.expireAt || "-"}</div>
-              <div><strong>二维码：</strong></div>
-              {result.qrCodeUrl ? (
-                <div
-                  style={{
-                    marginTop: 4,
-                    width: 224,
-                    backgroundColor: "#ffffff",
-                    borderRadius: 12,
-                    padding: 12,
-                  }}
-                >
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(result.qrCodeUrl)}`}
-                    alt="支付二维码"
-                    style={{ display: "block", width: "100%", height: "auto", borderRadius: 6 }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+              {channel === "WECHAT" ? (
+                <>
+                  <div><strong>二维码：</strong></div>
+                  {result.qrCodeUrl ? (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        width: 224,
+                        backgroundColor: "#ffffff",
+                        borderRadius: 12,
+                        padding: 12,
+                      }}
+                    >
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(result.qrCodeUrl)}`}
+                        alt="支付二维码"
+                        style={{ display: "block", width: "100%", height: "auto", borderRadius: 6 }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ color: "rgba(255,255,255,0.64)" }}>-</div>
+                  )}
+                  <div>
+                    <strong>二维码地址：</strong>
+                    {result.qrCodeUrl ? (
+                      <a
+                        href={result.qrCodeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "var(--apple-link-dark)", wordBreak: "break-all", marginLeft: 6 }}
+                      >
+                        查看原始地址
+                      </a>
+                    ) : (
+                      <span style={{ marginLeft: 6 }}>-</span>
+                    )}
+                  </div>
+                </>
               ) : (
-                <div style={{ color: "rgba(255,255,255,0.64)" }}>-</div>
+                <>
+                  <div>
+                    <strong>收银台地址：</strong>
+                    {result.payUrl ? (
+                      <a
+                        href={result.payUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "var(--apple-link-dark)", wordBreak: "break-all", marginLeft: 6 }}
+                      >
+                        打开支付页
+                      </a>
+                    ) : (
+                      <span style={{ marginLeft: 6 }}>-</span>
+                    )}
+                  </div>
+                </>
               )}
-              <div>
-                <strong>二维码地址：</strong>
-                {result.qrCodeUrl ? (
-                  <a
-                    href={result.qrCodeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: "var(--apple-link-dark)", wordBreak: "break-all", marginLeft: 6 }}
-                  >
-                    查看原始地址
-                  </a>
-                ) : (
-                  <span style={{ marginLeft: 6 }}>-</span>
-                )}
-              </div>
             </div>
           )}
         </div>

@@ -3,13 +3,13 @@ package com.pyisland.server.user.payment.service;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.domain.AlipayTradeCloseModel;
-import com.alipay.api.domain.AlipayTradePrecreateModel;
+import com.alipay.api.domain.AlipayTradePagePayModel;
 import com.alipay.api.domain.AlipayTradeQueryModel;
 import com.alipay.api.request.AlipayTradeCloseRequest;
-import com.alipay.api.request.AlipayTradePrecreateRequest;
+import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.alipay.api.request.AlipayTradeQueryRequest;
 import com.alipay.api.response.AlipayTradeCloseResponse;
-import com.alipay.api.response.AlipayTradePrecreateResponse;
+import com.alipay.api.response.AlipayTradePagePayResponse;
 import com.alipay.api.response.AlipayTradeQueryResponse;
 import com.pyisland.server.user.payment.config.AlipayProperties;
 import org.slf4j.Logger;
@@ -43,32 +43,38 @@ public class AlipaySdkClient {
         return properties.isConfigured();
     }
 
-    public PlaceOrderResult createPreOrder(String outTradeNo,
-                                           String description,
-                                           int amountFen) throws Exception {
+    public PlaceOrderResult createPageOrder(String outTradeNo,
+                                            String description,
+                                            int amountFen,
+                                            int timeoutMinutes) throws Exception {
         if (!isAvailable()) {
             throw new IllegalStateException("支付宝支付未启用或配置不完整");
         }
         AlipayClient client = buildClient();
-        AlipayTradePrecreateRequest request = new AlipayTradePrecreateRequest();
+        AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
         request.setNotifyUrl(properties.getNotifyUrl());
+        String returnUrl = properties.getReturnUrl();
+        if (returnUrl != null && !returnUrl.isBlank()) {
+            request.setReturnUrl(returnUrl);
+        }
 
-        AlipayTradePrecreateModel model = new AlipayTradePrecreateModel();
+        AlipayTradePagePayModel model = new AlipayTradePagePayModel();
         model.setOutTradeNo(outTradeNo);
         model.setSubject(description);
         model.setTotalAmount(toYuan(amountFen));
-        model.setTimeoutExpress("15m");
+        model.setProductCode("FAST_INSTANT_TRADE_PAY");
+        model.setTimeoutExpress(Math.max(5, timeoutMinutes) + "m");
         request.setBizModel(model);
 
-        AlipayTradePrecreateResponse response = client.execute(request);
+        AlipayTradePagePayResponse response = client.pageExecute(request, "GET");
         if (!response.isSuccess()) {
-            throw new IllegalStateException("支付宝下单失败: " + response.getSubMsg());
+            throw new IllegalStateException("支付宝下单失败: " + response.getSubCode() + " " + response.getSubMsg());
         }
-        String qrCode = response.getQrCode();
-        if (qrCode == null || qrCode.isBlank()) {
-            throw new IllegalStateException("支付宝下单未返回二维码");
+        String payUrl = response.getBody();
+        if (payUrl == null || payUrl.isBlank()) {
+            throw new IllegalStateException("支付宝下单未返回支付链接");
         }
-        return new PlaceOrderResult(null, qrCode);
+        return new PlaceOrderResult(null, payUrl);
     }
 
     public QueryResult queryOrder(String outTradeNo) throws Exception {
@@ -148,7 +154,7 @@ public class AlipaySdkClient {
         return date.toInstant().atOffset(ZoneOffset.ofHours(8));
     }
 
-    public record PlaceOrderResult(String tradeNo, String qrCode) {
+    public record PlaceOrderResult(String tradeNo, String payUrl) {
     }
 
     public record QueryResult(String tradeStatus, String tradeNo, OffsetDateTime successTime) {

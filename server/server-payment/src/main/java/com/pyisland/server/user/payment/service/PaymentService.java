@@ -130,13 +130,14 @@ public class PaymentService {
             String prepayId = null;
             String codeUrl;
             if (actualChannel == PaymentChannel.ALIPAY) {
-                AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPreOrder(
+                AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPageOrder(
                         outTradeNo,
                         "eIsland Pro 月付",
-                        proAmountFen
+                        proAmountFen,
+                        getOrderExpireMinutes(actualChannel)
                 );
                 prepayId = result.tradeNo();
-                codeUrl = result.qrCode();
+                codeUrl = result.payUrl();
             } else {
                 WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
                         outTradeNo,
@@ -193,13 +194,14 @@ public class PaymentService {
             String codeUrl;
             String normalizedSubject = subject == null || subject.isBlank() ? "eIsland 支付测试" : subject.trim();
             if (actualChannel == PaymentChannel.ALIPAY) {
-                AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPreOrder(
+                AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPageOrder(
                         outTradeNo,
                         normalizedSubject,
-                        amountFen
+                        amountFen,
+                        getOrderExpireMinutes(actualChannel)
                 );
                 prepayId = result.tradeNo();
-                codeUrl = result.qrCode();
+                codeUrl = result.payUrl();
             } else {
                 WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
                         outTradeNo,
@@ -494,6 +496,7 @@ public class PaymentService {
         data.put("status", order.getStatus());
         data.put("channel", resolveOrderChannel(order).name());
         data.put("qrCodeUrl", order.getWxCodeUrl());
+        data.put("payUrl", order.getWxCodeUrl());
         data.put("expireAt", order.getExpireAt() != null ? order.getExpireAt().toString() : null);
         data.put("paidAt", order.getPaidAt() != null ? order.getPaidAt().toString() : null);
         data.put("proExpireAt", user != null && user.getProExpireAt() != null ? user.getProExpireAt().toString() : null);
@@ -512,6 +515,7 @@ public class PaymentService {
         data.put("channel", resolveOrderChannel(order).name());
         data.put("wxPrepayId", order.getWxPrepayId());
         data.put("wxCodeUrl", order.getWxCodeUrl());
+        data.put("payUrl", order.getWxCodeUrl());
         data.put("wxTransactionId", order.getWxTransactionId());
         data.put("expireAt", order.getExpireAt() != null ? order.getExpireAt().toString() : null);
         data.put("paidAt", order.getPaidAt() != null ? order.getPaidAt().toString() : null);
