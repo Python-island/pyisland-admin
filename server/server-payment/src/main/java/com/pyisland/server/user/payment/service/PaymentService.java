@@ -308,6 +308,38 @@ public class PaymentService {
         return refreshOrderIfNeeded(order);
     }
 
+    public List<PaymentOrder> listUserOrders(String username, int limit) {
+        if (username == null || username.isBlank()) {
+            return Collections.emptyList();
+        }
+        int normalizedLimit = Math.max(1, Math.min(limit, 50));
+        List<PaymentOrder> orders = paymentOrderMapper.selectByUsername(username.trim(), normalizedLimit);
+        if (orders == null || orders.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<PaymentOrder> refreshed = new ArrayList<>(orders.size());
+        for (PaymentOrder order : orders) {
+            refreshed.add(refreshOrderIfNeeded(order));
+        }
+        return refreshed;
+    }
+
+    @Transactional
+    public boolean closeOrderForUser(String username, String outTradeNo) {
+        if (username == null || username.isBlank() || outTradeNo == null || outTradeNo.isBlank()) {
+            return false;
+        }
+        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo.trim());
+        if (order == null || !username.equals(order.getUsername()) || !PaymentOrder.STATUS_PAYING.equals(order.getStatus())) {
+            return false;
+        }
+        int updated = paymentOrderMapper.markClosed(order.getOutTradeNo(), LocalDateTime.now(), LocalDateTime.now());
+        if (updated > 0) {
+            releaseUserActiveOrder(order.getUsername(), order.getOutTradeNo());
+        }
+        return updated > 0;
+    }
+
     @Transactional
     public boolean adminCloseOrder(String outTradeNo) {
         if (outTradeNo == null || outTradeNo.isBlank()) {

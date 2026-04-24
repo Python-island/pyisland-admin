@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -113,6 +114,42 @@ public class UserPaymentController {
                 "code", 200,
                 "message", "success",
                 "data", paymentService.toOrderPayload(order, user)
+        ));
+    }
+
+    @GetMapping("/orders")
+    public ResponseEntity<?> listOrders(@RequestParam(value = "limit", required = false, defaultValue = "20") Integer limit,
+                                        Authentication authentication) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        int normalizedLimit = Math.max(1, Math.min(limit == null ? 20 : limit, 50));
+        User user = userService.getByUsername(caller);
+        List<Map<String, Object>> data = paymentService.listUserOrders(caller, normalizedLimit).stream()
+                .map((order) -> paymentService.toOrderPayload(order, user))
+                .toList();
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", data
+        ));
+    }
+
+    @PostMapping("/orders/{outTradeNo}/close")
+    public ResponseEntity<?> closeOrder(@PathVariable String outTradeNo,
+                                        Authentication authentication) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        boolean closed = paymentService.closeOrderForUser(caller, outTradeNo);
+        if (!closed) {
+            return ResponseEntity.status(400).body(Map.of("code", 400, "message", "订单关闭失败或不可关闭"));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success"
         ));
     }
 
