@@ -8,19 +8,27 @@
         <version>26.0.2</version>
     </parent>
 
-    <artifactId>server-upload</artifactId>
+    <artifactId>server-payment</artifactId>
     <packaging>jar</packaging>
-    <description>文件上传域：阿里云 OSS + Cloudflare R2 接入</description>
+    <description>支付域：微信/支付宝支付通道、订单服务与回调处理</description>
 
     <dependencies>
         <dependency>
             <groupId>com.pyisland</groupId>
             <artifactId>server-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.pyisland</groupId>
+            <artifactId>server-user</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -30,24 +38,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
-
         <dependency>
-            <groupId>com.aliyun.oss</groupId>
-            <artifactId>aliyun-sdk-oss</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -23,6 +23,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <aliyun.oss.version>3.17.4</aliyun.oss.version>
         <aws.s3.version>2.25.48</aws.s3.version>
+        <httpclient.version>4.5.13</httpclient.version>
         <spring.dotenv.version>4.0.0</spring.dotenv.version>
         <mybatis.spring.boot.version>4.0.1</mybatis.spring.boot.version>
     </properties>
@@ -30,6 +31,7 @@
     <modules>
         <module>server-common</module>
         <module>server-user</module>
+        <module>server-payment</module>
         <module>server-auth</module>
         <module>server-version</module>
         <module>server-service-status</module>
@@ -47,6 +49,11 @@
             <dependency>
                 <groupId>com.pyisland</groupId>
                 <artifactId>server-user</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.pyisland</groupId>
+                <artifactId>server-payment</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -98,6 +105,11 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>s3</artifactId>
                 <version>${aws.s3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
             </dependency>
             <dependency>
                 <groupId>me.paulschwarz</groupId>
