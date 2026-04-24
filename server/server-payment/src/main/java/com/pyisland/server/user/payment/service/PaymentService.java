@@ -53,6 +53,7 @@ public class PaymentService {
     private static final String REDIS_PRO_DESC_KEY = "payment:pricing:pro:desc";
     private static final String REDIS_PRO_FEATURES_KEY = "payment:pricing:pro:features";
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
+    private static final String REDIS_ORDER_RECEIPT_EMAIL_KEY_PREFIX = "payment:order:receipt-email:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
     private static final String REDIS_USER_ACTIVE_ORDER_KEY_PREFIX = "payment:user:active-order:";
     private static final String REDIS_ORDER_OP_LOCK_KEY_PREFIX = "payment:order:op-lock:";
@@ -126,6 +127,11 @@ public class PaymentService {
 
     @Transactional
     public PaymentOrder createProMonthOrder(String username, PaymentChannel channel) throws Exception {
+        return createProMonthOrder(username, channel, null);
+    }
+
+    @Transactional
+    public PaymentOrder createProMonthOrder(String username, PaymentChannel channel, String receiptEmail) throws Exception {
         PaymentChannel actualChannel = channel == null ? PaymentChannel.WECHAT : channel;
         int proAmountFen = getProMonthAmountFen();
         String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
@@ -178,6 +184,7 @@ public class PaymentService {
             paymentOrderMapper.insert(order);
             saveOrderChannel(outTradeNo, actualChannel);
             bindUserActiveOrder(username, outTradeNo, orderExpireMinutes);
+            bindOrderReceiptEmail(outTradeNo, receiptEmail, orderExpireMinutes);
             return order;
         } finally {
             String currentValue = paymentRedisTemplate.opsForValue().get(lockKey);
@@ -474,15 +481,15 @@ public class PaymentService {
     }
 
     private void trySendPaymentReceipt(PaymentChannel channel, PaymentOrder order, PaymentTransaction tx) {
-        if (order == null || tx == null || order.getUsername() == null || order.getUsername().isBlank()) {
+        if (order == null || tx == null || order.getOutTradeNo() == null || order.getOutTradeNo().isBlank()) {
             return;
         }
         if (!paymentReceiptEmailService.isEnabled()) {
             return;
         }
         try {
-            User user = userService.getByUsername(order.getUsername());
-            if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+            String receiptEmail = getOrderReceiptEmail(order.getOutTradeNo());
+            if (receiptEmail == null || receiptEmail.isBlank()) {
                 return;
             }
             rabbitTemplate.convertAndSend(
@@ -490,7 +497,7 @@ public class PaymentService {
                     PaymentMqConfig.PAYMENT_RECEIPT_ROUTING_KEY,
                     new PaymentReceiptDispatchMessage(
                             UUID.randomUUID().toString(),
-                            user.getEmail(),
+                            receiptEmail,
                             order.getOutTradeNo(),
                             channel == null ? "UNKNOWN" : channel.name(),
                             tx.getWxTransactionId(),
@@ -501,6 +508,7 @@ public class PaymentService {
                             order.getExpireAt()
                     )
             );
+            clearOrderReceiptEmail(order.getOutTradeNo());
         } catch (Exception ex) {
             log.warn("publish payment receipt message failed outTradeNo={} err={}", order.getOutTradeNo(), ex.getMessage());
         }
@@ -1148,6 +1156,44 @@ public class PaymentService {
                 30,
                 TimeUnit.DAYS
         );
+    }
+
+    private void bindOrderReceiptEmail(String outTradeNo, String receiptEmail, int orderExpireMinutes) {
+        String normalizedEmail = normalizeReceiptEmail(receiptEmail);
+        if (outTradeNo == null || outTradeNo.isBlank() || normalizedEmail == null) {
+            return;
+        }
+        paymentRedisTemplate.opsForValue().set(
+                REDIS_ORDER_RECEIPT_EMAIL_KEY_PREFIX + outTradeNo,
+                normalizedEmail,
+                Math.max(30, orderExpireMinutes + 60),
+                TimeUnit.MINUTES
+        );
+    }
+
+    private String getOrderReceiptEmail(String outTradeNo) {
+        if (outTradeNo == null || outTradeNo.isBlank()) {
+            return null;
+        }
+        return normalizeReceiptEmail(paymentRedisTemplate.opsForValue().get(REDIS_ORDER_RECEIPT_EMAIL_KEY_PREFIX + outTradeNo));
+    }
+
+    private void clearOrderReceiptEmail(String outTradeNo) {
+        if (outTradeNo == null || outTradeNo.isBlank()) {
+            return;
+        }
+        paymentRedisTemplate.delete(REDIS_ORDER_RECEIPT_EMAIL_KEY_PREFIX + outTradeNo);
+    }
+
+    private String normalizeReceiptEmail(String receiptEmail) {
+        if (receiptEmail == null) {
+            return null;
+        }
+        String normalizedEmail = receiptEmail.trim().toLowerCase();
+        if (normalizedEmail.isBlank()) {
+            return null;
+        }
+        return normalizedEmail;
     }
 
     private String acquireOrderOpLock(String outTradeNo) {

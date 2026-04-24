@@ -37,10 +37,14 @@ public class UserPaymentController {
 
     @PostMapping("/orders/pro-month")
     public ResponseEntity<?> createProMonthOrder(Authentication authentication,
-                                                 @RequestParam(value = "channel", required = false) String channel) {
+                                                 @RequestParam(value = "channel", required = false) String channel,
+                                                 @RequestParam("email") String email) {
         String caller = caller(authentication);
         if (caller == null) {
             return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "email 不能为空"));
         }
         PaymentChannel paymentChannel;
         if (channel == null || channel.isBlank()) {
@@ -56,7 +60,7 @@ public class UserPaymentController {
             }
         }
         try {
-            PaymentOrder order = paymentService.createProMonthOrder(caller, paymentChannel);
+            PaymentOrder order = paymentService.createProMonthOrder(caller, paymentChannel, email);
             User user = userService.getByUsername(caller);
             return ResponseEntity.ok(Map.of(
                     "code", 200,
