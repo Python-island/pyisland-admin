@@ -51,5 +51,10 @@
             <artifactId>alipay-sdk-java</artifactId>
             <version>4.38.0.ALL</version>
         </dependency>
+        <dependency>
+            <groupId>com.resend</groupId>
+            <artifactId>resend-java</artifactId>
+            <version>LATEST</version>
+        </dependency>
     </dependencies>
 </project>

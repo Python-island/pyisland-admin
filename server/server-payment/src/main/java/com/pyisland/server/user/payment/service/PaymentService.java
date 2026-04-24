@@ -2,6 +2,7 @@ package com.pyisland.server.user.payment.service;
 
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.payment.config.AlipayProperties;
+import com.pyisland.server.user.payment.config.PaymentMqConfig;
 import com.pyisland.server.user.payment.config.WechatPayProperties;
 import com.pyisland.server.user.payment.entity.PaymentDlqLog;
 import com.pyisland.server.user.payment.entity.PaymentNotifyLog;
@@ -13,7 +14,9 @@ import com.pyisland.server.user.payment.mapper.PaymentNotifyLogMapper;
 import com.pyisland.server.user.payment.mapper.PaymentOrderMapper;
 import com.pyisland.server.user.payment.mapper.PaymentPricingConfigMapper;
 import com.pyisland.server.user.payment.mapper.PaymentTransactionMapper;
+import com.pyisland.server.user.payment.mq.PaymentReceiptDispatchMessage;
 import com.pyisland.server.user.service.UserService;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
@@ -53,6 +56,7 @@ public class PaymentService {
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
     private static final String REDIS_USER_ACTIVE_ORDER_KEY_PREFIX = "payment:user:active-order:";
     private static final String REDIS_ORDER_OP_LOCK_KEY_PREFIX = "payment:order:op-lock:";
+    private static final String RECEIPT_DLQ_TRADE_STATE = "RECEIPT_EMAIL";
     private static final long ORDER_OP_LOCK_SECONDS = 15;
     private static final Long PRICING_CONFIG_SINGLETON_ID = 1L;
     private static final String DEFAULT_FREE_DESC = "基础功能可用，适合轻度日常使用。";
@@ -78,6 +82,8 @@ public class PaymentService {
     private final WechatPayProperties wechatProperties;
     private final AlipayProperties alipayProperties;
     private final UserService userService;
+    private final PaymentReceiptEmailService paymentReceiptEmailService;
+    private final RabbitTemplate rabbitTemplate;
     private final StringRedisTemplate paymentRedisTemplate;
     private volatile int proMonthAmountFen = DEFAULT_PRO_MONTH_AMOUNT_FEN;
     private volatile String freePlanDesc = DEFAULT_FREE_DESC;
@@ -95,6 +101,8 @@ public class PaymentService {
                           WechatPayProperties wechatProperties,
                           AlipayProperties alipayProperties,
                           UserService userService,
+                          PaymentReceiptEmailService paymentReceiptEmailService,
+                          RabbitTemplate rabbitTemplate,
                           @Qualifier("paymentRedisTemplate") StringRedisTemplate paymentRedisTemplate) {
         this.paymentOrderMapper = paymentOrderMapper;
         this.paymentPricingConfigMapper = paymentPricingConfigMapper;
@@ -106,6 +114,8 @@ public class PaymentService {
         this.wechatProperties = wechatProperties;
         this.alipayProperties = alipayProperties;
         this.userService = userService;
+        this.paymentReceiptEmailService = paymentReceiptEmailService;
+        this.rabbitTemplate = rabbitTemplate;
         this.paymentRedisTemplate = paymentRedisTemplate;
     }
 
@@ -455,10 +465,44 @@ public class PaymentService {
         if (PRODUCT_PRO_MONTH.equals(order.getProductCode())) {
             userService.grantProOneMonth(order.getUsername());
         }
+        trySendPaymentReceipt(actualChannel, order, tx);
         releaseUserActiveOrder(order.getUsername(), normalizedOutTradeNo);
         return true;
         } finally {
             releaseOrderOpLock(normalizedOutTradeNo, orderLockValue);
+        }
+    }
+
+    private void trySendPaymentReceipt(PaymentChannel channel, PaymentOrder order, PaymentTransaction tx) {
+        if (order == null || tx == null || order.getUsername() == null || order.getUsername().isBlank()) {
+            return;
+        }
+        if (!paymentReceiptEmailService.isEnabled()) {
+            return;
+        }
+        try {
+            User user = userService.getByUsername(order.getUsername());
+            if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+                return;
+            }
+            rabbitTemplate.convertAndSend(
+                    PaymentMqConfig.PAYMENT_NOTIFY_EXCHANGE,
+                    PaymentMqConfig.PAYMENT_RECEIPT_ROUTING_KEY,
+                    new PaymentReceiptDispatchMessage(
+                            UUID.randomUUID().toString(),
+                            user.getEmail(),
+                            order.getOutTradeNo(),
+                            channel == null ? "UNKNOWN" : channel.name(),
+                            tx.getWxTransactionId(),
+                            order.getAmountFen(),
+                            order.getCurrency(),
+                            order.getProductCode(),
+                            tx.getSuccessTime(),
+                            order.getExpireAt()
+                    )
+            );
+        } catch (Exception ex) {
+            log.warn("publish payment receipt message failed outTradeNo={} err={}", order.getOutTradeNo(), ex.getMessage());
         }
     }
 
@@ -502,6 +546,34 @@ public class PaymentService {
         String normalizedNotifyId = notifyId == null ? null : notifyId.trim();
         String normalizedOutTradeNo = outTradeNo == null ? null : outTradeNo.trim();
         return paymentDlqLogMapper.adminList(normalizedNotifyId, normalizedOutTradeNo, Math.max(1, Math.min(limit, 200)));
+    }
+
+    public List<PaymentDlqLog> adminListReceiptDlq(String traceId, String outTradeNo, int limit) {
+        String normalizedTraceId = traceId == null ? null : traceId.trim();
+        String normalizedOutTradeNo = outTradeNo == null ? null : outTradeNo.trim();
+        return paymentDlqLogMapper.adminListByTradeState(
+                normalizedTraceId,
+                normalizedOutTradeNo,
+                RECEIPT_DLQ_TRADE_STATE,
+                Math.max(1, Math.min(limit, 200))
+        );
+    }
+
+    @Transactional
+    public void logReceiptDlq(String traceId,
+                              String outTradeNo,
+                              int retryCount,
+                              String errorMessage,
+                              String rawBody) {
+        PaymentDlqLog logItem = new PaymentDlqLog();
+        logItem.setNotifyId(traceId);
+        logItem.setOutTradeNo(outTradeNo);
+        logItem.setTradeState(RECEIPT_DLQ_TRADE_STATE);
+        logItem.setRetryCount(Math.max(0, retryCount));
+        logItem.setErrorMessage(errorMessage);
+        logItem.setRawBody(rawBody);
+        logItem.setCreatedAt(LocalDateTime.now());
+        paymentDlqLogMapper.insert(logItem);
     }
 
     @Transactional

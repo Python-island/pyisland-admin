@@ -14,4 +14,9 @@ public interface PaymentDlqLogMapper {
     List<PaymentDlqLog> adminList(@Param("notifyId") String notifyId,
                                   @Param("outTradeNo") String outTradeNo,
                                   @Param("limit") int limit);
+
+    List<PaymentDlqLog> adminListByTradeState(@Param("notifyId") String notifyId,
+                                              @Param("outTradeNo") String outTradeNo,
+                                              @Param("tradeState") String tradeState,
+                                              @Param("limit") int limit);
 }

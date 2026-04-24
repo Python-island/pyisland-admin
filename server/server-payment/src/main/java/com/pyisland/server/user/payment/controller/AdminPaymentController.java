@@ -64,6 +64,14 @@ public class AdminPaymentController {
         return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", list));
     }
 
+    @GetMapping("/receipt-dlq")
+    public ResponseEntity<?> listReceiptDlq(@RequestParam(required = false) String traceId,
+                                            @RequestParam(required = false) String outTradeNo,
+                                            @RequestParam(defaultValue = "50") int limit) {
+        List<PaymentDlqLog> list = paymentService.adminListReceiptDlq(traceId, outTradeNo, limit);
+        return ResponseEntity.ok(Map.of("code", 200, "message", "success", "data", list));
+    }
+
     @PutMapping("/orders/refresh")
     public ResponseEntity<?> refreshOrder(@RequestBody OrderActionRequest request) {
         if (request == null || request.outTradeNo() == null || request.outTradeNo().isBlank()) {
