@@ -24,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -464,6 +465,17 @@ public class PaymentService {
         data.put("expireAt", order.getExpireAt() != null ? order.getExpireAt().toString() : null);
         data.put("paidAt", order.getPaidAt() != null ? order.getPaidAt().toString() : null);
         data.put("proExpireAt", user != null && user.getProExpireAt() != null ? user.getProExpireAt().toString() : null);
+        return data;
+    }
+
+    public Map<String, Object> getProMonthPricingPayload() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("productCode", PRODUCT_PRO_MONTH);
+        data.put("amountFen", PRO_MONTH_AMOUNT_FEN);
+        data.put("currency", "CNY");
+        data.put("billingCycle", "MONTH");
+        data.put("amountYuan", String.format(Locale.ROOT, "%.2f", PRO_MONTH_AMOUNT_FEN / 100.0));
+        data.put("subject", "eIsland Pro 月付");
         return data;
     }
 
