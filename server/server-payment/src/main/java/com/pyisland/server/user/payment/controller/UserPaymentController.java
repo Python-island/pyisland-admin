@@ -2,6 +2,7 @@ package com.pyisland.server.user.payment.controller;
 
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.payment.entity.PaymentOrder;
+import com.pyisland.server.user.payment.service.PaymentChannel;
 import com.pyisland.server.user.payment.service.PaymentService;
 import com.pyisland.server.user.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,13 +35,27 @@ public class UserPaymentController {
     }
 
     @PostMapping("/orders/pro-month")
-    public ResponseEntity<?> createProMonthOrder(Authentication authentication) {
+    public ResponseEntity<?> createProMonthOrder(Authentication authentication,
+                                                 @RequestParam(value = "channel", required = false) String channel) {
         String caller = caller(authentication);
         if (caller == null) {
             return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
         }
+        PaymentChannel paymentChannel;
+        if (channel == null || channel.isBlank()) {
+            paymentChannel = PaymentChannel.WECHAT;
+        } else {
+            try {
+                paymentChannel = PaymentChannel.valueOf(channel.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "code", 400,
+                        "message", "不支持的支付通道，仅支持 WECHAT 或 ALIPAY"
+                ));
+            }
+        }
         try {
-            PaymentOrder order = paymentService.createProMonthOrder(caller);
+            PaymentOrder order = paymentService.createProMonthOrder(caller, paymentChannel);
             User user = userService.getByUsername(caller);
             return ResponseEntity.ok(Map.of(
                     "code", 200,
