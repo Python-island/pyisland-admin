@@ -1,6 +1,7 @@
 package com.pyisland.server.user.payment.mq;
 
 import com.pyisland.server.user.payment.config.PaymentMqConfig;
+import com.pyisland.server.user.payment.service.PaymentChannel;
 import com.pyisland.server.user.payment.service.PaymentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,7 @@ public class PaymentNotifyConsumer {
 
         try {
             paymentService.completeOrderIfPending(
+                    PaymentChannel.from(message.channel()),
                     message.outTradeNo(),
                     message.transactionId(),
                     message.successTime(),
@@ -90,6 +92,7 @@ public class PaymentNotifyConsumer {
         String errorMessage = ex == null ? "unknown" : ex.getMessage();
         PaymentNotifyMessage failedMessage = new PaymentNotifyMessage(
                 message.notifyId(),
+                message.channel(),
                 message.outTradeNo(),
                 message.transactionId(),
                 message.tradeState(),

@@ -11,10 +11,14 @@ import org.springframework.stereotype.Component;
 public class AlipayProperties {
 
     private boolean enabled;
+    private String gatewayUrl = "https://openapi.alipay.com/gateway.do";
     private String appId;
     private String privateKeyPath;
     private String publicKeyPath;
     private String notifyUrl;
+    private String signType = "RSA2";
+    private String charset = "UTF-8";
+    private int queryPendingBatchSize = 100;
 
     public boolean isEnabled() {
         return enabled;
@@ -26,6 +30,14 @@ public class AlipayProperties {
 
     public String getAppId() {
         return appId;
+    }
+
+    public String getGatewayUrl() {
+        return gatewayUrl;
+    }
+
+    public void setGatewayUrl(String gatewayUrl) {
+        this.gatewayUrl = gatewayUrl;
     }
 
     public void setAppId(String appId) {
@@ -54,6 +66,30 @@ public class AlipayProperties {
 
     public void setNotifyUrl(String notifyUrl) {
         this.notifyUrl = notifyUrl;
+    }
+
+    public String getSignType() {
+        return signType;
+    }
+
+    public void setSignType(String signType) {
+        this.signType = signType;
+    }
+
+    public String getCharset() {
+        return charset;
+    }
+
+    public void setCharset(String charset) {
+        this.charset = charset;
+    }
+
+    public int getQueryPendingBatchSize() {
+        return queryPendingBatchSize;
+    }
+
+    public void setQueryPendingBatchSize(int queryPendingBatchSize) {
+        this.queryPendingBatchSize = queryPendingBatchSize;
     }
 
     public boolean isConfigured() {

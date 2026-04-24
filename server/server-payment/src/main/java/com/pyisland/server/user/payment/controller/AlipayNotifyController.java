@@ -2,46 +2,41 @@ package com.pyisland.server.user.payment.controller;
 
 import com.pyisland.server.user.payment.config.PaymentMqConfig;
 import com.pyisland.server.user.payment.mq.PaymentNotifyMessage;
+import com.pyisland.server.user.payment.service.AlipayNotifyService;
 import com.pyisland.server.user.payment.service.PaymentChannel;
 import com.pyisland.server.user.payment.service.PaymentService;
-import com.pyisland.server.user.payment.service.WechatPayNotifyService;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
 /**
- * 微信支付回调。
+ * 支付宝支付回调。
  */
 @RestController
-@RequestMapping("/v1/payment/wechat")
-public class WechatPayNotifyController {
+@RequestMapping("/v1/payment/alipay")
+public class AlipayNotifyController {
 
-    private final WechatPayNotifyService notifyService;
+    private final AlipayNotifyService notifyService;
     private final PaymentService paymentService;
     private final RabbitTemplate rabbitTemplate;
 
-    public WechatPayNotifyController(WechatPayNotifyService notifyService,
-                                     PaymentService paymentService,
-                                     RabbitTemplate rabbitTemplate) {
+    public AlipayNotifyController(AlipayNotifyService notifyService,
+                                  PaymentService paymentService,
+                                  RabbitTemplate rabbitTemplate) {
         this.notifyService = notifyService;
         this.paymentService = paymentService;
         this.rabbitTemplate = rabbitTemplate;
     }
 
     @PostMapping("/notify")
-    public ResponseEntity<?> notify(@RequestBody(required = false) String body,
-                                    @RequestHeader(value = "Wechatpay-Timestamp", required = false) String timestamp,
-                                    @RequestHeader(value = "Wechatpay-Nonce", required = false) String nonce,
-                                    @RequestHeader(value = "Wechatpay-Signature", required = false) String signature,
-                                    @RequestHeader(value = "Wechatpay-Serial", required = false) String serial) {
+    public ResponseEntity<String> notify(@RequestParam Map<String, String> params) {
         try {
-            WechatPayNotifyService.NotifyData notifyData = notifyService.parse(body, timestamp, nonce, signature, serial);
+            AlipayNotifyService.NotifyData notifyData = notifyService.parse(params);
             paymentService.logNotify(
                     notifyData.notifyId(),
                     notifyData.outTradeNo(),
@@ -56,7 +51,7 @@ public class WechatPayNotifyController {
                     PaymentMqConfig.PAYMENT_NOTIFY_ROUTING_KEY,
                     new PaymentNotifyMessage(
                             notifyData.notifyId(),
-                            PaymentChannel.WECHAT.name(),
+                            PaymentChannel.ALIPAY.name(),
                             notifyData.outTradeNo(),
                             notifyData.transactionId(),
                             notifyData.tradeState(),
@@ -65,10 +60,10 @@ public class WechatPayNotifyController {
                             notifyData.rawBody()
                     )
             );
-            return ResponseEntity.ok(Map.of("code", "SUCCESS", "message", "成功"));
+            return ResponseEntity.ok("success");
         } catch (Exception ex) {
-            paymentService.logNotify(null, null, "UNKNOWN", false, "FAILED", body == null ? "" : body);
-            return ResponseEntity.status(500).body(Map.of("code", "FAIL", "message", ex.getMessage()));
+            paymentService.logNotify(null, null, "UNKNOWN", false, "FAILED", params == null ? "{}" : params.toString());
+            return ResponseEntity.status(500).body("fail");
         }
     }
 }
