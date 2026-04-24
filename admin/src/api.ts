@@ -301,6 +301,10 @@ export interface PaymentConfigData {
   alipayCharset: string;
   alipayQueryPendingBatchSize: number;
   proMonthAmountFen: number;
+  freeDesc: string;
+  freeFeatures: string[];
+  proDesc: string;
+  proFeatures: string[];
   orderExpireMinutes: number;
   queryPendingBatchSize: number;
 }
@@ -364,6 +368,10 @@ export interface PaymentConfigUpdatePayload {
   alipayCharset?: string;
   alipayQueryPendingBatchSize?: number;
   proMonthAmountFen?: number;
+  freeDesc?: string;
+  freeFeatures?: string[];
+  proDesc?: string;
+  proFeatures?: string[];
   orderExpireMinutes?: number;
   queryPendingBatchSize?: number;
 }

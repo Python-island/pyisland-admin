@@ -151,6 +151,10 @@ public class AdminPaymentController {
                 Map.entry("alipayCharset", blankToEmpty(alipayProperties.getCharset())),
                 Map.entry("alipayQueryPendingBatchSize", alipayProperties.getQueryPendingBatchSize()),
                 Map.entry("proMonthAmountFen", paymentService.getProMonthAmountFen()),
+                Map.entry("freeDesc", paymentService.getFreePlanDesc()),
+                Map.entry("freeFeatures", paymentService.getFreePlanFeatures()),
+                Map.entry("proDesc", paymentService.getProPlanDesc()),
+                Map.entry("proFeatures", paymentService.getProPlanFeatures()),
                 Map.entry("orderExpireMinutes", wechatPayProperties.getOrderExpireMinutes()),
                 Map.entry("queryPendingBatchSize", wechatPayProperties.getQueryPendingBatchSize())
         );
@@ -245,6 +249,18 @@ public class AdminPaymentController {
         if (request.proMonthAmountFen() != null) {
             paymentService.setProMonthAmountFen(request.proMonthAmountFen());
         }
+        if (request.freeDesc() != null) {
+            paymentService.setFreePlanDesc(request.freeDesc());
+        }
+        if (request.proDesc() != null) {
+            paymentService.setProPlanDesc(request.proDesc());
+        }
+        if (request.freeFeatures() != null) {
+            paymentService.setFreePlanFeatures(request.freeFeatures());
+        }
+        if (request.proFeatures() != null) {
+            paymentService.setProPlanFeatures(request.proFeatures());
+        }
 
         return ResponseEntity.ok(Map.of("code", 200, "message", "支付配置已更新（仅当前运行实例生效）"));
     }
@@ -281,6 +297,10 @@ public class AdminPaymentController {
                                       String alipayCharset,
                                       Integer alipayQueryPendingBatchSize,
                                       Integer proMonthAmountFen,
+                                      String freeDesc,
+                                      List<String> freeFeatures,
+                                      String proDesc,
+                                      List<String> proFeatures,
                                       Integer orderExpireMinutes,
                                       Integer queryPendingBatchSize) {
     }

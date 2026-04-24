@@ -23,6 +23,10 @@ const inputStyle: React.CSSProperties = {
 
 export default function PaymentPricing() {
   const [proMonthAmountFen, setProMonthAmountFen] = useState(1500);
+  const [freeDesc, setFreeDesc] = useState("");
+  const [proDesc, setProDesc] = useState("");
+  const [freeFeaturesText, setFreeFeaturesText] = useState("");
+  const [proFeaturesText, setProFeaturesText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -33,6 +37,12 @@ export default function PaymentPricing() {
     setMsgType(type);
   };
 
+  const parseFeatures = (text: string): string[] =>
+    text
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter((item) => !!item);
+
   const fetchPricing = async () => {
     setLoading(true);
     try {
@@ -42,6 +52,10 @@ export default function PaymentPricing() {
         return;
       }
       setProMonthAmountFen(Math.max(1, Number(res.data.proMonthAmountFen) || 1500));
+      setFreeDesc(String(res.data.freeDesc || ""));
+      setProDesc(String(res.data.proDesc || ""));
+      setFreeFeaturesText(Array.isArray(res.data.freeFeatures) ? res.data.freeFeatures.join("\n") : "");
+      setProFeaturesText(Array.isArray(res.data.proFeatures) ? res.data.proFeatures.join("\n") : "");
     } catch {
       showMsg("加载定价配置失败", "err");
     } finally {
@@ -59,15 +73,35 @@ export default function PaymentPricing() {
       showMsg("Pro 月付价格（分）不能小于 1", "err");
       return;
     }
+    const normalizedFreeDesc = freeDesc.trim();
+    const normalizedProDesc = proDesc.trim();
+    const normalizedFreeFeatures = parseFeatures(freeFeaturesText);
+    const normalizedProFeatures = parseFeatures(proFeaturesText);
+    if (!normalizedFreeDesc || !normalizedProDesc) {
+      showMsg("Free/Pro 权益简介不能为空", "err");
+      return;
+    }
+    if (normalizedFreeFeatures.length === 0 || normalizedProFeatures.length === 0) {
+      showMsg("Free/Pro 权益列表至少保留一项", "err");
+      return;
+    }
 
     setSaving(true);
     try {
       const res = await paymentAdmin.updateConfig({
         proMonthAmountFen: normalizedFen,
+        freeDesc: normalizedFreeDesc,
+        proDesc: normalizedProDesc,
+        freeFeatures: normalizedFreeFeatures,
+        proFeatures: normalizedProFeatures,
       });
       if (res.code === 200) {
         showMsg(res.message || "定价保存成功", "ok");
         setProMonthAmountFen(normalizedFen);
+        setFreeDesc(normalizedFreeDesc);
+        setProDesc(normalizedProDesc);
+        setFreeFeaturesText(normalizedFreeFeatures.join("\n"));
+        setProFeaturesText(normalizedProFeatures.join("\n"));
       } else {
         showMsg(res.message || "定价保存失败", "err");
       }
@@ -102,7 +136,7 @@ export default function PaymentPricing() {
           marginBottom: 40,
         }}
       >
-        管理 Pro 月付价格，支付下单与客户端展示会同步使用
+        管理 Pro 月付价格与 Free/Pro 权益介绍，支付下单与客户端展示会同步使用
       </p>
 
       <MessageDialog visible={!!msg} type={msgType} message={msg} onClose={() => setMsg("")} />
@@ -177,6 +211,28 @@ export default function PaymentPricing() {
                 ¥{(Math.max(1, Number(proMonthAmountFen) || 0) / 100).toFixed(2)} / 月
               </span>
             </div>
+
+            <div style={{ gridColumn: "span 2", height: 1, backgroundColor: "rgba(255,255,255,0.08)", margin: "6px 0" }} />
+
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 15, fontWeight: 600, gridColumn: "span 2" }}>Free 权益</div>
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>Free 简介</div>
+              <textarea value={freeDesc} onChange={(e) => setFreeDesc(e.target.value)} rows={3} style={inputStyle} />
+            </label>
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>Free 权益列表（每行一条）</div>
+              <textarea value={freeFeaturesText} onChange={(e) => setFreeFeaturesText(e.target.value)} rows={5} style={inputStyle} />
+            </label>
+
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 15, fontWeight: 600, gridColumn: "span 2" }}>Pro 权益</div>
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>Pro 简介</div>
+              <textarea value={proDesc} onChange={(e) => setProDesc(e.target.value)} rows={3} style={inputStyle} />
+            </label>
+            <label style={{ color: "#fff", fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>Pro 权益列表（每行一条）</div>
+              <textarea value={proFeaturesText} onChange={(e) => setProFeaturesText(e.target.value)} rows={5} style={inputStyle} />
+            </label>
           </div>
         )}
 

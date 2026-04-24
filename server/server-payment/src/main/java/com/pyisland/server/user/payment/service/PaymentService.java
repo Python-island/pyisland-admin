@@ -22,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,8 +43,24 @@ public class PaymentService {
     public static final String PRODUCT_TEST_PAY = "TEST_PAY";
     public static final int DEFAULT_PRO_MONTH_AMOUNT_FEN = 1500;
     private static final String REDIS_PRO_MONTH_AMOUNT_FEN_KEY = "payment:pricing:pro-month:amount-fen";
+    private static final String REDIS_FREE_DESC_KEY = "payment:pricing:free:desc";
+    private static final String REDIS_FREE_FEATURES_KEY = "payment:pricing:free:features";
+    private static final String REDIS_PRO_DESC_KEY = "payment:pricing:pro:desc";
+    private static final String REDIS_PRO_FEATURES_KEY = "payment:pricing:pro:features";
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
+    private static final String DEFAULT_FREE_DESC = "基础功能可用，适合轻度日常使用。";
+    private static final String DEFAULT_PRO_DESC = "完整高级能力与持续更新支持。";
+    private static final List<String> DEFAULT_FREE_FEATURES = List.of(
+            "基础灵动岛组件",
+            "常规设置与个性化",
+            "社区公开内容浏览"
+    );
+    private static final List<String> DEFAULT_PRO_FEATURES = List.of(
+            "全部 Free 权益",
+            "Pro 专属功能与扩展",
+            "优先体验新功能"
+    );
 
     private final PaymentOrderMapper paymentOrderMapper;
     private final PaymentTransactionMapper paymentTransactionMapper;
@@ -54,6 +73,10 @@ public class PaymentService {
     private final UserService userService;
     private final StringRedisTemplate paymentRedisTemplate;
     private volatile int proMonthAmountFen = DEFAULT_PRO_MONTH_AMOUNT_FEN;
+    private volatile String freePlanDesc = DEFAULT_FREE_DESC;
+    private volatile String proPlanDesc = DEFAULT_PRO_DESC;
+    private volatile List<String> freePlanFeatures = DEFAULT_FREE_FEATURES;
+    private volatile List<String> proPlanFeatures = DEFAULT_PRO_FEATURES;
 
     public PaymentService(PaymentOrderMapper paymentOrderMapper,
                           PaymentTransactionMapper paymentTransactionMapper,
@@ -494,6 +517,10 @@ public class PaymentService {
 
     public Map<String, Object> getProMonthPricingPayload() {
         int amountFen = getProMonthAmountFen();
+        String freeDesc = getFreePlanDesc();
+        String proDesc = getProPlanDesc();
+        List<String> freeFeatures = getFreePlanFeatures();
+        List<String> proFeatures = getProPlanFeatures();
         Map<String, Object> data = new HashMap<>();
         data.put("productCode", PRODUCT_PRO_MONTH);
         data.put("amountFen", amountFen);
@@ -501,6 +528,10 @@ public class PaymentService {
         data.put("billingCycle", "MONTH");
         data.put("amountYuan", String.format(Locale.ROOT, "%.2f", amountFen / 100.0));
         data.put("subject", "eIsland Pro 月付");
+        data.put("freeDesc", freeDesc);
+        data.put("proDesc", proDesc);
+        data.put("freeFeatures", freeFeatures);
+        data.put("proFeatures", proFeatures);
         return data;
     }
 
@@ -533,6 +564,136 @@ public class PaymentService {
         } catch (Exception ex) {
             log.warn("write pro month pricing to redis failed amountFen={} err={}", normalizedAmount, ex.getMessage());
         }
+    }
+
+    public String getFreePlanDesc() {
+        return readTextWithCache(REDIS_FREE_DESC_KEY, freePlanDesc, DEFAULT_FREE_DESC, value -> freePlanDesc = value);
+    }
+
+    public String getProPlanDesc() {
+        return readTextWithCache(REDIS_PRO_DESC_KEY, proPlanDesc, DEFAULT_PRO_DESC, value -> proPlanDesc = value);
+    }
+
+    public List<String> getFreePlanFeatures() {
+        return readLinesWithCache(REDIS_FREE_FEATURES_KEY, freePlanFeatures, DEFAULT_FREE_FEATURES, value -> freePlanFeatures = value);
+    }
+
+    public List<String> getProPlanFeatures() {
+        return readLinesWithCache(REDIS_PRO_FEATURES_KEY, proPlanFeatures, DEFAULT_PRO_FEATURES, value -> proPlanFeatures = value);
+    }
+
+    public void setFreePlanDesc(String value) {
+        String normalized = normalizeText(value, DEFAULT_FREE_DESC);
+        freePlanDesc = normalized;
+        writeTextCache(REDIS_FREE_DESC_KEY, normalized);
+    }
+
+    public void setProPlanDesc(String value) {
+        String normalized = normalizeText(value, DEFAULT_PRO_DESC);
+        proPlanDesc = normalized;
+        writeTextCache(REDIS_PRO_DESC_KEY, normalized);
+    }
+
+    public void setFreePlanFeatures(List<String> features) {
+        List<String> normalized = normalizeFeatures(features, DEFAULT_FREE_FEATURES);
+        freePlanFeatures = normalized;
+        writeLinesCache(REDIS_FREE_FEATURES_KEY, normalized);
+    }
+
+    public void setProPlanFeatures(List<String> features) {
+        List<String> normalized = normalizeFeatures(features, DEFAULT_PRO_FEATURES);
+        proPlanFeatures = normalized;
+        writeLinesCache(REDIS_PRO_FEATURES_KEY, normalized);
+    }
+
+    private String readTextWithCache(String key,
+                                     String memoryValue,
+                                     String fallback,
+                                     java.util.function.Consumer<String> memoryUpdater) {
+        String normalizedFallback = normalizeText(memoryValue, fallback);
+        try {
+            String cached = paymentRedisTemplate.opsForValue().get(key);
+            if (cached == null || cached.isBlank()) {
+                paymentRedisTemplate.opsForValue().set(key, normalizedFallback);
+                return normalizedFallback;
+            }
+            String normalizedCached = normalizeText(cached, fallback);
+            if (!normalizedCached.equals(cached)) {
+                paymentRedisTemplate.opsForValue().set(key, normalizedCached);
+            }
+            memoryUpdater.accept(normalizedCached);
+            return normalizedCached;
+        } catch (Exception ex) {
+            log.warn("read pricing text cache failed key={} err={}", key, ex.getMessage());
+            return normalizedFallback;
+        }
+    }
+
+    private List<String> readLinesWithCache(String key,
+                                            List<String> memoryValue,
+                                            List<String> fallback,
+                                            java.util.function.Consumer<List<String>> memoryUpdater) {
+        List<String> normalizedFallback = normalizeFeatures(memoryValue, fallback);
+        try {
+            String cached = paymentRedisTemplate.opsForValue().get(key);
+            if (cached == null || cached.isBlank()) {
+                paymentRedisTemplate.opsForValue().set(key, String.join("\n", normalizedFallback));
+                return normalizedFallback;
+            }
+            List<String> normalizedCached = normalizeFeatures(Arrays.asList(cached.split("\\r?\\n")), fallback);
+            String normalizedCachedText = String.join("\n", normalizedCached);
+            if (!normalizedCachedText.equals(cached)) {
+                paymentRedisTemplate.opsForValue().set(key, normalizedCachedText);
+            }
+            memoryUpdater.accept(normalizedCached);
+            return normalizedCached;
+        } catch (Exception ex) {
+            log.warn("read pricing features cache failed key={} err={}", key, ex.getMessage());
+            return normalizedFallback;
+        }
+    }
+
+    private void writeTextCache(String key, String value) {
+        try {
+            paymentRedisTemplate.opsForValue().set(key, value);
+        } catch (Exception ex) {
+            log.warn("write pricing text cache failed key={} err={}", key, ex.getMessage());
+        }
+    }
+
+    private void writeLinesCache(String key, List<String> value) {
+        try {
+            paymentRedisTemplate.opsForValue().set(key, String.join("\n", value));
+        } catch (Exception ex) {
+            log.warn("write pricing features cache failed key={} err={}", key, ex.getMessage());
+        }
+    }
+
+    private String normalizeText(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value.trim();
+    }
+
+    private List<String> normalizeFeatures(List<String> features, List<String> fallback) {
+        if (features == null) {
+            return fallback;
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String item : features) {
+            if (item == null) {
+                continue;
+            }
+            String trimmed = item.trim();
+            if (!trimmed.isBlank()) {
+                normalized.add(trimmed);
+            }
+        }
+        if (normalized.isEmpty()) {
+            return fallback;
+        }
+        return Collections.unmodifiableList(normalized);
     }
 
     private int getOrderExpireMinutes(PaymentChannel channel) {
