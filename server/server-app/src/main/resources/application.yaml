@@ -146,3 +146,7 @@ mybatis:
   type-aliases-package: com.pyisland.server.user.entity,com.pyisland.server.version.entity,com.pyisland.server.servicestatus.entity
   configuration:
     map-underscore-to-camel-case: true
+
+logging:
+  level:
+    sdk.biz.err: OFF

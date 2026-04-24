@@ -52,6 +52,8 @@ public class PaymentService {
     private static final String REDIS_ORDER_CHANNEL_KEY_PREFIX = "payment:order:channel:";
     private static final String REDIS_NOTIFY_DONE_KEY_PREFIX = "payment:notify:done:";
     private static final String REDIS_USER_ACTIVE_ORDER_KEY_PREFIX = "payment:user:active-order:";
+    private static final String REDIS_ORDER_OP_LOCK_KEY_PREFIX = "payment:order:op-lock:";
+    private static final long ORDER_OP_LOCK_SECONDS = 15;
     private static final Long PRICING_CONFIG_SINGLETON_ID = 1L;
     private static final String DEFAULT_FREE_DESC = "基础功能可用，适合轻度日常使用。";
     private static final String DEFAULT_PRO_DESC = "完整高级能力与持续更新支持。";
@@ -344,15 +346,33 @@ public class PaymentService {
         if (username == null || username.isBlank() || outTradeNo == null || outTradeNo.isBlank()) {
             return false;
         }
-        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo.trim());
-        if (order == null || !username.equals(order.getUsername()) || !PaymentOrder.STATUS_PAYING.equals(order.getStatus())) {
+        String normalizedOutTradeNo = outTradeNo.trim();
+        String orderLockValue = acquireOrderOpLock(normalizedOutTradeNo);
+        if (orderLockValue == null) {
             return false;
         }
-        int updated = paymentOrderMapper.markClosed(order.getOutTradeNo(), LocalDateTime.now(), LocalDateTime.now());
-        if (updated > 0) {
-            releaseUserActiveOrder(order.getUsername(), order.getOutTradeNo());
+        try {
+            PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(normalizedOutTradeNo);
+            if (order == null || !username.equals(order.getUsername()) || !PaymentOrder.STATUS_PAYING.equals(order.getStatus())) {
+                return false;
+            }
+            PaymentChannel channel = resolveOrderChannel(order);
+            if (channel == PaymentChannel.ALIPAY) {
+                AlipaySdkClient.CloseResult closeResult = alipaySdkClient.closeOrder(order.getOutTradeNo());
+                if (!closeResult.success() && !closeResult.tradeNotExist()) {
+                    return false;
+                }
+            } else {
+                wechatPayClient.closeOrder(order.getOutTradeNo());
+            }
+            int updated = paymentOrderMapper.markClosed(order.getOutTradeNo(), LocalDateTime.now(), LocalDateTime.now());
+            if (updated > 0) {
+                releaseUserActiveOrder(order.getUsername(), order.getOutTradeNo());
+            }
+            return updated > 0;
+        } finally {
+            releaseOrderOpLock(normalizedOutTradeNo, orderLockValue);
         }
-        return updated > 0;
     }
 
     @Transactional
@@ -360,21 +380,30 @@ public class PaymentService {
         if (outTradeNo == null || outTradeNo.isBlank()) {
             return false;
         }
-        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo.trim());
-        if (order == null || !PaymentOrder.STATUS_PAYING.equals(order.getStatus())) {
+        String normalizedOutTradeNo = outTradeNo.trim();
+        String orderLockValue = acquireOrderOpLock(normalizedOutTradeNo);
+        if (orderLockValue == null) {
             return false;
         }
-        PaymentChannel channel = resolveOrderChannel(order);
-        if (channel == PaymentChannel.ALIPAY) {
-            alipaySdkClient.closeOrder(order.getOutTradeNo());
-        } else {
-            wechatPayClient.closeOrder(order.getOutTradeNo());
+        try {
+            PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(normalizedOutTradeNo);
+            if (order == null || !PaymentOrder.STATUS_PAYING.equals(order.getStatus())) {
+                return false;
+            }
+            PaymentChannel channel = resolveOrderChannel(order);
+            if (channel == PaymentChannel.ALIPAY) {
+                alipaySdkClient.cancelOrder(order.getOutTradeNo());
+            } else {
+                wechatPayClient.closeOrder(order.getOutTradeNo());
+            }
+            int updated = paymentOrderMapper.markClosed(order.getOutTradeNo(), LocalDateTime.now(), LocalDateTime.now());
+            if (updated > 0) {
+                releaseUserActiveOrder(order.getUsername(), order.getOutTradeNo());
+            }
+            return updated > 0;
+        } finally {
+            releaseOrderOpLock(normalizedOutTradeNo, orderLockValue);
         }
-        int updated = paymentOrderMapper.markClosed(order.getOutTradeNo(), LocalDateTime.now(), LocalDateTime.now());
-        if (updated > 0) {
-            releaseUserActiveOrder(order.getUsername(), order.getOutTradeNo());
-        }
-        return updated > 0;
     }
 
     @Transactional
@@ -384,9 +413,18 @@ public class PaymentService {
                                           OffsetDateTime paidAt,
                                           String tradeState,
                                           String rawJson) {
+        if (outTradeNo == null || outTradeNo.isBlank()) {
+            return false;
+        }
+        String normalizedOutTradeNo = outTradeNo.trim();
+        String orderLockValue = acquireOrderOpLock(normalizedOutTradeNo);
+        if (orderLockValue == null) {
+            return false;
+        }
+        try {
         PaymentChannel actualChannel = channel == null ? PaymentChannel.WECHAT : channel;
         String dedupTransactionId = wxTransactionId == null || wxTransactionId.isBlank() ? outTradeNo : wxTransactionId;
-        String notifyDoneKey = REDIS_NOTIFY_DONE_KEY_PREFIX + actualChannel.name().toLowerCase() + ":" + outTradeNo + ":" + dedupTransactionId;
+        String notifyDoneKey = REDIS_NOTIFY_DONE_KEY_PREFIX + actualChannel.name().toLowerCase() + ":" + normalizedOutTradeNo + ":" + dedupTransactionId;
         Boolean firstDone = paymentRedisTemplate.opsForValue().setIfAbsent(notifyDoneKey, "1", 30, TimeUnit.DAYS);
         if (!Boolean.TRUE.equals(firstDone)) {
             return false;
@@ -395,18 +433,18 @@ public class PaymentService {
         LocalDateTime paidTime = paidAt == null
                 ? LocalDateTime.now()
                 : paidAt.withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDateTime();
-        int updated = paymentOrderMapper.markSuccess(outTradeNo, wxTransactionId, paidTime, LocalDateTime.now());
+        int updated = paymentOrderMapper.markSuccess(normalizedOutTradeNo, wxTransactionId, paidTime, LocalDateTime.now());
         if (updated <= 0) {
             return false;
         }
-        saveOrderChannel(outTradeNo, actualChannel);
-        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(outTradeNo);
+        saveOrderChannel(normalizedOutTradeNo, actualChannel);
+        PaymentOrder order = paymentOrderMapper.selectByOutTradeNo(normalizedOutTradeNo);
         if (order == null) {
             return false;
         }
 
         PaymentTransaction tx = new PaymentTransaction();
-        tx.setOutTradeNo(outTradeNo);
+        tx.setOutTradeNo(normalizedOutTradeNo);
         tx.setWxTransactionId(wxTransactionId == null ? outTradeNo : wxTransactionId);
         tx.setTradeState(tradeState == null ? "SUCCESS" : tradeState);
         tx.setSuccessTime(paidTime);
@@ -417,8 +455,11 @@ public class PaymentService {
         if (PRODUCT_PRO_MONTH.equals(order.getProductCode())) {
             userService.grantProOneMonth(order.getUsername());
         }
-        releaseUserActiveOrder(order.getUsername(), outTradeNo);
+        releaseUserActiveOrder(order.getUsername(), normalizedOutTradeNo);
         return true;
+        } finally {
+            releaseOrderOpLock(normalizedOutTradeNo, orderLockValue);
+        }
     }
 
     @Transactional
@@ -470,7 +511,10 @@ public class PaymentService {
         for (PaymentOrder order : list) {
             PaymentChannel channel = resolveOrderChannel(order);
             if (channel == PaymentChannel.ALIPAY) {
-                alipaySdkClient.closeOrder(order.getOutTradeNo());
+                AlipaySdkClient.CloseResult closeResult = alipaySdkClient.closeOrder(order.getOutTradeNo());
+                if (!closeResult.success() && !closeResult.tradeNotExist()) {
+                    continue;
+                }
             } else {
                 wechatPayClient.closeOrder(order.getOutTradeNo());
             }
@@ -1032,5 +1076,36 @@ public class PaymentService {
                 30,
                 TimeUnit.DAYS
         );
+    }
+
+    private String acquireOrderOpLock(String outTradeNo) {
+        if (outTradeNo == null || outTradeNo.isBlank()) {
+            return null;
+        }
+        String normalizedOutTradeNo = outTradeNo.trim();
+        String lockKey = REDIS_ORDER_OP_LOCK_KEY_PREFIX + normalizedOutTradeNo;
+        String lockValue = UUID.randomUUID().toString();
+        Boolean locked = paymentRedisTemplate.opsForValue().setIfAbsent(
+                lockKey,
+                lockValue,
+                ORDER_OP_LOCK_SECONDS,
+                TimeUnit.SECONDS
+        );
+        if (!Boolean.TRUE.equals(locked)) {
+            return null;
+        }
+        return lockValue;
+    }
+
+    private void releaseOrderOpLock(String outTradeNo, String lockValue) {
+        if (outTradeNo == null || outTradeNo.isBlank() || lockValue == null || lockValue.isBlank()) {
+            return;
+        }
+        String normalizedOutTradeNo = outTradeNo.trim();
+        String lockKey = REDIS_ORDER_OP_LOCK_KEY_PREFIX + normalizedOutTradeNo;
+        String currentValue = paymentRedisTemplate.opsForValue().get(lockKey);
+        if (lockValue.equals(currentValue)) {
+            paymentRedisTemplate.delete(lockKey);
+        }
     }
 }

@@ -2,12 +2,15 @@ package com.pyisland.server.user.payment.service;
 
 import com.alipay.api.AlipayClient;
 import com.alipay.api.DefaultAlipayClient;
+import com.alipay.api.domain.AlipayTradeCancelModel;
 import com.alipay.api.domain.AlipayTradeCloseModel;
 import com.alipay.api.domain.AlipayTradePagePayModel;
 import com.alipay.api.domain.AlipayTradeQueryModel;
+import com.alipay.api.request.AlipayTradeCancelRequest;
 import com.alipay.api.request.AlipayTradeCloseRequest;
 import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.alipay.api.request.AlipayTradeQueryRequest;
+import com.alipay.api.response.AlipayTradeCancelResponse;
 import com.alipay.api.response.AlipayTradeCloseResponse;
 import com.alipay.api.response.AlipayTradePagePayResponse;
 import com.alipay.api.response.AlipayTradeQueryResponse;
@@ -22,7 +25,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
 /**
@@ -58,12 +64,18 @@ public class AlipaySdkClient {
             request.setReturnUrl(returnUrl);
         }
 
+        int effectiveMinutes = Math.max(5, timeoutMinutes);
         AlipayTradePagePayModel model = new AlipayTradePagePayModel();
         model.setOutTradeNo(outTradeNo);
         model.setSubject(description);
         model.setTotalAmount(toYuan(amountFen));
         model.setProductCode("FAST_INSTANT_TRADE_PAY");
-        model.setTimeoutExpress(Math.max(5, timeoutMinutes) + "m");
+        model.setTimeoutExpress(effectiveMinutes + "m");
+        // 下发绝对过期时间，防止支付宝侧在未创建交易前以旧二维码继续收款
+        String timeExpire = ZonedDateTime.now(ZoneId.of("Asia/Shanghai"))
+                .plusMinutes(effectiveMinutes)
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        model.setTimeExpire(timeExpire);
         request.setBizModel(model);
 
         AlipayTradePagePayResponse response = client.pageExecute(request, "GET");
@@ -90,14 +102,17 @@ public class AlipaySdkClient {
 
         AlipayTradeQueryResponse response = client.execute(request);
         if (!response.isSuccess()) {
+            if (isTradeNotExist(response.getSubCode())) {
+                return QueryResult.notFound();
+            }
             throw new IllegalStateException("支付宝查单失败: " + response.getSubMsg());
         }
         return new QueryResult(response.getTradeStatus(), response.getTradeNo(), toOffsetDateTime(response.getSendPayDate()));
     }
 
-    public void closeOrder(String outTradeNo) {
+    public CloseResult closeOrder(String outTradeNo) {
         if (!isAvailable()) {
-            return;
+            return CloseResult.failed("ALIPAY_UNAVAILABLE", "支付宝支付未启用或配置不完整");
         }
         try {
             AlipayClient client = buildClient();
@@ -109,10 +124,38 @@ public class AlipaySdkClient {
 
             AlipayTradeCloseResponse response = client.execute(request);
             if (!response.isSuccess()) {
-                log.warn("alipay close order failed outTradeNo={} subCode={} subMsg={}", outTradeNo, response.getSubCode(), response.getSubMsg());
+                if (isTradeNotExist(response.getSubCode())) {
+                    log.info("alipay close order trade not exist outTradeNo={} subCode={} subMsg={}", outTradeNo, response.getSubCode(), response.getSubMsg());
+                } else {
+                    log.warn("alipay close order failed outTradeNo={} subCode={} subMsg={}", outTradeNo, response.getSubCode(), response.getSubMsg());
+                }
+                return CloseResult.failed(response.getSubCode(), response.getSubMsg());
             }
+            return CloseResult.ok();
         } catch (Exception ex) {
             log.warn("alipay close order exception outTradeNo={} err={}", outTradeNo, ex.getMessage());
+            return CloseResult.failed("ALIPAY_CLOSE_EXCEPTION", ex.getMessage());
+        }
+    }
+
+    public void cancelOrder(String outTradeNo) {
+        if (!isAvailable()) {
+            return;
+        }
+        try {
+            AlipayClient client = buildClient();
+            AlipayTradeCancelRequest request = new AlipayTradeCancelRequest();
+
+            AlipayTradeCancelModel model = new AlipayTradeCancelModel();
+            model.setOutTradeNo(outTradeNo);
+            request.setBizModel(model);
+
+            AlipayTradeCancelResponse response = client.execute(request);
+            if (!response.isSuccess()) {
+                log.warn("alipay cancel order failed outTradeNo={} subCode={} subMsg={}", outTradeNo, response.getSubCode(), response.getSubMsg());
+            }
+        } catch (Exception ex) {
+            log.warn("alipay cancel order exception outTradeNo={} err={}", outTradeNo, ex.getMessage());
         }
     }
 
@@ -154,6 +197,10 @@ public class AlipaySdkClient {
         return date.toInstant().atOffset(ZoneOffset.ofHours(8));
     }
 
+    private boolean isTradeNotExist(String subCode) {
+        return "ACQ.TRADE_NOT_EXIST".equalsIgnoreCase(subCode);
+    }
+
     public record PlaceOrderResult(String tradeNo, String payUrl) {
     }
 
@@ -162,12 +209,34 @@ public class AlipaySdkClient {
             return new QueryResult("UNKNOWN", null, null);
         }
 
+        public static QueryResult notFound() {
+            return new QueryResult("NOT_FOUND", null, null);
+        }
+
+        public boolean isNotFound() {
+            return "NOT_FOUND".equalsIgnoreCase(tradeStatus);
+        }
+
         public boolean success() {
             return "TRADE_SUCCESS".equalsIgnoreCase(tradeStatus) || "TRADE_FINISHED".equalsIgnoreCase(tradeStatus);
         }
 
         public boolean shouldClose() {
             return "TRADE_CLOSED".equalsIgnoreCase(tradeStatus);
+        }
+    }
+
+    public record CloseResult(boolean success, String subCode, String subMsg) {
+        public static CloseResult ok() {
+            return new CloseResult(true, null, null);
+        }
+
+        public static CloseResult failed(String subCode, String subMsg) {
+            return new CloseResult(false, subCode, subMsg);
+        }
+
+        public boolean tradeNotExist() {
+            return "ACQ.TRADE_NOT_EXIST".equalsIgnoreCase(subCode);
         }
     }
 }
