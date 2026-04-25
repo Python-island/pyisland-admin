@@ -27,9 +27,10 @@ public class ObjectOutboxRelayService {
 
     private static final Logger log = LoggerFactory.getLogger(ObjectOutboxRelayService.class);
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final ObjectOutboxMapper objectOutboxMapper;
     private final RabbitTemplate rabbitTemplate;
-    private final ObjectMapper objectMapper;
     private final boolean replicationEnabled;
     private final boolean outboxRelayEnabled;
     private final int relayBatchSize;
@@ -39,7 +40,6 @@ public class ObjectOutboxRelayService {
 
     public ObjectOutboxRelayService(ObjectOutboxMapper objectOutboxMapper,
                                     RabbitTemplate rabbitTemplate,
-                                    ObjectMapper objectMapper,
                                     @Value("${object-replication.enabled:true}") boolean replicationEnabled,
                                     @Value("${object-replication.outbox-relay-enabled:true}") boolean outboxRelayEnabled,
                                     @Value("${object-replication.outbox-relay-batch-size:100}") int relayBatchSize,
@@ -47,7 +47,6 @@ public class ObjectOutboxRelayService {
                                     @Value("${object-replication.retry-delay-ms:15000}") long retryDelayMs) {
         this.objectOutboxMapper = objectOutboxMapper;
         this.rabbitTemplate = rabbitTemplate;
-        this.objectMapper = objectMapper;
         this.replicationEnabled = replicationEnabled;
         this.outboxRelayEnabled = outboxRelayEnabled;
         this.relayBatchSize = Math.max(1, relayBatchSize);
@@ -138,7 +137,7 @@ public class ObjectOutboxRelayService {
     }
 
     private ObjectOutboxEventPayload parsePayload(String payloadJson) throws Exception {
-        return objectMapper.readValue(payloadJson, ObjectOutboxEventPayload.class);
+        return OBJECT_MAPPER.readValue(payloadJson, ObjectOutboxEventPayload.class);
     }
 
     private int normalizePriority(Integer value) {

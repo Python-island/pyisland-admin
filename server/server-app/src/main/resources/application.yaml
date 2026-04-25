@@ -55,8 +55,8 @@ aliyun:
       endpoint: ${OSS_ADMIN_AVATAR_ENDPOINT}
       access-key-id: ${OSS_ADMIN_AVATAR_ACCESS_KEY_ID}
       access-key-secret: ${OSS_ADMIN_AVATAR_ACCESS_KEY_SECRET}
-      bucket-name: ${OSS_ADMIN_AVATAR_BUCKET_NAME:pyisland-avatars}
-      domain: ${OSS_ADMIN_AVATAR_DOMAIN:}
+      bucket-name: ${OSS_ADMIN_AVATAR_BUCKET_NAME}
+      domain: ${OSS_ADMIN_AVATAR_DOMAIN}
     avatar:
       endpoint: ${OSS_AVATAR_ENDPOINT}
       access-key-id: ${OSS_AVATAR_ACCESS_KEY_ID}
