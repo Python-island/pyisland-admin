@@ -11,10 +11,12 @@ import {
   adminUsers,
   appUsers,
   apiStatus,
+  weatherAdmin,
   wallpaperAdmin,
   issueFeedbackAdmin,
   type AppVersion,
   type DailyActiveStats,
+  type WeatherQuotaStatus,
 } from "../api";
 
 const headingStyle: React.CSSProperties = {
@@ -41,12 +43,13 @@ export default function Overview() {
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
   const [pendingFeedbackCount, setPendingFeedbackCount] = useState(0);
   const [dailyActive, setDailyActive] = useState<DailyActiveStats>({ today: 0, days: 7, series: [] });
+  const [weatherQuota, setWeatherQuota] = useState<WeatherQuotaStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, adminRes, userRes, userListRes, sRes, dauRes, reviewRes, feedbackRes] = await Promise.all([
+        const [vRes, adminRes, userRes, userListRes, sRes, dauRes, reviewRes, feedbackRes, weatherQuotaRes] = await Promise.all([
           version.list(),
           adminUsers.count(),
           appUsers.count(),
@@ -55,6 +58,7 @@ export default function Overview() {
           appUsers.dailyActive(7),
           wallpaperAdmin.list({ status: "pending", page: 1, pageSize: 1000 }),
           issueFeedbackAdmin.list({ status: "pending", page: 1, pageSize: 1 }),
+          weatherAdmin.quota(),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
         if (adminRes.code === 200 && adminRes.data !== undefined) setAdminCount(adminRes.data);
@@ -74,6 +78,9 @@ export default function Overview() {
         }
         if (feedbackRes.code === 200 && feedbackRes.data) {
           setPendingFeedbackCount(Number(feedbackRes.data.total || 0));
+        }
+        if (weatherQuotaRes.code === 200 && weatherQuotaRes.data) {
+          setWeatherQuota(weatherQuotaRes.data);
         }
       } catch {
         /* ignore */
@@ -128,6 +135,18 @@ export default function Overview() {
         <ApiStatusCard available={apiAvailable} unavailable={apiUnavailable} />
         <TodoPendingCard pendingReviewCount={pendingReviewCount} pendingFeedbackCount={pendingFeedbackCount} />
         <VersionUpdateCard versions={versions} />
+      </div>
+
+      <h2 style={headingStyle}>接口一览</h2>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+          gap: 16,
+          marginBottom: 40,
+        }}
+      >
+        <ApiOverviewCard weatherQuota={weatherQuota} />
       </div>
 
       {/* Version list */}
@@ -214,6 +233,82 @@ export default function Overview() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ApiOverviewCard({ weatherQuota }: { weatherQuota: WeatherQuotaStatus | null }) {
+  const used = weatherQuota?.used ?? 0;
+  const limit = weatherQuota?.limit ?? 50000;
+  const remaining = weatherQuota?.remaining ?? Math.max(0, limit - used);
+  const month = weatherQuota?.month ?? "-";
+  const fused = Boolean(weatherQuota?.fused);
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--apple-surface-1)",
+        borderRadius: 12,
+        padding: "24px 28px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          lineHeight: 1.33,
+          letterSpacing: "-0.12px",
+          color: "rgba(255,255,255,0.48)",
+          textTransform: "uppercase",
+          marginBottom: 16,
+        }}
+      >
+        和风天气接口（本月）
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: fused ? "#ff453a" : "#ffffff",
+            }}
+          >
+            {used}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            调用次数
+          </div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 24,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "var(--apple-link-dark)",
+            }}
+          >
+            {remaining}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            剩余 / {limit}
+          </div>
+        </div>
+      </div>
+      <div
+        style={{
+          marginTop: 12,
+          fontSize: 12,
+          color: fused ? "#ff9f94" : "rgba(255,255,255,0.48)",
+        }}
+      >
+        {month} {fused ? "· 已熔断" : "· 正常"}
+      </div>
     </div>
   );
 }

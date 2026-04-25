@@ -178,6 +178,15 @@ export interface ApiStatus {
   updatedAt: string;
 }
 
+export interface WeatherQuotaStatus {
+  provider: string;
+  month: string;
+  limit: number;
+  used: number;
+  remaining: number;
+  fused: boolean;
+}
+
 export interface WallpaperAdminItem {
   id: number;
   ownerUsername: string;
@@ -759,6 +768,12 @@ export const emailAdmin = {
     return request<ApiResponse<EmailDlqAdminItem[]>>(
       `/v1/admin/email/notify-dlq${qs ? `?${qs}` : ""}`
     );
+  },
+};
+
+export const weatherAdmin = {
+  quota() {
+    return request<ApiResponse<WeatherQuotaStatus>>("/v1/admin/weather/quota");
   },
 };
 
