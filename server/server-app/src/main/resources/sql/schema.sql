@@ -742,3 +742,14 @@ CREATE TABLE IF NOT EXISTS object_outbox (
     KEY idx_object_outbox_status_retry (status, next_retry_at),
     KEY idx_object_outbox_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS object_replication_checkpoint (
+    checkpoint_key  VARCHAR(80) PRIMARY KEY,
+    last_id         BIGINT NOT NULL DEFAULT 0,
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+    last_error      VARCHAR(500),
+    done_at         DATETIME,
+    created_at      DATETIME NOT NULL,
+    updated_at      DATETIME NOT NULL,
+    KEY idx_object_replication_checkpoint_status_updated (status, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.upload.mapper.ObjectReplicationCheckpointMapper">
+
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO object_replication_checkpoint
+        (
+            checkpoint_key,
+            last_id,
+            status,
+            last_error,
+            done_at,
+            created_at,
+            updated_at
+        )
+        VALUES
+        (
+            #{checkpointKey},
+            #{lastId},
+            #{status},
+            #{lastError},
+            #{doneAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="selectByKey" resultType="map">
+        SELECT checkpoint_key AS checkpointKey,
+               last_id AS lastId,
+               status,
+               last_error AS lastError,
+               done_at AS doneAt,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM object_replication_checkpoint
+        WHERE checkpoint_key = #{checkpointKey}
+        LIMIT 1
+    </select>
+
+    <update id="markRunning">
+        UPDATE object_replication_checkpoint
+        SET status = 'running',
+            last_id = #{lastId},
+            last_error = #{lastError},
+            done_at = NULL,
+            updated_at = #{updatedAt}
+        WHERE checkpoint_key = #{checkpointKey}
+    </update>
+
+    <update id="markDone">
+        UPDATE object_replication_checkpoint
+        SET status = 'done',
+            last_id = #{lastId},
+            last_error = #{lastError},
+            done_at = #{doneAt},
+            updated_at = #{updatedAt}
+        WHERE checkpoint_key = #{checkpointKey}
+    </update>
+
+</mapper>

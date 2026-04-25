@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.upload.mapper.ObjectReplicationBackfillMapper">
+
+    <select id="listUserAvatarRows" resultType="map">
+        SELECT id,
+               username,
+               role,
+               avatar
+        FROM user_account
+        WHERE id &gt; #{afterId}
+          AND avatar IS NOT NULL
+          AND avatar &lt;&gt; ''
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listWallpaperAssetRows" resultType="map">
+        SELECT id,
+               owner_username AS ownerUsername,
+               original_url AS originalUrl,
+               thumb_320_url AS thumb320Url,
+               thumb_720_url AS thumb720Url,
+               thumb_1280_url AS thumb1280Url
+        FROM wallpaper_asset
+        WHERE id &gt; #{afterId}
+          AND (
+            (original_url IS NOT NULL AND original_url &lt;&gt; '')
+            OR (thumb_320_url IS NOT NULL AND thumb_320_url &lt;&gt; '')
+            OR (thumb_720_url IS NOT NULL AND thumb_720_url &lt;&gt; '')
+            OR (thumb_1280_url IS NOT NULL AND thumb_1280_url &lt;&gt; '')
+          )
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listIssueFeedbackRows" resultType="map">
+        SELECT id,
+               username,
+               feedback_log_url AS feedbackLogUrl,
+               feedback_screenshot_url AS feedbackScreenshotUrl
+        FROM issue_feedback
+        WHERE id &gt; #{afterId}
+          AND (
+            (feedback_log_url IS NOT NULL AND feedback_log_url &lt;&gt; '')
+            OR (feedback_screenshot_url IS NOT NULL AND feedback_screenshot_url &lt;&gt; '')
+          )
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

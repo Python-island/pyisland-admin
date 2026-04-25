@@ -106,6 +106,29 @@
         WHERE id = #{id}
     </update>
 
+    <select id="listDlqTasks" resultType="map">
+        SELECT id,
+               priority,
+               retry_count AS retryCount,
+               max_retries AS maxRetries
+        FROM object_replication_task
+        WHERE status = 'dlq'
+        ORDER BY done_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="resetFromDlq">
+        UPDATE object_replication_task
+        SET status = 'pending',
+            retry_count = 0,
+            next_retry_at = #{nextRetryAt},
+            last_error = '',
+            done_at = NULL,
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND status = 'dlq'
+    </update>
+
     <insert id="insertLog">
         INSERT INTO object_replication_log
         (

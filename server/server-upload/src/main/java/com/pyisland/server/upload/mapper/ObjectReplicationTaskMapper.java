@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,6 +49,12 @@ public interface ObjectReplicationTaskMapper {
                 @Param("lastError") String lastError,
                 @Param("updatedAt") LocalDateTime updatedAt,
                 @Param("doneAt") LocalDateTime doneAt);
+
+    List<Map<String, Object>> listDlqTasks(@Param("limit") int limit);
+
+    int resetFromDlq(@Param("id") Long id,
+                     @Param("nextRetryAt") LocalDateTime nextRetryAt,
+                     @Param("updatedAt") LocalDateTime updatedAt);
 
     int insertLog(@Param("taskId") Long taskId,
                   @Param("traceId") String traceId,

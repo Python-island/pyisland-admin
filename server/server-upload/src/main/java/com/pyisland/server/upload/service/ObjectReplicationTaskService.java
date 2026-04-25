@@ -19,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -117,6 +118,20 @@ public class ObjectReplicationTaskService {
         }
     }
 
+    private Long parseLong(Object value, Long defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
+
     public ProcessResult processTask(Long taskId, String traceId, int attemptNo) {
         long startedAt = System.currentTimeMillis();
         if (taskId == null || taskId <= 0) {
@@ -188,6 +203,32 @@ public class ObjectReplicationTaskService {
                 LocalDateTime.now());
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public int replayDlqTasks(int batchSize) {
+        int safeBatchSize = Math.max(1, Math.min(batchSize, 500));
+        List<Map<String, Object>> rows = objectReplicationTaskMapper.listDlqTasks(safeBatchSize);
+        if (rows == null || rows.isEmpty()) {
+            return 0;
+        }
+        int replayed = 0;
+        LocalDateTime now = LocalDateTime.now();
+        for (Map<String, Object> row : rows) {
+            Long taskId = parseLong(row.get("id"), null);
+            if (taskId == null || taskId <= 0) {
+                continue;
+            }
+            int priority = normalizePriority(parseInt(row.get("priority"), 5));
+            int reset = objectReplicationTaskMapper.resetFromDlq(taskId, now, now);
+            if (reset <= 0) {
+                continue;
+            }
+            String replayEventKey = "object-replication-task-replay:" + taskId + ":" + now + ":" + replayed;
+            createOutboxEvent(taskId, priority, now, replayEventKey);
+            replayed++;
+        }
+        return replayed;
+    }
+
     public void markDlq(Long taskId, int retryCount, String errorMessage) {
         if (taskId == null || taskId <= 0) {
             return;
@@ -226,6 +267,13 @@ public class ObjectReplicationTaskService {
     }
 
     private void createOutboxEvent(Long taskId, int normalizedPriority, LocalDateTime now) {
+        createOutboxEvent(taskId, normalizedPriority, now, "object-replication-task:" + taskId);
+    }
+
+    private void createOutboxEvent(Long taskId,
+                                   int normalizedPriority,
+                                   LocalDateTime now,
+                                   String eventKey) {
         if (taskId == null || taskId <= 0) {
             return;
         }
@@ -233,7 +281,7 @@ public class ObjectReplicationTaskService {
         String payloadJson = "{\"taskId\":" + taskId + ",\"queuePriority\":" + queuePriority + "}";
         objectOutboxMapper.insertIgnore(
                 OUTBOX_EVENT_TYPE_REPLICATION_PUBLISH,
-                "object-replication-task:" + taskId,
+                safeText(eventKey, 255),
                 payloadJson,
                 "pending",
                 0,

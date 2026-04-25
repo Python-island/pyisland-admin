@@ -90,6 +90,12 @@ object-replication:
   outbox-relay-enabled: ${OBJECT_REPLICATION_OUTBOX_RELAY_ENABLED:true}
   outbox-relay-batch-size: ${OBJECT_REPLICATION_OUTBOX_BATCH_SIZE:100}
   outbox-relay-interval-ms: ${OBJECT_REPLICATION_OUTBOX_INTERVAL_MS:3000}
+  backfill-enabled: ${OBJECT_REPLICATION_BACKFILL_ENABLED:false}
+  backfill-batch-size: ${OBJECT_REPLICATION_BACKFILL_BATCH_SIZE:200}
+  backfill-interval-ms: ${OBJECT_REPLICATION_BACKFILL_INTERVAL_MS:5000}
+  dlq-replay-enabled: ${OBJECT_REPLICATION_DLQ_REPLAY_ENABLED:false}
+  dlq-replay-batch-size: ${OBJECT_REPLICATION_DLQ_REPLAY_BATCH_SIZE:100}
+  dlq-replay-interval-ms: ${OBJECT_REPLICATION_DLQ_REPLAY_INTERVAL_MS:15000}
   max-retries: ${OBJECT_REPLICATION_MAX_RETRIES:6}
   retry-delay-ms: ${OBJECT_REPLICATION_RETRY_DELAY_MS:15000}
   source-fetch-timeout-ms: ${OBJECT_REPLICATION_SOURCE_FETCH_TIMEOUT_MS:60000}
