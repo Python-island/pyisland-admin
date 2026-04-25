@@ -44,4 +44,89 @@
         )
     </insert>
 
+    <select id="selectIdByTaskKey" resultType="long">
+        SELECT id
+        FROM object_replication_task
+        WHERE task_key = #{taskKey}
+        LIMIT 1
+    </select>
+
+    <select id="selectById" resultType="map">
+        SELECT id,
+               task_key AS taskKey,
+               biz_type AS bizType,
+               biz_id AS bizId,
+               biz_key AS bizKey,
+               field_name AS fieldName,
+               object_key AS objectKey,
+               source_provider AS sourceProvider,
+               target_provider AS targetProvider,
+               source_url AS sourceUrl,
+               target_url AS targetUrl,
+               status,
+               priority,
+               retry_count AS retryCount,
+               max_retries AS maxRetries,
+               next_retry_at AS nextRetryAt,
+               last_error AS lastError,
+               done_at AS doneAt,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM object_replication_task
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <update id="markRetrying">
+        UPDATE object_replication_task
+        SET status = 'pending',
+            retry_count = #{retryCount},
+            next_retry_at = #{nextRetryAt},
+            last_error = #{lastError},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="markSuccess">
+        UPDATE object_replication_task
+        SET status = 'success',
+            target_url = #{targetUrl},
+            done_at = #{doneAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="markDlq">
+        UPDATE object_replication_task
+        SET status = 'dlq',
+            retry_count = #{retryCount},
+            last_error = #{lastError},
+            done_at = #{doneAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertLog">
+        INSERT INTO object_replication_log
+        (
+            task_id,
+            trace_id,
+            attempt_no,
+            status,
+            duration_ms,
+            error_message,
+            created_at
+        )
+        VALUES
+        (
+            #{taskId},
+            #{traceId},
+            #{attemptNo},
+            #{status},
+            #{durationMs},
+            #{errorMessage},
+            #{createdAt}
+        )
+    </insert>
+
 </mapper>

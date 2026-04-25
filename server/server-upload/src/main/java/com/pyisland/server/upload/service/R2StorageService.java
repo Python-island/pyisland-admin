@@ -87,6 +87,36 @@ public class R2StorageService implements ObjectStorageClient {
         );
     }
 
+    @Override
+    public StorageUploadResult putObject(String objectKey, byte[] content, String contentType) throws IOException {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new IllegalArgumentException("objectKey 不能为空");
+        }
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, accessKeySecret);
+        try (S3Client s3Client = S3Client.builder()
+                .region(Region.of("auto"))
+                .endpointOverride(URI.create(endpoint))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+                .build()) {
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(objectKey)
+                    .contentType(contentType)
+                    .build();
+            s3Client.putObject(request, RequestBody.fromBytes(content == null ? new byte[0] : content));
+        }
+        String safeContentType = contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
+        return new StorageUploadResult(
+                provider(),
+                bucketName,
+                objectKey,
+                buildPublicUrl(objectKey),
+                safeContentType,
+                content == null ? 0 : content.length
+        );
+    }
+
     private String buildPublicUrl(String objectKey) {
         String safeKey = objectKey.startsWith("/") ? objectKey.substring(1) : objectKey;
         if (publicDomain != null && !publicDomain.isBlank()) {

@@ -1,16 +1,28 @@
 package com.pyisland.server.upload.service;
 
+import com.pyisland.server.upload.config.ObjectReplicationMqConfig;
 import com.pyisland.server.upload.mapper.ObjectReplicationTaskMapper;
+import com.pyisland.server.upload.mq.ObjectReplicationMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.MessagePostProcessor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 对象复制任务服务。
@@ -21,12 +33,24 @@ public class ObjectReplicationTaskService {
     private static final Logger log = LoggerFactory.getLogger(ObjectReplicationTaskService.class);
 
     private final ObjectReplicationTaskMapper objectReplicationTaskMapper;
+    private final ObjectStorageRouter objectStorageRouter;
+    private final RabbitTemplate rabbitTemplate;
+    private final boolean replicationEnabled;
     private final int maxRetries;
+    private final int sourceFetchTimeoutMs;
 
     public ObjectReplicationTaskService(ObjectReplicationTaskMapper objectReplicationTaskMapper,
-                                        @Value("${object-replication.max-retries:6}") int maxRetries) {
+                                        ObjectStorageRouter objectStorageRouter,
+                                        RabbitTemplate rabbitTemplate,
+                                        @Value("${object-replication.enabled:true}") boolean replicationEnabled,
+                                        @Value("${object-replication.max-retries:6}") int maxRetries,
+                                        @Value("${object-replication.source-fetch-timeout-ms:60000}") int sourceFetchTimeoutMs) {
         this.objectReplicationTaskMapper = objectReplicationTaskMapper;
+        this.objectStorageRouter = objectStorageRouter;
+        this.rabbitTemplate = rabbitTemplate;
+        this.replicationEnabled = replicationEnabled;
         this.maxRetries = Math.max(1, maxRetries);
+        this.sourceFetchTimeoutMs = Math.max(3000, sourceFetchTimeoutMs);
     }
 
     /**
@@ -44,6 +68,9 @@ public class ObjectReplicationTaskService {
                                          String fieldName,
                                          StorageUploadResult sourceUploadResult,
                                          int priority) {
+        if (!replicationEnabled) {
+            return;
+        }
         if (sourceUploadResult == null || sourceUploadResult.provider() == null) {
             return;
         }
@@ -80,6 +107,8 @@ public class ObjectReplicationTaskService {
                     now
             );
             if (inserted > 0) {
+                Long taskId = objectReplicationTaskMapper.selectIdByTaskKey(taskKey);
+                publishTaskMessage(taskId, normalizedPriority);
                 log.debug("object replication task created key={} bizType={} bizId={} target={}",
                         taskKey,
                         bizType,
@@ -89,11 +118,181 @@ public class ObjectReplicationTaskService {
         }
     }
 
+    public ProcessResult processTask(Long taskId, String traceId, int attemptNo) {
+        long startedAt = System.currentTimeMillis();
+        if (taskId == null || taskId <= 0) {
+            return new ProcessResult(true, "", "", 0, maxRetries);
+        }
+        Map<String, Object> taskRow = objectReplicationTaskMapper.selectById(taskId);
+        if (taskRow == null || taskRow.isEmpty()) {
+            return new ProcessResult(true, "", "", 0, maxRetries);
+        }
+        String status = safeText(stringValue(taskRow.get("status")), 20).toLowerCase();
+        int taskMaxRetries = Math.max(1, parseInt(taskRow.get("maxRetries"), maxRetries));
+        if ("success".equals(status) || "dlq".equals(status)) {
+            return new ProcessResult(true,
+                    safeText(stringValue(taskRow.get("targetUrl")), 2000),
+                    "",
+                    elapsedMs(startedAt),
+                    taskMaxRetries);
+        }
+
+        String sourceUrl = safeText(stringValue(taskRow.get("sourceUrl")), 2000);
+        String objectKey = safeText(stringValue(taskRow.get("objectKey")), 500);
+        String targetProviderRaw = safeText(stringValue(taskRow.get("targetProvider")), 20);
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            StorageProvider targetProvider = StorageProvider.valueOf(targetProviderRaw.toUpperCase());
+            SourcePayload payload = fetchSourcePayload(sourceUrl);
+            StorageUploadResult replicated = objectStorageRouter
+                    .get(targetProvider)
+                    .putObject(objectKey, payload.content(), payload.contentType());
+            int durationMs = elapsedMs(startedAt);
+            objectReplicationTaskMapper.markSuccess(taskId,
+                    safeText(replicated.publicUrl(), 2000),
+                    now,
+                    now);
+            objectReplicationTaskMapper.insertLog(taskId,
+                    safeText(traceId, 100),
+                    Math.max(1, attemptNo),
+                    "success",
+                    durationMs,
+                    "",
+                    now);
+            return new ProcessResult(true,
+                    safeText(replicated.publicUrl(), 2000),
+                    "",
+                    durationMs,
+                    taskMaxRetries);
+        } catch (Exception ex) {
+            int durationMs = elapsedMs(startedAt);
+            String error = safeText(ex.getMessage(), 500);
+            objectReplicationTaskMapper.insertLog(taskId,
+                    safeText(traceId, 100),
+                    Math.max(1, attemptNo),
+                    "failed",
+                    durationMs,
+                    error,
+                    now);
+            return new ProcessResult(false, "", error, durationMs, taskMaxRetries);
+        }
+    }
+
+    public void markRetrying(Long taskId, int retryCount, LocalDateTime nextRetryAt, String errorMessage) {
+        if (taskId == null || taskId <= 0) {
+            return;
+        }
+        objectReplicationTaskMapper.markRetrying(taskId,
+                Math.max(0, retryCount),
+                nextRetryAt,
+                safeText(errorMessage, 500),
+                LocalDateTime.now());
+    }
+
+    public void markDlq(Long taskId, int retryCount, String errorMessage) {
+        if (taskId == null || taskId <= 0) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        objectReplicationTaskMapper.markDlq(taskId,
+                Math.max(0, retryCount),
+                safeText(errorMessage, 500),
+                now,
+                now);
+    }
+
+    public void recordAttemptLog(Long taskId,
+                                 String traceId,
+                                 int attemptNo,
+                                 String status,
+                                 Integer durationMs,
+                                 String errorMessage) {
+        if (taskId == null || taskId <= 0) {
+            return;
+        }
+        objectReplicationTaskMapper.insertLog(taskId,
+                safeText(traceId, 100),
+                Math.max(1, attemptNo),
+                safeText(status, 20),
+                durationMs,
+                safeText(errorMessage, 500),
+                LocalDateTime.now());
+    }
+
     private int normalizePriority(int priority) {
         if (priority < 0) {
             return 0;
         }
         return Math.min(priority, 9);
+    }
+
+    private void publishTaskMessage(Long taskId, int normalizedPriority) {
+        if (taskId == null || taskId <= 0) {
+            return;
+        }
+        String traceId = UUID.randomUUID().toString().replace("-", "");
+        ObjectReplicationMessage message = new ObjectReplicationMessage(taskId, traceId, "");
+        MessagePostProcessor postProcessor = msg -> {
+            msg.getMessageProperties().setHeader(ObjectReplicationMqConfig.RETRY_HEADER, 0);
+            msg.getMessageProperties().setPriority(toMqPriority(normalizedPriority));
+            return msg;
+        };
+        rabbitTemplate.convertAndSend(
+                ObjectReplicationMqConfig.REPLICATION_EXCHANGE,
+                ObjectReplicationMqConfig.REPLICATION_ROUTING_KEY,
+                message,
+                postProcessor
+        );
+    }
+
+    private int toMqPriority(int normalizedPriority) {
+        return Math.max(0, 9 - normalizePriority(normalizedPriority));
+    }
+
+    private SourcePayload fetchSourcePayload(String sourceUrl) throws IOException {
+        if (sourceUrl == null || sourceUrl.isBlank()) {
+            throw new IllegalArgumentException("sourceUrl 为空");
+        }
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(sourceFetchTimeoutMs))
+                .build();
+        HttpRequest request = HttpRequest.newBuilder(URI.create(sourceUrl))
+                .timeout(Duration.ofMillis(sourceFetchTimeoutMs))
+                .GET()
+                .build();
+        try {
+            HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() >= 400) {
+                throw new IOException("source fetch failed: http " + response.statusCode());
+            }
+            String contentType = response.headers().firstValue("Content-Type").orElse("application/octet-stream");
+            return new SourcePayload(response.body() == null ? new byte[0] : response.body(), contentType);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IOException("source fetch interrupted", ex);
+        }
+    }
+
+    private int elapsedMs(long startedAt) {
+        return (int) Math.max(0, System.currentTimeMillis() - startedAt);
+    }
+
+    private int parseInt(Object value, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private String safeText(String text, int maxLength) {
@@ -132,5 +331,15 @@ public class ObjectReplicationTaskService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 not available", ex);
         }
+    }
+
+    public record ProcessResult(boolean success,
+                                String targetUrl,
+                                String errorMessage,
+                                int durationMs,
+                                int maxRetries) {
+    }
+
+    private record SourcePayload(byte[] content, String contentType) {
     }
 }

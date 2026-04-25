@@ -22,4 +22,14 @@ public interface ObjectStorageClient {
      * @throws IOException 上传失败时抛出。
      */
     StorageUploadResult uploadObject(MultipartFile file, String folder) throws IOException;
+
+    /**
+     * 按指定对象 key 写入二进制内容。
+     * @param objectKey 对象 key。
+     * @param content 文件内容。
+     * @param contentType 内容类型。
+     * @return 上传结果。
+     * @throws IOException 上传失败时抛出。
+     */
+    StorageUploadResult putObject(String objectKey, byte[] content, String contentType) throws IOException;
 }

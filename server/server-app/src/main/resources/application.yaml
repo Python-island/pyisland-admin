@@ -91,6 +91,8 @@ object-replication:
   outbox-relay-batch-size: ${OBJECT_REPLICATION_OUTBOX_BATCH_SIZE:100}
   outbox-relay-interval-ms: ${OBJECT_REPLICATION_OUTBOX_INTERVAL_MS:3000}
   max-retries: ${OBJECT_REPLICATION_MAX_RETRIES:6}
+  retry-delay-ms: ${OBJECT_REPLICATION_RETRY_DELAY_MS:15000}
+  source-fetch-timeout-ms: ${OBJECT_REPLICATION_SOURCE_FETCH_TIMEOUT_MS:60000}
 
 resend:
   api-key: ${RESEND_API_KEY}

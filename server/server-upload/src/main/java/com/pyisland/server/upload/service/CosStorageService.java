@@ -93,6 +93,47 @@ public class CosStorageService implements ObjectStorageClient {
         );
     }
 
+    @Override
+    public StorageUploadResult putObject(String objectKey, byte[] content, String contentType) throws IOException {
+        if (bucketName == null || bucketName.isBlank()) {
+            throw new IllegalStateException("腾讯云 COS bucket-name 未配置");
+        }
+        if (secretId == null || secretId.isBlank() || secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("腾讯云 COS 密钥未配置");
+        }
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new IllegalArgumentException("objectKey 不能为空");
+        }
+
+        COSCredentials credentials = new BasicCOSCredentials(secretId, secretKey);
+        ClientConfig clientConfig = new ClientConfig(new Region(region));
+        COSClient cosClient = new COSClient(credentials, clientConfig);
+        try {
+            byte[] safeContent = content == null ? new byte[0] : content;
+            String safeContentType = contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentLength(safeContent.length);
+            metadata.setContentType(safeContentType);
+            PutObjectRequest request = new PutObjectRequest(
+                    bucketName,
+                    objectKey,
+                    new java.io.ByteArrayInputStream(safeContent),
+                    metadata
+            );
+            cosClient.putObject(request);
+            return new StorageUploadResult(
+                    provider(),
+                    bucketName,
+                    objectKey,
+                    buildPublicUrl(objectKey),
+                    safeContentType,
+                    safeContent.length
+            );
+        } finally {
+            cosClient.shutdown();
+        }
+    }
+
     private String buildPublicUrl(String objectKey) {
         String safeKey = objectKey.startsWith("/") ? objectKey.substring(1) : objectKey;
         if (domain != null && !domain.isBlank()) {

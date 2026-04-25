@@ -72,9 +72,44 @@ public class OssService implements ObjectStorageClient {
                 provider(),
                 bucketName,
                 objectKey,
-                "https://" + domain + "/" + objectKey,
+                buildPublicUrl(objectKey),
                 contentType,
                 file.getSize()
         );
+    }
+
+    @Override
+    public StorageUploadResult putObject(String objectKey, byte[] content, String contentType) throws IOException {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new IllegalArgumentException("objectKey 不能为空");
+        }
+        OSS ossClient = new OSSClientBuilder().build("https://" + endpoint, accessKeyId, accessKeySecret);
+        try {
+            ObjectMetadata metadata = new ObjectMetadata();
+            byte[] safeContent = content == null ? new byte[0] : content;
+            String safeContentType = contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
+            metadata.setContentType(safeContentType);
+            metadata.setContentLength(safeContent.length);
+            ossClient.putObject(bucketName, objectKey, new java.io.ByteArrayInputStream(safeContent), metadata);
+            return new StorageUploadResult(
+                    provider(),
+                    bucketName,
+                    objectKey,
+                    buildPublicUrl(objectKey),
+                    safeContentType,
+                    safeContent.length
+            );
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
+    private String buildPublicUrl(String objectKey) {
+        String safeKey = objectKey.startsWith("/") ? objectKey.substring(1) : objectKey;
+        String safeDomain = domain.startsWith("http") ? domain : "https://" + domain;
+        if (safeDomain.endsWith("/")) {
+            return safeDomain + safeKey;
+        }
+        return safeDomain + "/" + safeKey;
     }
 }
