@@ -138,10 +138,10 @@ public class StaticAssetUrlService {
             return AssetNode.R2;
         }
         AssetNode requested = AssetNode.fromRaw(requestedNodeRaw);
-        if (requested == AssetNode.COS || requested == AssetNode.OSS) {
+        if (requested == AssetNode.COS || requested == AssetNode.OSS || requested == AssetNode.R2) {
             return requested;
         }
-        return AssetNode.COS;
+        return AssetNode.R2;
     }
 
     private ParsedAsset parseAsset(String url) {
