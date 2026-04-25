@@ -45,12 +45,24 @@ public class ObjectReplicationBackfillService {
     private final String feedbackR2Endpoint;
     private final String feedbackR2BucketName;
     private final String feedbackR2PublicDomain;
-    private final String ossEndpoint;
-    private final String ossBucketName;
-    private final String ossDomain;
-    private final String cosRegion;
-    private final String cosBucketName;
-    private final String cosDomain;
+    private final String ossAvatarEndpoint;
+    private final String ossAvatarBucketName;
+    private final String ossAvatarDomain;
+    private final String ossWallpaperEndpoint;
+    private final String ossWallpaperBucketName;
+    private final String ossWallpaperDomain;
+    private final String ossFeedbackEndpoint;
+    private final String ossFeedbackBucketName;
+    private final String ossFeedbackDomain;
+    private final String cosAvatarRegion;
+    private final String cosAvatarBucketName;
+    private final String cosAvatarDomain;
+    private final String cosWallpaperRegion;
+    private final String cosWallpaperBucketName;
+    private final String cosWallpaperDomain;
+    private final String cosFeedbackRegion;
+    private final String cosFeedbackBucketName;
+    private final String cosFeedbackDomain;
 
     private final AtomicBoolean backfillRunning = new AtomicBoolean(false);
     private final AtomicBoolean dlqReplayRunning = new AtomicBoolean(false);
@@ -72,12 +84,24 @@ public class ObjectReplicationBackfillService {
                                             @Value("${cloudflare.feedback-r2.endpoint:}") String feedbackR2Endpoint,
                                             @Value("${cloudflare.feedback-r2.bucket-name:}") String feedbackR2BucketName,
                                             @Value("${cloudflare.feedback-r2.public-domain:}") String feedbackR2PublicDomain,
-                                            @Value("${aliyun.oss.endpoint:}") String ossEndpoint,
-                                            @Value("${aliyun.oss.bucket-name:}") String ossBucketName,
-                                            @Value("${aliyun.oss.domain:}") String ossDomain,
-                                            @Value("${tencent.cos.region:ap-guangzhou}") String cosRegion,
-                                            @Value("${tencent.cos.bucket-name:}") String cosBucketName,
-                                            @Value("${tencent.cos.domain:}") String cosDomain) {
+                                            @Value("${aliyun.oss.avatar.endpoint:}") String ossAvatarEndpoint,
+                                            @Value("${aliyun.oss.avatar.bucket-name:}") String ossAvatarBucketName,
+                                            @Value("${aliyun.oss.avatar.domain:}") String ossAvatarDomain,
+                                            @Value("${aliyun.oss.wallpaper.endpoint:}") String ossWallpaperEndpoint,
+                                            @Value("${aliyun.oss.wallpaper.bucket-name:}") String ossWallpaperBucketName,
+                                            @Value("${aliyun.oss.wallpaper.domain:}") String ossWallpaperDomain,
+                                            @Value("${aliyun.oss.feedback.endpoint:}") String ossFeedbackEndpoint,
+                                            @Value("${aliyun.oss.feedback.bucket-name:}") String ossFeedbackBucketName,
+                                            @Value("${aliyun.oss.feedback.domain:}") String ossFeedbackDomain,
+                                            @Value("${tencent.cos.avatar.region:ap-guangzhou}") String cosAvatarRegion,
+                                            @Value("${tencent.cos.avatar.bucket-name:}") String cosAvatarBucketName,
+                                            @Value("${tencent.cos.avatar.domain:}") String cosAvatarDomain,
+                                            @Value("${tencent.cos.wallpaper.region:ap-guangzhou}") String cosWallpaperRegion,
+                                            @Value("${tencent.cos.wallpaper.bucket-name:}") String cosWallpaperBucketName,
+                                            @Value("${tencent.cos.wallpaper.domain:}") String cosWallpaperDomain,
+                                            @Value("${tencent.cos.feedback.region:ap-guangzhou}") String cosFeedbackRegion,
+                                            @Value("${tencent.cos.feedback.bucket-name:}") String cosFeedbackBucketName,
+                                            @Value("${tencent.cos.feedback.domain:}") String cosFeedbackDomain) {
         this.objectReplicationBackfillMapper = objectReplicationBackfillMapper;
         this.objectReplicationCheckpointMapper = objectReplicationCheckpointMapper;
         this.objectReplicationTaskService = objectReplicationTaskService;
@@ -95,12 +119,24 @@ public class ObjectReplicationBackfillService {
         this.feedbackR2Endpoint = safeText(feedbackR2Endpoint, 600);
         this.feedbackR2BucketName = safeText(feedbackR2BucketName, 120);
         this.feedbackR2PublicDomain = safeText(feedbackR2PublicDomain, 600);
-        this.ossEndpoint = safeText(ossEndpoint, 300);
-        this.ossBucketName = safeText(ossBucketName, 120);
-        this.ossDomain = safeText(ossDomain, 600);
-        this.cosRegion = safeText(cosRegion, 80);
-        this.cosBucketName = safeText(cosBucketName, 120);
-        this.cosDomain = safeText(cosDomain, 600);
+        this.ossAvatarEndpoint = safeText(ossAvatarEndpoint, 300);
+        this.ossAvatarBucketName = safeText(ossAvatarBucketName, 120);
+        this.ossAvatarDomain = safeText(ossAvatarDomain, 600);
+        this.ossWallpaperEndpoint = safeText(ossWallpaperEndpoint, 300);
+        this.ossWallpaperBucketName = safeText(ossWallpaperBucketName, 120);
+        this.ossWallpaperDomain = safeText(ossWallpaperDomain, 600);
+        this.ossFeedbackEndpoint = safeText(ossFeedbackEndpoint, 300);
+        this.ossFeedbackBucketName = safeText(ossFeedbackBucketName, 120);
+        this.ossFeedbackDomain = safeText(ossFeedbackDomain, 600);
+        this.cosAvatarRegion = safeText(cosAvatarRegion, 80);
+        this.cosAvatarBucketName = safeText(cosAvatarBucketName, 120);
+        this.cosAvatarDomain = safeText(cosAvatarDomain, 600);
+        this.cosWallpaperRegion = safeText(cosWallpaperRegion, 80);
+        this.cosWallpaperBucketName = safeText(cosWallpaperBucketName, 120);
+        this.cosWallpaperDomain = safeText(cosWallpaperDomain, 600);
+        this.cosFeedbackRegion = safeText(cosFeedbackRegion, 80);
+        this.cosFeedbackBucketName = safeText(cosFeedbackBucketName, 120);
+        this.cosFeedbackDomain = safeText(cosFeedbackDomain, 600);
     }
 
     @Scheduled(fixedDelayString = "${object-replication.backfill-interval-ms:5000}")
@@ -413,20 +449,52 @@ public class ObjectReplicationBackfillService {
             return result;
         }
 
-        result = resolveByDomain(normalizedUrl, StorageProvider.OSS, ossBucketName, ossDomain);
+        result = resolveByDomain(normalizedUrl, StorageProvider.OSS, ossAvatarBucketName, ossAvatarDomain);
         if (result != null) {
             return result;
         }
-        result = resolveByVirtualHost(normalizedUrl, StorageProvider.OSS, ossBucketName, ossEndpoint);
+        result = resolveByVirtualHost(normalizedUrl, StorageProvider.OSS, ossAvatarBucketName, ossAvatarEndpoint);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByDomain(normalizedUrl, StorageProvider.OSS, ossWallpaperBucketName, ossWallpaperDomain);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByVirtualHost(normalizedUrl, StorageProvider.OSS, ossWallpaperBucketName, ossWallpaperEndpoint);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByDomain(normalizedUrl, StorageProvider.OSS, ossFeedbackBucketName, ossFeedbackDomain);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByVirtualHost(normalizedUrl, StorageProvider.OSS, ossFeedbackBucketName, ossFeedbackEndpoint);
         if (result != null) {
             return result;
         }
 
-        result = resolveByDomain(normalizedUrl, StorageProvider.COS, cosBucketName, cosDomain);
+        result = resolveByDomain(normalizedUrl, StorageProvider.COS, cosAvatarBucketName, cosAvatarDomain);
         if (result != null) {
             return result;
         }
-        return resolveByCosDefaultHost(normalizedUrl, cosBucketName, cosRegion);
+        result = resolveByCosDefaultHost(normalizedUrl, cosAvatarBucketName, cosAvatarRegion);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByDomain(normalizedUrl, StorageProvider.COS, cosWallpaperBucketName, cosWallpaperDomain);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByCosDefaultHost(normalizedUrl, cosWallpaperBucketName, cosWallpaperRegion);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByDomain(normalizedUrl, StorageProvider.COS, cosFeedbackBucketName, cosFeedbackDomain);
+        if (result != null) {
+            return result;
+        }
+        return resolveByCosDefaultHost(normalizedUrl, cosFeedbackBucketName, cosFeedbackRegion);
     }
 
     private StorageUploadResult resolveByDomain(String sourceUrl,

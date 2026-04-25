@@ -32,4 +32,22 @@ public interface ObjectStorageClient {
      * @throws IOException 上传失败时抛出。
      */
     StorageUploadResult putObject(String objectKey, byte[] content, String contentType) throws IOException;
+
+    /**
+     * 按指定对象 key 写入二进制内容（带业务上下文）。
+     * @param objectKey 对象 key。
+     * @param content 文件内容。
+     * @param contentType 内容类型。
+     * @param bizType 业务类型。
+     * @param fieldName 业务字段。
+     * @return 上传结果。
+     * @throws IOException 上传失败时抛出。
+     */
+    default StorageUploadResult putObject(String objectKey,
+                                          byte[] content,
+                                          String contentType,
+                                          String bizType,
+                                          String fieldName) throws IOException {
+        return putObject(objectKey, content, contentType);
+    }
 }

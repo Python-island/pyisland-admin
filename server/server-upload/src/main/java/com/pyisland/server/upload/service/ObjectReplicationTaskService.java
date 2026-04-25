@@ -153,6 +153,8 @@ public class ObjectReplicationTaskService {
 
         String sourceUrl = safeText(stringValue(taskRow.get("sourceUrl")), 2000);
         String objectKey = safeText(stringValue(taskRow.get("objectKey")), 500);
+        String bizType = safeText(stringValue(taskRow.get("bizType")), 40);
+        String fieldName = safeText(stringValue(taskRow.get("fieldName")), 80);
         String targetProviderRaw = safeText(stringValue(taskRow.get("targetProvider")), 20);
         LocalDateTime now = LocalDateTime.now();
         try {
@@ -160,7 +162,11 @@ public class ObjectReplicationTaskService {
             SourcePayload payload = fetchSourcePayload(sourceUrl);
             StorageUploadResult replicated = objectStorageRouter
                     .get(targetProvider)
-                    .putObject(objectKey, payload.content(), payload.contentType());
+                    .putObject(objectKey,
+                            payload.content(),
+                            payload.contentType(),
+                            bizType,
+                            fieldName);
             int durationMs = elapsedMs(startedAt);
             objectReplicationTaskMapper.markSuccess(taskId,
                     safeText(replicated.publicUrl(), 2000),
