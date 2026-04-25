@@ -19,7 +19,7 @@ import java.util.UUID;
  * Cloudflare R2 文件服务。
  */
 @Service
-public class R2StorageService {
+public class R2StorageService implements ObjectStorageClient {
 
     @Value("${cloudflare.r2.endpoint}")
     private String endpoint;
@@ -36,6 +36,11 @@ public class R2StorageService {
     @Value("${cloudflare.r2.public-domain:}")
     private String publicDomain;
 
+    @Override
+    public StorageProvider provider() {
+        return StorageProvider.R2;
+    }
+
     /**
      * 上传文件到 Cloudflare R2 并返回可访问地址。
      * @param file 待上传文件。
@@ -44,6 +49,11 @@ public class R2StorageService {
      * @throws IOException 文件读取失败时抛出。
      */
     public String upload(MultipartFile file, String folder) throws IOException {
+        return uploadObject(file, folder).publicUrl();
+    }
+
+    @Override
+    public StorageUploadResult uploadObject(MultipartFile file, String folder) throws IOException {
         String originalFilename = file.getOriginalFilename();
         String ext = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -66,7 +76,15 @@ public class R2StorageService {
             s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
         }
 
-        return buildPublicUrl(objectKey);
+        String contentType = file.getContentType() == null ? "application/octet-stream" : file.getContentType();
+        return new StorageUploadResult(
+                provider(),
+                bucketName,
+                objectKey,
+                buildPublicUrl(objectKey),
+                contentType,
+                file.getSize()
+        );
     }
 
     private String buildPublicUrl(String objectKey) {

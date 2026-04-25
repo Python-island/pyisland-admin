@@ -14,7 +14,7 @@ import java.util.UUID;
  * OSS 文件服务。
  */
 @Service
-public class OssService {
+public class OssService implements ObjectStorageClient {
 
     @Value("${aliyun.oss.endpoint}")
     private String endpoint;
@@ -31,6 +31,11 @@ public class OssService {
     @Value("${aliyun.oss.domain}")
     private String domain;
 
+    @Override
+    public StorageProvider provider() {
+        return StorageProvider.OSS;
+    }
+
     /**
      * 上传文件到 OSS 并返回可访问地址。
      * @param file 待上传文件。
@@ -39,6 +44,11 @@ public class OssService {
      * @throws IOException 文件读取失败时抛出。
      */
     public String upload(MultipartFile file, String folder) throws IOException {
+        return uploadObject(file, folder).publicUrl();
+    }
+
+    @Override
+    public StorageUploadResult uploadObject(MultipartFile file, String folder) throws IOException {
         String originalFilename = file.getOriginalFilename();
         String ext = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -49,13 +59,22 @@ public class OssService {
         OSS ossClient = new OSSClientBuilder().build("https://" + endpoint, accessKeyId, accessKeySecret);
         try {
             ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType(file.getContentType());
+            String contentType = file.getContentType();
+            metadata.setContentType(contentType);
             metadata.setContentLength(file.getSize());
             ossClient.putObject(bucketName, objectKey, file.getInputStream(), metadata);
         } finally {
             ossClient.shutdown();
         }
 
-        return "https://" + domain + "/" + objectKey;
+        String contentType = file.getContentType() == null ? "application/octet-stream" : file.getContentType();
+        return new StorageUploadResult(
+                provider(),
+                bucketName,
+                objectKey,
+                "https://" + domain + "/" + objectKey,
+                contentType,
+                file.getSize()
+        );
     }
 }

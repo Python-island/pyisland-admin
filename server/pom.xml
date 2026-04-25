@@ -22,6 +22,7 @@
         <java.version>25</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <aliyun.oss.version>3.17.4</aliyun.oss.version>
+        <tencent.cos.version>5.6.227</tencent.cos.version>
         <aws.s3.version>2.25.48</aws.s3.version>
         <httpclient.version>4.5.13</httpclient.version>
         <spring.dotenv.version>4.0.0</spring.dotenv.version>
@@ -106,6 +107,11 @@
                 <groupId>com.aliyun.oss</groupId>
                 <artifactId>aliyun-sdk-oss</artifactId>
                 <version>${aliyun.oss.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.qcloud</groupId>
+                <artifactId>cos_api</artifactId>
+                <version>${tencent.cos.version}</version>
             </dependency>
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>

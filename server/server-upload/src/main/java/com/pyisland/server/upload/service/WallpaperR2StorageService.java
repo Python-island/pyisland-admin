@@ -42,6 +42,10 @@ public class WallpaperR2StorageService {
     @Value("${cloudflare.wallpaper-r2.public-domain:}")
     private String publicDomain;
 
+    public StorageProvider provider() {
+        return StorageProvider.R2;
+    }
+
     /**
      * 上传壁纸市场文件到 R2，并返回公网 URL。
      * @param file 文件。
@@ -50,6 +54,10 @@ public class WallpaperR2StorageService {
      * @throws IOException 上传异常。
      */
     public String upload(MultipartFile file, String folder) throws IOException {
+        return uploadObject(file, folder).publicUrl();
+    }
+
+    public StorageUploadResult uploadObject(MultipartFile file, String folder) throws IOException {
         String originalFilename = file.getOriginalFilename();
         String ext = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -72,7 +80,15 @@ public class WallpaperR2StorageService {
             s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
         }
 
-        return buildPublicUrl(objectKey);
+        String contentType = file.getContentType() == null ? "application/octet-stream" : file.getContentType();
+        return new StorageUploadResult(
+                provider(),
+                bucketName,
+                objectKey,
+                buildPublicUrl(objectKey),
+                contentType,
+                file.getSize()
+        );
     }
 
     private String buildPublicUrl(String objectKey) {

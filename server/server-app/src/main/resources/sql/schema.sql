@@ -683,3 +683,62 @@ CREATE TABLE IF NOT EXISTS email_dispatch_dlq_log (
     KEY idx_email_dispatch_dlq_email (email),
     KEY idx_email_dispatch_dlq_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS object_replication_task (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_key         VARCHAR(255) NOT NULL,
+    biz_type         VARCHAR(40) NOT NULL,
+    biz_id           BIGINT,
+    biz_key          VARCHAR(150),
+    field_name       VARCHAR(80) NOT NULL,
+    object_key       VARCHAR(500) NOT NULL,
+    source_provider  VARCHAR(20) NOT NULL,
+    target_provider  VARCHAR(20) NOT NULL,
+    source_url       LONGTEXT,
+    target_url       LONGTEXT,
+    status           VARCHAR(20) NOT NULL DEFAULT 'pending',
+    priority         INT NOT NULL DEFAULT 5,
+    retry_count      INT NOT NULL DEFAULT 0,
+    max_retries      INT NOT NULL DEFAULT 6,
+    next_retry_at    DATETIME,
+    last_error       VARCHAR(500),
+    done_at          DATETIME,
+    created_at       DATETIME NOT NULL,
+    updated_at       DATETIME NOT NULL,
+    UNIQUE KEY uk_object_replication_task_key (task_key),
+    KEY idx_object_replication_status_retry (status, next_retry_at),
+    KEY idx_object_replication_priority_status (priority, status),
+    KEY idx_object_replication_biz (biz_type, biz_id),
+    KEY idx_object_replication_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS object_replication_log (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id         BIGINT NOT NULL,
+    trace_id        VARCHAR(100),
+    attempt_no      INT NOT NULL,
+    status          VARCHAR(20) NOT NULL,
+    duration_ms     INT,
+    error_message   VARCHAR(500),
+    created_at      DATETIME NOT NULL,
+    KEY idx_object_replication_log_task (task_id),
+    KEY idx_object_replication_log_trace (trace_id),
+    KEY idx_object_replication_log_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS object_outbox (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_type      VARCHAR(80) NOT NULL,
+    event_key       VARCHAR(255) NOT NULL,
+    payload_json    LONGTEXT NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+    retry_count     INT NOT NULL DEFAULT 0,
+    next_retry_at   DATETIME,
+    last_error      VARCHAR(500),
+    published_at    DATETIME,
+    created_at      DATETIME NOT NULL,
+    updated_at      DATETIME NOT NULL,
+    UNIQUE KEY uk_object_outbox_event_key (event_key),
+    KEY idx_object_outbox_status_retry (status, next_retry_at),
+    KEY idx_object_outbox_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
