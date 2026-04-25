@@ -1,5 +1,7 @@
 package com.pyisland.server.user.service;
 
+import com.pyisland.server.upload.service.ObjectReplicationTaskService;
+import com.pyisland.server.upload.service.StorageUploadResult;
 import com.pyisland.server.upload.service.WallpaperR2StorageService;
 import com.pyisland.server.user.entity.WallpaperAsset;
 import com.pyisland.server.user.mapper.WallpaperMarketMapper;
@@ -8,6 +10,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,22 +35,27 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class WallpaperMarketService {
 
+    private static final Logger log = LoggerFactory.getLogger(WallpaperMarketService.class);
+
     private static final long MAX_IMAGE_SIZE = 20L * 1024 * 1024;
     private static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024;
 
     private final WallpaperMarketMapper mapper;
     private final WallpaperR2StorageService wallpaperR2StorageService;
+    private final ObjectReplicationTaskService objectReplicationTaskService;
     private final StringRedisTemplate uploadRateRedisTemplate;
     private final WallpaperTagService tagService;
     private final WallpaperDetailBloomService wallpaperDetailBloomService;
 
     public WallpaperMarketService(WallpaperMarketMapper mapper,
                                   WallpaperR2StorageService wallpaperR2StorageService,
+                                  ObjectReplicationTaskService objectReplicationTaskService,
                                   @Qualifier("uploadRateRedisTemplate") StringRedisTemplate uploadRateRedisTemplate,
                                   WallpaperTagService tagService,
                                   WallpaperDetailBloomService wallpaperDetailBloomService) {
         this.mapper = mapper;
         this.wallpaperR2StorageService = wallpaperR2StorageService;
+        this.objectReplicationTaskService = objectReplicationTaskService;
         this.uploadRateRedisTemplate = uploadRateRedisTemplate;
         this.tagService = tagService;
         this.wallpaperDetailBloomService = wallpaperDetailBloomService;
@@ -83,10 +92,15 @@ public class WallpaperMarketService {
         validateImageFile(thumb720);
         validateImageFile(thumb1280);
 
-        String originalUrl = wallpaperR2StorageService.upload(original, "wallpapers/original");
-        String thumb320Url = wallpaperR2StorageService.upload(thumb320, "wallpapers/thumb-320");
-        String thumb720Url = wallpaperR2StorageService.upload(thumb720, "wallpapers/thumb-720");
-        String thumb1280Url = wallpaperR2StorageService.upload(thumb1280, "wallpapers/thumb-1280");
+        StorageUploadResult originalUploadResult = wallpaperR2StorageService.uploadObject(original, "wallpapers/original");
+        StorageUploadResult thumb320UploadResult = wallpaperR2StorageService.uploadObject(thumb320, "wallpapers/thumb-320");
+        StorageUploadResult thumb720UploadResult = wallpaperR2StorageService.uploadObject(thumb720, "wallpapers/thumb-720");
+        StorageUploadResult thumb1280UploadResult = wallpaperR2StorageService.uploadObject(thumb1280, "wallpapers/thumb-1280");
+
+        String originalUrl = originalUploadResult.publicUrl();
+        String thumb320Url = thumb320UploadResult.publicUrl();
+        String thumb720Url = thumb720UploadResult.publicUrl();
+        String thumb1280Url = thumb1280UploadResult.publicUrl();
 
         LocalDateTime now = LocalDateTime.now();
         WallpaperAsset asset = new WallpaperAsset();
@@ -136,6 +150,11 @@ public class WallpaperMarketService {
                 ownerUsername,
                 "initial-upload",
                 now);
+
+        enqueueReplicationSafely(asset.getId(), ownerUsername, "originalUrl", originalUploadResult, 3);
+        enqueueReplicationSafely(asset.getId(), ownerUsername, "thumb320Url", thumb320UploadResult, 3);
+        enqueueReplicationSafely(asset.getId(), ownerUsername, "thumb720Url", thumb720UploadResult, 3);
+        enqueueReplicationSafely(asset.getId(), ownerUsername, "thumb1280Url", thumb1280UploadResult, 3);
 
         tagService.syncTagsForWallpaper(asset.getId(), asset.getTagsText(), ownerUsername);
         wallpaperDetailBloomService.add(asset.getId());
@@ -278,10 +297,15 @@ public class WallpaperMarketService {
             validateImageFile(original);
         }
 
-        String originalUrl = wallpaperR2StorageService.upload(original, "wallpapers/original");
-        String thumb320Url = wallpaperR2StorageService.upload(thumb320, "wallpapers/thumb-320");
-        String thumb720Url = wallpaperR2StorageService.upload(thumb720, "wallpapers/thumb-720");
-        String thumb1280Url = wallpaperR2StorageService.upload(thumb1280, "wallpapers/thumb-1280");
+        StorageUploadResult originalUploadResult = wallpaperR2StorageService.uploadObject(original, "wallpapers/original");
+        StorageUploadResult thumb320UploadResult = wallpaperR2StorageService.uploadObject(thumb320, "wallpapers/thumb-320");
+        StorageUploadResult thumb720UploadResult = wallpaperR2StorageService.uploadObject(thumb720, "wallpapers/thumb-720");
+        StorageUploadResult thumb1280UploadResult = wallpaperR2StorageService.uploadObject(thumb1280, "wallpapers/thumb-1280");
+
+        String originalUrl = originalUploadResult.publicUrl();
+        String thumb320Url = thumb320UploadResult.publicUrl();
+        String thumb720Url = thumb720UploadResult.publicUrl();
+        String thumb1280Url = thumb1280UploadResult.publicUrl();
 
         LocalDateTime now = LocalDateTime.now();
         int updated = mapper.replaceOwnerSource(id,
@@ -321,6 +345,12 @@ public class WallpaperMarketService {
         } else {
             mapper.deleteVideoMetaByWallpaperId(id);
         }
+
+        enqueueReplicationSafely(id, ownerUsername, "originalUrl", originalUploadResult, 2);
+        enqueueReplicationSafely(id, ownerUsername, "thumb320Url", thumb320UploadResult, 2);
+        enqueueReplicationSafely(id, ownerUsername, "thumb720Url", thumb720UploadResult, 2);
+        enqueueReplicationSafely(id, ownerUsername, "thumb1280Url", thumb1280UploadResult, 2);
+
         return true;
     }
 
@@ -393,6 +423,31 @@ public class WallpaperMarketService {
         if (value == null) return;
         String s = value.toString().trim();
         if (!s.isEmpty()) bag.add(s);
+    }
+
+    private void enqueueReplicationSafely(Long wallpaperId,
+                                          String ownerUsername,
+                                          String fieldName,
+                                          StorageUploadResult uploadResult,
+                                          int priority) {
+        if (uploadResult == null) {
+            return;
+        }
+        try {
+            objectReplicationTaskService.enqueueForOtherProviders(
+                    "wallpaper_asset",
+                    wallpaperId,
+                    ownerUsername,
+                    fieldName,
+                    uploadResult,
+                    priority
+            );
+        } catch (Exception ex) {
+            log.warn("enqueue wallpaper replication task failed id={} field={} reason={}",
+                    wallpaperId,
+                    fieldName,
+                    ex.getMessage());
+        }
     }
 
     @Caching(evict = {

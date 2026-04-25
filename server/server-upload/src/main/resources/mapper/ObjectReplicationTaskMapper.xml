@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.upload.mapper.ObjectReplicationTaskMapper">
+
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO object_replication_task
+        (
+            task_key,
+            biz_type,
+            biz_id,
+            biz_key,
+            field_name,
+            object_key,
+            source_provider,
+            target_provider,
+            source_url,
+            status,
+            priority,
+            retry_count,
+            max_retries,
+            next_retry_at,
+            created_at,
+            updated_at
+        )
+        VALUES
+        (
+            #{taskKey},
+            #{bizType},
+            #{bizId},
+            #{bizKey},
+            #{fieldName},
+            #{objectKey},
+            #{sourceProvider},
+            #{targetProvider},
+            #{sourceUrl},
+            #{status},
+            #{priority},
+            0,
+            #{maxRetries},
+            #{nextRetryAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+</mapper>
