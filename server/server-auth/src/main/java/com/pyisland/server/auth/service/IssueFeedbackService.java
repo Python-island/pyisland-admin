@@ -1,6 +1,7 @@
 package com.pyisland.server.auth.service;
 
 import com.pyisland.server.auth.mapper.IssueFeedbackMapper;
+import com.pyisland.server.user.service.StaticAssetUrlService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -15,11 +16,14 @@ public class IssueFeedbackService {
 
     private final IssueFeedbackMapper issueFeedbackMapper;
     private final StringRedisTemplate issueFeedbackRedisTemplate;
+    private final StaticAssetUrlService staticAssetUrlService;
 
     public IssueFeedbackService(IssueFeedbackMapper issueFeedbackMapper,
-                                @Qualifier("issueFeedbackRedisTemplate") StringRedisTemplate issueFeedbackRedisTemplate) {
+                                @Qualifier("issueFeedbackRedisTemplate") StringRedisTemplate issueFeedbackRedisTemplate,
+                                StaticAssetUrlService staticAssetUrlService) {
         this.issueFeedbackMapper = issueFeedbackMapper;
         this.issueFeedbackRedisTemplate = issueFeedbackRedisTemplate;
+        this.staticAssetUrlService = staticAssetUrlService;
     }
 
     public boolean submit(String username,
@@ -52,22 +56,34 @@ public class IssueFeedbackService {
         ) > 0;
     }
 
-    public List<Map<String, Object>> listMine(String username, String status, int page, int pageSize) {
+    public List<Map<String, Object>> listMine(String username,
+                                              String status,
+                                              int page,
+                                              int pageSize,
+                                              String requestedNode,
+                                              boolean proUser) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(100, Math.max(1, pageSize));
         int offset = (safePage - 1) * safeSize;
-        return issueFeedbackMapper.listMine(safeText(username, 100), normalizeStatus(status), offset, safeSize);
+        List<Map<String, Object>> rows = issueFeedbackMapper.listMine(safeText(username, 100), normalizeStatus(status), offset, safeSize);
+        return rewriteFeedbackRows(rows, requestedNode, proUser);
     }
 
     public long countMine(String username, String status) {
         return issueFeedbackMapper.countMine(safeText(username, 100), normalizeStatus(status));
     }
 
-    public List<Map<String, Object>> listAdmin(String status, String keyword, int page, int pageSize) {
+    public List<Map<String, Object>> listAdmin(String status,
+                                               String keyword,
+                                               int page,
+                                               int pageSize,
+                                               String requestedNode,
+                                               boolean proUser) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(100, Math.max(1, pageSize));
         int offset = (safePage - 1) * safeSize;
-        return issueFeedbackMapper.listAdmin(normalizeStatus(status), safeText(keyword, 120), offset, safeSize);
+        List<Map<String, Object>> rows = issueFeedbackMapper.listAdmin(normalizeStatus(status), safeText(keyword, 120), offset, safeSize);
+        return rewriteFeedbackRows(rows, requestedNode, proUser);
     }
 
     public long countAdmin(String status, String keyword) {
@@ -157,5 +173,38 @@ public class IssueFeedbackService {
             return trimmed.substring(0, maxLength);
         }
         return trimmed;
+    }
+
+    private List<Map<String, Object>> rewriteFeedbackRows(List<Map<String, Object>> rows,
+                                                           String requestedNode,
+                                                           boolean proUser) {
+        if (rows == null || rows.isEmpty()) {
+            return rows;
+        }
+        for (Map<String, Object> row : rows) {
+            rewriteFeedbackRow(row, requestedNode, proUser);
+        }
+        return rows;
+    }
+
+    private void rewriteFeedbackRow(Map<String, Object> row,
+                                    String requestedNode,
+                                    boolean proUser) {
+        if (row == null || row.isEmpty()) {
+            return;
+        }
+        rewriteMapUrl(row, "feedbackLogUrl", requestedNode, proUser);
+        rewriteMapUrl(row, "feedbackScreenshotUrl", requestedNode, proUser);
+    }
+
+    private void rewriteMapUrl(Map<String, Object> row,
+                               String field,
+                               String requestedNode,
+                               boolean proUser) {
+        Object value = row.get(field);
+        if (!(value instanceof String text) || text.isBlank()) {
+            return;
+        }
+        row.put(field, staticAssetUrlService.rewriteUrl(text, requestedNode, proUser));
     }
 }

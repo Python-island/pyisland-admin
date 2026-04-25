@@ -4,15 +4,18 @@ import com.pyisland.server.auth.service.IssueFeedbackService;
 import com.pyisland.server.auth.service.SliderCaptchaService;
 import com.pyisland.server.common.util.ClientIpUtil;
 import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.StaticAssetUrlService;
 import com.pyisland.server.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -97,12 +100,18 @@ public class IssueFeedbackController {
     public ResponseEntity<Map<String, Object>> listMine(@RequestParam(value = "status", required = false) String status,
                                                          @RequestParam(value = "page", defaultValue = "1") int page,
                                                          @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,
+                                                         @RequestHeader(value = StaticAssetUrlService.NODE_HEADER_NAME, required = false) String assetNode,
                                                          Authentication authentication) {
         String caller = callerName(authentication);
         if (caller == null) {
             return error(401, "未登录");
         }
-        List<Map<String, Object>> items = issueFeedbackService.listMine(caller, status, page, pageSize);
+        List<Map<String, Object>> items = issueFeedbackService.listMine(caller,
+                status,
+                page,
+                pageSize,
+                assetNode,
+                isProUser(authentication));
         long total = issueFeedbackService.countMine(caller, status);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("items", items);
@@ -117,8 +126,15 @@ public class IssueFeedbackController {
     public ResponseEntity<Map<String, Object>> listAdmin(@RequestParam(value = "status", required = false) String status,
                                                           @RequestParam(value = "keyword", required = false) String keyword,
                                                           @RequestParam(value = "page", defaultValue = "1") int page,
-                                                          @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
-        List<Map<String, Object>> items = issueFeedbackService.listAdmin(status, keyword, page, pageSize);
+                                                          @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,
+                                                          @RequestHeader(value = StaticAssetUrlService.NODE_HEADER_NAME, required = false) String assetNode,
+                                                          Authentication authentication) {
+        List<Map<String, Object>> items = issueFeedbackService.listAdmin(status,
+                keyword,
+                page,
+                pageSize,
+                assetNode,
+                isProUser(authentication));
         long total = issueFeedbackService.countAdmin(status, keyword);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("items", items);
@@ -182,5 +198,21 @@ public class IssueFeedbackController {
     public record ResolveFeedbackRequest(Long id,
                                          String status,
                                          String adminReply) {
+    }
+
+    private boolean isProUser(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if (authority == null || authority.getAuthority() == null) {
+                continue;
+            }
+            String role = authority.getAuthority().trim().toUpperCase();
+            if ("ROLE_PRO".equals(role) || "ROLE_ADMIN".equals(role)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

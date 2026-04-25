@@ -1,14 +1,17 @@
 package com.pyisland.server.user.controller;
 
+import com.pyisland.server.user.service.StaticAssetUrlService;
 import com.pyisland.server.user.service.WallpaperMarketService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -83,8 +86,16 @@ public class WallpaperUserController {
                                   @RequestParam(value = "type", required = false) String type,
                                   @RequestParam(value = "sort", required = false) String sort,
                                   @RequestParam(value = "page", defaultValue = "1") int page,
-                                  @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
-        var items = wallpaperMarketService.listPublished(keyword, type, sort, page, pageSize);
+                                  @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,
+                                  @RequestHeader(value = StaticAssetUrlService.NODE_HEADER_NAME, required = false) String assetNode,
+                                  Authentication authentication) {
+        var items = wallpaperMarketService.listPublished(keyword,
+                type,
+                sort,
+                page,
+                pageSize,
+                assetNode,
+                isProUser(authentication));
         long total = wallpaperMarketService.countPublished(keyword, type);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
@@ -102,8 +113,16 @@ public class WallpaperUserController {
                                       @RequestParam(value = "sort", required = false) String sort,
                                       @RequestParam(value = "page", defaultValue = "1") int page,
                                       @RequestParam(value = "pageSize", defaultValue = "50") int pageSize,
+                                      @RequestHeader(value = StaticAssetUrlService.NODE_HEADER_NAME, required = false) String assetNode,
                                       Authentication authentication) {
-        var items = wallpaperMarketService.listOwn(authentication.getName(), keyword, type, sort, page, pageSize);
+        var items = wallpaperMarketService.listOwn(authentication.getName(),
+                keyword,
+                type,
+                sort,
+                page,
+                pageSize,
+                assetNode,
+                isProUser(authentication));
         long total = wallpaperMarketService.countOwn(authentication.getName(), keyword, type);
         return ResponseEntity.ok(Map.of(
                 "code", 200,
@@ -116,8 +135,10 @@ public class WallpaperUserController {
     }
 
     @GetMapping("/detail")
-    public ResponseEntity<?> detail(@RequestParam("id") Long id) {
-        Map<String, Object> data = wallpaperMarketService.detail(id);
+    public ResponseEntity<?> detail(@RequestParam("id") Long id,
+                                    @RequestHeader(value = StaticAssetUrlService.NODE_HEADER_NAME, required = false) String assetNode,
+                                    Authentication authentication) {
+        Map<String, Object> data = wallpaperMarketService.detail(id, assetNode, isProUser(authentication));
         if (data == null || data.isEmpty()) {
             return ResponseEntity.ok(Map.of("code", 404, "message", "壁纸不存在"));
         }
@@ -235,5 +256,21 @@ public class WallpaperUserController {
     }
 
     public record ReportRequest(Long id, String reasonType, String reasonDetail) {
+    }
+
+    private boolean isProUser(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if (authority == null || authority.getAuthority() == null) {
+                continue;
+            }
+            String role = authority.getAuthority().trim().toUpperCase();
+            if ("ROLE_PRO".equals(role) || "ROLE_ADMIN".equals(role)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

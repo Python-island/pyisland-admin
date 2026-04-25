@@ -46,19 +46,22 @@ public class WallpaperMarketService {
     private final StringRedisTemplate uploadRateRedisTemplate;
     private final WallpaperTagService tagService;
     private final WallpaperDetailBloomService wallpaperDetailBloomService;
+    private final StaticAssetUrlService staticAssetUrlService;
 
     public WallpaperMarketService(WallpaperMarketMapper mapper,
                                   WallpaperR2StorageService wallpaperR2StorageService,
                                   ObjectReplicationTaskService objectReplicationTaskService,
                                   @Qualifier("uploadRateRedisTemplate") StringRedisTemplate uploadRateRedisTemplate,
                                   WallpaperTagService tagService,
-                                  WallpaperDetailBloomService wallpaperDetailBloomService) {
+                                  WallpaperDetailBloomService wallpaperDetailBloomService,
+                                  StaticAssetUrlService staticAssetUrlService) {
         this.mapper = mapper;
         this.wallpaperR2StorageService = wallpaperR2StorageService;
         this.objectReplicationTaskService = objectReplicationTaskService;
         this.uploadRateRedisTemplate = uploadRateRedisTemplate;
         this.tagService = tagService;
         this.wallpaperDetailBloomService = wallpaperDetailBloomService;
+        this.staticAssetUrlService = staticAssetUrlService;
         rebuildWallpaperDetailBloom();
     }
 
@@ -168,15 +171,22 @@ public class WallpaperMarketService {
 
     @Cacheable(
         cacheNames = "wallpaper-list",
-        key = "(#keyword ?: '') + ':' + (#type ?: '') + ':' + (#sortBy ?: '') + ':' + #page + ':' + #pageSize",
+        key = "(#keyword ?: '') + ':' + (#type ?: '') + ':' + (#sortBy ?: '') + ':' + #page + ':' + #pageSize + ':' + (#requestedNode ?: '') + ':' + #proUser",
         cacheManager = "wallpaperCacheManager",
         unless = "#result == null"
     )
-    public List<Map<String, Object>> listPublished(String keyword, String type, String sortBy, int page, int pageSize) {
+    public List<Map<String, Object>> listPublished(String keyword,
+                                                   String type,
+                                                   String sortBy,
+                                                   int page,
+                                                   int pageSize,
+                                                   String requestedNode,
+                                                   boolean proUser) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(100, Math.max(1, pageSize));
         int offset = (safePage - 1) * safeSize;
-        return mapper.listPublished(safeText(keyword, 100), normalizeTypeAllowBlank(type), normalizeSort(sortBy), offset, safeSize);
+        List<Map<String, Object>> rows = mapper.listPublished(safeText(keyword, 100), normalizeTypeAllowBlank(type), normalizeSort(sortBy), offset, safeSize);
+        return rewriteAssetRows(rows, requestedNode, proUser);
     }
 
     @Cacheable(
@@ -191,20 +201,28 @@ public class WallpaperMarketService {
 
     @Cacheable(
         cacheNames = "wallpaper-my-list",
-        key = "#ownerUsername + ':' + (#keyword ?: '') + ':' + (#type ?: '') + ':' + (#sortBy ?: '') + ':' + #page + ':' + #pageSize",
+        key = "#ownerUsername + ':' + (#keyword ?: '') + ':' + (#type ?: '') + ':' + (#sortBy ?: '') + ':' + #page + ':' + #pageSize + ':' + (#requestedNode ?: '') + ':' + #proUser",
         cacheManager = "wallpaperCacheManager",
         unless = "#result == null"
     )
-    public List<Map<String, Object>> listOwn(String ownerUsername, String keyword, String type, String sortBy, int page, int pageSize) {
+    public List<Map<String, Object>> listOwn(String ownerUsername,
+                                             String keyword,
+                                             String type,
+                                             String sortBy,
+                                             int page,
+                                             int pageSize,
+                                             String requestedNode,
+                                             boolean proUser) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(100, Math.max(1, pageSize));
         int offset = (safePage - 1) * safeSize;
-        return mapper.listMine(ownerUsername,
+        List<Map<String, Object>> rows = mapper.listMine(ownerUsername,
                 safeText(keyword, 100),
                 normalizeTypeAllowBlank(type),
                 normalizeSort(sortBy),
                 offset,
                 safeSize);
+        return rewriteAssetRows(rows, requestedNode, proUser);
     }
 
     @Cacheable(
@@ -221,18 +239,19 @@ public class WallpaperMarketService {
 
     @Cacheable(
         cacheNames = "wallpaper-detail",
-        key = "#id",
+        key = "#id + ':' + (#requestedNode ?: '') + ':' + #proUser",
         cacheManager = "wallpaperCacheManager",
         unless = "#result == null"
     )
-    public Map<String, Object> detail(Long id) {
+    public Map<String, Object> detail(Long id, String requestedNode, boolean proUser) {
         if (id == null || id <= 0) {
             return null;
         }
         if (!wallpaperDetailBloomService.mightContain(id)) {
             return null;
         }
-        return mapper.selectAssetById(id);
+        Map<String, Object> row = mapper.selectAssetById(id);
+        return rewriteAssetRow(row, requestedNode, proUser);
     }
 
     @Caching(evict = {
@@ -417,6 +436,43 @@ public class WallpaperMarketService {
         if (!urls.isEmpty()) {
             wallpaperR2StorageService.deleteAll(urls);
         }
+    }
+
+    private List<Map<String, Object>> rewriteAssetRows(List<Map<String, Object>> rows,
+                                                        String requestedNode,
+                                                        boolean proUser) {
+        if (rows == null || rows.isEmpty()) {
+            return rows;
+        }
+        for (Map<String, Object> row : rows) {
+            rewriteAssetRow(row, requestedNode, proUser);
+        }
+        return rows;
+    }
+
+    private Map<String, Object> rewriteAssetRow(Map<String, Object> row,
+                                                 String requestedNode,
+                                                 boolean proUser) {
+        if (row == null || row.isEmpty()) {
+            return row;
+        }
+        rewriteMapUrl(row, "ownerAvatar", requestedNode, proUser);
+        rewriteMapUrl(row, "originalUrl", requestedNode, proUser);
+        rewriteMapUrl(row, "thumb320Url", requestedNode, proUser);
+        rewriteMapUrl(row, "thumb720Url", requestedNode, proUser);
+        rewriteMapUrl(row, "thumb1280Url", requestedNode, proUser);
+        return row;
+    }
+
+    private void rewriteMapUrl(Map<String, Object> row,
+                               String field,
+                               String requestedNode,
+                               boolean proUser) {
+        Object value = row.get(field);
+        if (!(value instanceof String text) || text.isBlank()) {
+            return;
+        }
+        row.put(field, staticAssetUrlService.rewriteUrl(text, requestedNode, proUser));
     }
 
     private void collectUrl(Set<String> bag, Object value) {

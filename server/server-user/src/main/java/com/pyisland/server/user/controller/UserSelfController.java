@@ -5,6 +5,7 @@ import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.policy.GenderPolicy;
 import com.pyisland.server.user.policy.PasswordHashService;
 import com.pyisland.server.user.policy.PasswordPolicy;
+import com.pyisland.server.user.service.StaticAssetUrlService;
 import com.pyisland.server.user.service.TotpSecurityService;
 import com.pyisland.server.upload.service.R2StorageService;
 import com.pyisland.server.user.service.UserService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,6 +54,7 @@ public class UserSelfController {
     private final UserService userService;
     private final PasswordHashService passwordHashService;
     private final R2StorageService r2StorageService;
+    private final StaticAssetUrlService staticAssetUrlService;
     private final StringRedisTemplate verificationRedisTemplate;
     private final String verifyCodePepper;
     private final TotpSecurityService totpSecurityService;
@@ -70,12 +73,14 @@ public class UserSelfController {
     public UserSelfController(UserService userService,
                               PasswordHashService passwordHashService,
                               R2StorageService r2StorageService,
+                              StaticAssetUrlService staticAssetUrlService,
                               @Qualifier("verificationRedisTemplate") StringRedisTemplate verificationRedisTemplate,
                               @Value("${VERIFY_CODE_PEPPER:pyisland-verify-pepper}") String verifyCodePepper,
                               TotpSecurityService totpSecurityService) {
         this.userService = userService;
         this.passwordHashService = passwordHashService;
         this.r2StorageService = r2StorageService;
+        this.staticAssetUrlService = staticAssetUrlService;
         this.verificationRedisTemplate = verificationRedisTemplate;
         this.verifyCodePepper = verifyCodePepper;
         this.totpSecurityService = totpSecurityService;
@@ -87,7 +92,8 @@ public class UserSelfController {
      * @return 资料数据。
      */
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(Authentication authentication) {
+    public ResponseEntity<?> getProfile(Authentication authentication,
+                                        @RequestHeader(value = StaticAssetUrlService.NODE_HEADER_NAME, required = false) String assetNode) {
         String caller = callerName(authentication);
         if (caller == null) {
             return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
@@ -102,7 +108,9 @@ public class UserSelfController {
         data.put("email", user.getEmail());
         data.put("role", user.getRole());
         data.put("proExpireAt", user.getProExpireAt() != null ? user.getProExpireAt().toString() : null);
-        data.put("avatar", r2StorageService.rewriteLegacyUrl(userService.getAvatarByUsername(user.getUsername())));
+        String sourceAvatar = r2StorageService.rewriteLegacyUrl(userService.getAvatarByUsername(user.getUsername()));
+        boolean proUser = User.ROLE_PRO.equalsIgnoreCase(user.getRole()) || User.ROLE_ADMIN.equalsIgnoreCase(user.getRole());
+        data.put("avatar", staticAssetUrlService.rewriteUrl(sourceAvatar, assetNode, proUser));
         data.put("gender", user.getGender() != null ? user.getGender() : GenderPolicy.DEFAULT);
         data.put("genderCustom", user.getGenderCustom());
         data.put("birthday", user.getBirthday() != null ? user.getBirthday().toString() : null);
