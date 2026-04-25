@@ -23,7 +23,10 @@ import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -54,6 +57,7 @@ public class QWeatherService {
     private final long jwtTtlSeconds;
     private final long dailyCacheTtlSeconds;
     private final long alertCacheTtlSeconds;
+    private final long monthlyRequestLimit;
     private final String cacheKeyPrefix;
 
     private volatile String loadedKeyPath;
@@ -70,6 +74,7 @@ public class QWeatherService {
             @Value("${QWEATHER_JWT_TTL_SECONDS:600}") long jwtTtlSeconds,
             @Value("${QWEATHER_DAILY_CACHE_TTL_SECONDS:600}") long dailyCacheTtlSeconds,
             @Value("${QWEATHER_ALERT_CACHE_TTL_SECONDS:180}") long alertCacheTtlSeconds,
+            @Value("${QWEATHER_MONTHLY_REQUEST_LIMIT:50000}") long monthlyRequestLimit,
             @Value("${QWEATHER_CACHE_KEY_PREFIX:qweather}") String cacheKeyPrefix,
             @Value("${QWEATHER_CONNECT_TIMEOUT_MS:5000}") int connectTimeoutMs
     ) {
@@ -87,6 +92,7 @@ public class QWeatherService {
         this.jwtTtlSeconds = Math.max(60, jwtTtlSeconds);
         this.dailyCacheTtlSeconds = Math.max(30, dailyCacheTtlSeconds);
         this.alertCacheTtlSeconds = Math.max(30, alertCacheTtlSeconds);
+        this.monthlyRequestLimit = Math.max(1, monthlyRequestLimit);
         this.cacheKeyPrefix = safe(cacheKeyPrefix).isBlank() ? "qweather" : safe(cacheKeyPrefix);
     }
 
@@ -130,8 +136,34 @@ public class QWeatherService {
         return data;
     }
 
+    public Map<String, Object> getMonthlyQuotaStatus() {
+        YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
+        String key = monthlyQuotaKey(currentMonth);
+        long used = 0L;
+        try {
+            String raw = qweatherRedisTemplate.opsForValue().get(key);
+            if (raw != null && !raw.isBlank()) {
+                used = Math.max(0L, Long.parseLong(raw.trim()));
+            }
+        } catch (Exception ignored) {
+            used = 0L;
+        }
+        long limit = Math.max(1L, monthlyRequestLimit);
+        long remaining = Math.max(0L, limit - used);
+        boolean fused = used >= limit;
+        return Map.of(
+                "provider", "qweather",
+                "month", currentMonth.toString(),
+                "limit", limit,
+                "used", used,
+                "remaining", remaining,
+                "fused", fused
+        );
+    }
+
     private Map<String, Object> requestQWeather(String path, Map<String, String> query) {
         ensureEnabled();
+        enforceMonthlyRequestLimit();
         try {
             String queryString = query.entrySet().stream()
                     .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
@@ -167,6 +199,33 @@ public class QWeatherService {
             throw new IllegalStateException("和风天气服务不可用: 请求被中断", ex);
         } catch (Exception ex) {
             throw new IllegalStateException("和风天气服务不可用: " + safeError(ex), ex);
+        }
+    }
+
+    private String monthlyQuotaKey(YearMonth month) {
+        String monthToken = month.toString().replace("-", "");
+        return cacheKeyPrefix + ":quota:provider:qweather:" + monthToken;
+    }
+
+    private void enforceMonthlyRequestLimit() {
+        YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
+        String key = monthlyQuotaKey(currentMonth);
+        try {
+            Long count = qweatherRedisTemplate.opsForValue().increment(key);
+            if (count == null) {
+                throw new IllegalStateException("和风天气限流计数失败");
+            }
+            if (count == 1L) {
+                Instant expireAt = currentMonth.plusMonths(1).atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+                qweatherRedisTemplate.expireAt(key, Date.from(expireAt));
+            }
+            if (count > monthlyRequestLimit) {
+                throw new IllegalStateException("和风天气本月调用次数已超过 " + monthlyRequestLimit + " 次，已自动熔断");
+            }
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalStateException("和风天气限流检查失败: " + safeError(ex), ex);
         }
     }
 
