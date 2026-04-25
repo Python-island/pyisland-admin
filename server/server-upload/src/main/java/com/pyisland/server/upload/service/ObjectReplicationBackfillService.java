@@ -45,6 +45,9 @@ public class ObjectReplicationBackfillService {
     private final String feedbackR2Endpoint;
     private final String feedbackR2BucketName;
     private final String feedbackR2PublicDomain;
+    private final String ossAdminAvatarEndpoint;
+    private final String ossAdminAvatarBucketName;
+    private final String ossAdminAvatarDomain;
     private final String ossAvatarEndpoint;
     private final String ossAvatarBucketName;
     private final String ossAvatarDomain;
@@ -84,6 +87,9 @@ public class ObjectReplicationBackfillService {
                                             @Value("${cloudflare.feedback-r2.endpoint:}") String feedbackR2Endpoint,
                                             @Value("${cloudflare.feedback-r2.bucket-name:}") String feedbackR2BucketName,
                                             @Value("${cloudflare.feedback-r2.public-domain:}") String feedbackR2PublicDomain,
+                                            @Value("${aliyun.oss.admin-avatar.endpoint:}") String ossAdminAvatarEndpoint,
+                                            @Value("${aliyun.oss.admin-avatar.bucket-name:}") String ossAdminAvatarBucketName,
+                                            @Value("${aliyun.oss.admin-avatar.domain:}") String ossAdminAvatarDomain,
                                             @Value("${aliyun.oss.avatar.endpoint:}") String ossAvatarEndpoint,
                                             @Value("${aliyun.oss.avatar.bucket-name:}") String ossAvatarBucketName,
                                             @Value("${aliyun.oss.avatar.domain:}") String ossAvatarDomain,
@@ -119,6 +125,9 @@ public class ObjectReplicationBackfillService {
         this.feedbackR2Endpoint = safeText(feedbackR2Endpoint, 600);
         this.feedbackR2BucketName = safeText(feedbackR2BucketName, 120);
         this.feedbackR2PublicDomain = safeText(feedbackR2PublicDomain, 600);
+        this.ossAdminAvatarEndpoint = safeText(ossAdminAvatarEndpoint, 300);
+        this.ossAdminAvatarBucketName = safeText(ossAdminAvatarBucketName, 120);
+        this.ossAdminAvatarDomain = safeText(ossAdminAvatarDomain, 600);
         this.ossAvatarEndpoint = safeText(ossAvatarEndpoint, 300);
         this.ossAvatarBucketName = safeText(ossAvatarBucketName, 120);
         this.ossAvatarDomain = safeText(ossAvatarDomain, 600);
@@ -449,6 +458,14 @@ public class ObjectReplicationBackfillService {
             return result;
         }
 
+        result = resolveByDomain(normalizedUrl, StorageProvider.OSS, ossAdminAvatarBucketName, ossAdminAvatarDomain);
+        if (result != null) {
+            return result;
+        }
+        result = resolveByVirtualHost(normalizedUrl, StorageProvider.OSS, ossAdminAvatarBucketName, ossAdminAvatarEndpoint);
+        if (result != null) {
+            return result;
+        }
         result = resolveByDomain(normalizedUrl, StorageProvider.OSS, ossAvatarBucketName, ossAvatarDomain);
         if (result != null) {
             return result;

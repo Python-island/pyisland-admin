@@ -17,9 +17,25 @@ import java.util.UUID;
 @Service
 public class OssService implements ObjectStorageClient {
 
+    private static final String RESOURCE_ADMIN_AVATAR = "admin-avatar";
     private static final String RESOURCE_AVATAR = "avatar";
     private static final String RESOURCE_WALLPAPER = "wallpaper";
     private static final String RESOURCE_FEEDBACK = "feedback";
+
+    @Value("${aliyun.oss.admin-avatar.endpoint:}")
+    private String adminAvatarEndpoint;
+
+    @Value("${aliyun.oss.admin-avatar.access-key-id:}")
+    private String adminAvatarAccessKeyId;
+
+    @Value("${aliyun.oss.admin-avatar.access-key-secret:}")
+    private String adminAvatarAccessKeySecret;
+
+    @Value("${aliyun.oss.admin-avatar.bucket-name:}")
+    private String adminAvatarBucketName;
+
+    @Value("${aliyun.oss.admin-avatar.domain:}")
+    private String adminAvatarDomain;
 
     @Value("${aliyun.oss.avatar.endpoint:}")
     private String avatarEndpoint;
@@ -171,6 +187,16 @@ public class OssService implements ObjectStorageClient {
 
     private BucketConfig resolveBucketConfig(String objectKey, String bizType, String fieldName) {
         String resourceType = resolveResourceType(objectKey, bizType, fieldName);
+        if (RESOURCE_ADMIN_AVATAR.equals(resourceType)) {
+            return new BucketConfig(
+                    RESOURCE_ADMIN_AVATAR,
+                    safeText(adminAvatarEndpoint),
+                    safeText(adminAvatarAccessKeyId),
+                    safeText(adminAvatarAccessKeySecret),
+                    safeText(adminAvatarBucketName),
+                    safeText(adminAvatarDomain)
+            );
+        }
         if (RESOURCE_WALLPAPER.equals(resourceType)) {
             return new BucketConfig(
                     RESOURCE_WALLPAPER,
@@ -203,6 +229,11 @@ public class OssService implements ObjectStorageClient {
 
     private String resolveResourceType(String objectKey, String bizType, String fieldName) {
         String normalizedBizType = safeText(bizType).toLowerCase(Locale.ROOT);
+        if (normalizedBizType.contains("admin_avatar")
+                || normalizedBizType.contains("admin-avatar")
+                || (normalizedBizType.contains("admin") && normalizedBizType.contains("avatar"))) {
+            return RESOURCE_ADMIN_AVATAR;
+        }
         if (normalizedBizType.contains("wallpaper")) {
             return RESOURCE_WALLPAPER;
         }
@@ -220,11 +251,18 @@ public class OssService implements ObjectStorageClient {
         if (normalizedFieldName.contains("feedback")) {
             return RESOURCE_FEEDBACK;
         }
+        if (normalizedFieldName.contains("admin") && normalizedFieldName.contains("avatar")) {
+            return RESOURCE_ADMIN_AVATAR;
+        }
         if (normalizedFieldName.contains("avatar")) {
             return RESOURCE_AVATAR;
         }
 
         String normalizedKey = safeText(objectKey).toLowerCase(Locale.ROOT);
+        if (normalizedKey.startsWith("admin-avatars/")
+                || normalizedKey.startsWith("admin-avatar/")) {
+            return RESOURCE_ADMIN_AVATAR;
+        }
         if (normalizedKey.startsWith("wallpapers/")) {
             return RESOURCE_WALLPAPER;
         }
