@@ -100,6 +100,7 @@ public class QWeatherService {
         String normalizedLocation = requireNonBlank(location, "location 参数不能为空");
         String normalizedLang = safe(lang).isBlank() ? "zh" : safe(lang);
         String normalizedUnit = safe(unit).isBlank() ? "m" : safe(unit);
+        enforceMonthlyRequestLimit();
         String cacheKey = cacheKeyPrefix + ":daily3d:" + normalizedLocation + ":" + normalizedLang + ":" + normalizedUnit;
 
         Map<String, Object> cached = readCache(cacheKey);
@@ -120,6 +121,7 @@ public class QWeatherService {
     public Map<String, Object> getCurrentAlerts(String location, String lang) {
         String normalizedLocation = requireNonBlank(location, "location 参数不能为空");
         String normalizedLang = safe(lang).isBlank() ? "zh" : safe(lang);
+        enforceMonthlyRequestLimit();
         String cacheKey = cacheKeyPrefix + ":alerts:" + normalizedLocation + ":" + normalizedLang;
 
         Map<String, Object> cached = readCache(cacheKey);
@@ -163,7 +165,6 @@ public class QWeatherService {
 
     private Map<String, Object> requestQWeather(String path, Map<String, String> query) {
         ensureEnabled();
-        enforceMonthlyRequestLimit();
         try {
             String queryString = query.entrySet().stream()
                     .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
