@@ -24,6 +24,10 @@
         </dependency>
         <dependency>
             <groupId>com.pyisland</groupId>
+            <artifactId>server-weather</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.pyisland</groupId>
             <artifactId>server-payment</artifactId>
         </dependency>
         <dependency>
