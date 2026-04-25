@@ -1,14 +1,12 @@
 package com.pyisland.server.upload.service;
 
-import com.pyisland.server.upload.config.ObjectReplicationMqConfig;
+import com.pyisland.server.upload.mapper.ObjectOutboxMapper;
 import com.pyisland.server.upload.mapper.ObjectReplicationTaskMapper;
-import com.pyisland.server.upload.mq.ObjectReplicationMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.core.MessagePostProcessor;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.net.URI;
@@ -22,7 +20,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * 对象复制任务服务。
@@ -31,23 +28,24 @@ import java.util.UUID;
 public class ObjectReplicationTaskService {
 
     private static final Logger log = LoggerFactory.getLogger(ObjectReplicationTaskService.class);
+    public static final String OUTBOX_EVENT_TYPE_REPLICATION_PUBLISH = "object.replication.publish";
 
+    private final ObjectOutboxMapper objectOutboxMapper;
     private final ObjectReplicationTaskMapper objectReplicationTaskMapper;
     private final ObjectStorageRouter objectStorageRouter;
-    private final RabbitTemplate rabbitTemplate;
     private final boolean replicationEnabled;
     private final int maxRetries;
     private final int sourceFetchTimeoutMs;
 
-    public ObjectReplicationTaskService(ObjectReplicationTaskMapper objectReplicationTaskMapper,
+    public ObjectReplicationTaskService(ObjectOutboxMapper objectOutboxMapper,
+                                        ObjectReplicationTaskMapper objectReplicationTaskMapper,
                                         ObjectStorageRouter objectStorageRouter,
-                                        RabbitTemplate rabbitTemplate,
                                         @Value("${object-replication.enabled:true}") boolean replicationEnabled,
                                         @Value("${object-replication.max-retries:6}") int maxRetries,
                                         @Value("${object-replication.source-fetch-timeout-ms:60000}") int sourceFetchTimeoutMs) {
+        this.objectOutboxMapper = objectOutboxMapper;
         this.objectReplicationTaskMapper = objectReplicationTaskMapper;
         this.objectStorageRouter = objectStorageRouter;
-        this.rabbitTemplate = rabbitTemplate;
         this.replicationEnabled = replicationEnabled;
         this.maxRetries = Math.max(1, maxRetries);
         this.sourceFetchTimeoutMs = Math.max(3000, sourceFetchTimeoutMs);
@@ -62,6 +60,7 @@ public class ObjectReplicationTaskService {
      * @param sourceUploadResult 主存储上传结果。
      * @param priority 优先级（越小越高）。
      */
+    @Transactional(rollbackFor = Exception.class)
     public void enqueueForOtherProviders(String bizType,
                                          Long bizId,
                                          String bizKey,
@@ -108,7 +107,7 @@ public class ObjectReplicationTaskService {
             );
             if (inserted > 0) {
                 Long taskId = objectReplicationTaskMapper.selectIdByTaskKey(taskKey);
-                publishTaskMessage(taskId, normalizedPriority);
+                createOutboxEvent(taskId, normalizedPriority, now);
                 log.debug("object replication task created key={} bizType={} bizId={} target={}",
                         taskKey,
                         bizType,
@@ -226,22 +225,22 @@ public class ObjectReplicationTaskService {
         return Math.min(priority, 9);
     }
 
-    private void publishTaskMessage(Long taskId, int normalizedPriority) {
+    private void createOutboxEvent(Long taskId, int normalizedPriority, LocalDateTime now) {
         if (taskId == null || taskId <= 0) {
             return;
         }
-        String traceId = UUID.randomUUID().toString().replace("-", "");
-        ObjectReplicationMessage message = new ObjectReplicationMessage(taskId, traceId, "");
-        MessagePostProcessor postProcessor = msg -> {
-            msg.getMessageProperties().setHeader(ObjectReplicationMqConfig.RETRY_HEADER, 0);
-            msg.getMessageProperties().setPriority(toMqPriority(normalizedPriority));
-            return msg;
-        };
-        rabbitTemplate.convertAndSend(
-                ObjectReplicationMqConfig.REPLICATION_EXCHANGE,
-                ObjectReplicationMqConfig.REPLICATION_ROUTING_KEY,
-                message,
-                postProcessor
+        int queuePriority = toMqPriority(normalizedPriority);
+        String payloadJson = "{\"taskId\":" + taskId + ",\"queuePriority\":" + queuePriority + "}";
+        objectOutboxMapper.insertIgnore(
+                OUTBOX_EVENT_TYPE_REPLICATION_PUBLISH,
+                "object-replication-task:" + taskId,
+                payloadJson,
+                "pending",
+                0,
+                now,
+                "",
+                now,
+                now
         );
     }
 

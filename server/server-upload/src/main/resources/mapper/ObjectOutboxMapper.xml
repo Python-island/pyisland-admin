@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.upload.mapper.ObjectOutboxMapper">
+
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO object_outbox
+        (
+            event_type,
+            event_key,
+            payload_json,
+            status,
+            retry_count,
+            next_retry_at,
+            last_error,
+            created_at,
+            updated_at
+        )
+        VALUES
+        (
+            #{eventType},
+            #{eventKey},
+            #{payloadJson},
+            #{status},
+            #{retryCount},
+            #{nextRetryAt},
+            #{lastError},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="listPending" resultType="map">
+        SELECT id,
+               event_type AS eventType,
+               event_key AS eventKey,
+               payload_json AS payloadJson,
+               status,
+               retry_count AS retryCount,
+               next_retry_at AS nextRetryAt,
+               last_error AS lastError,
+               published_at AS publishedAt,
+               created_at AS createdAt,
+               updated_at AS updatedAt
+        FROM object_outbox
+        WHERE status = 'pending'
+          AND (next_retry_at IS NULL OR next_retry_at &lt;= #{now})
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markPublished">
+        UPDATE object_outbox
+        SET status = 'published',
+            published_at = #{publishedAt},
+            last_error = '',
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="markRetrying">
+        UPDATE object_outbox
+        SET status = 'pending',
+            retry_count = #{retryCount},
+            next_retry_at = #{nextRetryAt},
+            last_error = #{lastError},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="markDlq">
+        UPDATE object_outbox
+        SET status = 'dlq',
+            retry_count = #{retryCount},
+            last_error = #{lastError},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
