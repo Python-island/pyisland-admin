@@ -29,6 +29,7 @@ public class LangChainWorkflowService {
                 .append("{\"type\":\"tool_call\",\"tool\":\"user.ip.get\",\"arguments\":{}}\n")
                 .append("B. 最终回答时输出：")
                 .append("{\"type\":\"final\",\"answer\":\"...\"}\n")
+                .append("当输出 final.answer 时，可以使用 <think>你的思考过程</think> + 面向用户可见答案。\n")
                 .append("若用户问天气，优先按链路调用：user.ip.get -> location.by_ip.resolve -> weather.query -> final。\n")
                 .append("最终回答用中文，简洁准确。");
         return prompt.toString();
@@ -64,7 +65,8 @@ public class LangChainWorkflowService {
         StringBuilder prompt = new StringBuilder();
         prompt.append("你是 mihtnelis agent，是 eisland 软件内置 agent。\n")
                 .append("你可以按需调用工具帮助回答：userIpGet、locationByIpResolve、weatherQuery。\n")
-                .append("回答要求：中文、简洁、准确，不输出 markdown 代码块。\n");
+                .append("回答要求：中文、简洁、准确，不输出 markdown 代码块。\n")
+                .append("如果需要展示思考过程，请使用 <think>...</think> 标签包裹。\n");
         if (!proUser) {
             prompt.append("当前用户不是 Pro，禁止调用 weatherQuery。\n");
         }

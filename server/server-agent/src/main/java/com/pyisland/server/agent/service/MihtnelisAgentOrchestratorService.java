@@ -10,6 +10,7 @@ import com.pyisland.server.user.service.UserService;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -66,6 +67,7 @@ public class MihtnelisAgentOrchestratorService {
 
         AgentToolExecutionService.ExecutionContext executionContext =
                 new AgentToolExecutionService.ExecutionContext(username, clientIp);
+        List<ToolInvocationTrace> traces = new java.util.ArrayList<>();
 
         if (chatGatewayService.supportsNativeToolCalling()) {
             String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(proUser);
@@ -78,7 +80,7 @@ public class MihtnelisAgentOrchestratorService {
                     proUser,
                     executionContext
             );
-            return new AgentExecutionResult(provider, AgentStringUtils.trimToDefault(answer, ""), proUser);
+            return new AgentExecutionResult(provider, AgentStringUtils.trimToDefault(answer, ""), proUser, traces);
         }
 
         String systemPrompt = workflowService.buildSystemPrompt(proUser);
@@ -91,11 +93,11 @@ public class MihtnelisAgentOrchestratorService {
             if (!decision.toolCall()) {
                 String finalAnswer = AgentStringUtils.trimToDefault(decision.finalAnswer(), "");
                 if (!finalAnswer.isBlank()) {
-                    return new AgentExecutionResult(provider, finalAnswer, proUser);
+                    return new AgentExecutionResult(provider, finalAnswer, proUser, traces);
                 }
                 String fallbackFromRaw = AgentStringUtils.trimToDefault(llmOutput, "");
                 if (!fallbackFromRaw.isBlank()) {
-                    return new AgentExecutionResult(provider, fallbackFromRaw, proUser);
+                    return new AgentExecutionResult(provider, fallbackFromRaw, proUser, traces);
                 }
                 break;
             }
@@ -106,6 +108,14 @@ public class MihtnelisAgentOrchestratorService {
                     proUser,
                     executionContext
             );
+            traces.add(new ToolInvocationTrace(
+                    turn,
+                    AgentStringUtils.trimToDefault(decision.toolName(), "unknown"),
+                    decision.arguments(),
+                    toolResult.success(),
+                    toolResult.error(),
+                    toolResult.data()
+            ));
             scratchpad = appendObservation(scratchpad, turn, decision.toolName(), decision.arguments(), toolResult);
         }
 
@@ -120,7 +130,7 @@ public class MihtnelisAgentOrchestratorService {
         }
         content.append("。");
 
-        return new AgentExecutionResult(provider, content.toString(), proUser);
+        return new AgentExecutionResult(provider, content.toString(), proUser, traces);
     }
 
     private ReActDecision parseDecision(String llmOutput) {
@@ -181,7 +191,18 @@ public class MihtnelisAgentOrchestratorService {
     /**
      * 编排结果。
      */
-    public record AgentExecutionResult(String provider, String answer, boolean proUser) {
+    public record AgentExecutionResult(String provider,
+                                       String answer,
+                                       boolean proUser,
+                                       List<ToolInvocationTrace> toolInvocations) {
+    }
+
+    public record ToolInvocationTrace(int turn,
+                                      String tool,
+                                      Map<String, Object> arguments,
+                                      boolean success,
+                                      String error,
+                                      Object result) {
     }
 
     private record ReActDecision(boolean toolCall, String toolName, Map<String, Object> arguments, String finalAnswer) {
