@@ -202,6 +202,19 @@ payment:
     charset: ${ALIPAY_CHARSET:UTF-8}
     query-pending-batch-size: ${ALIPAY_QUERY_PENDING_BATCH_SIZE:100}
 
+mihtnelis:
+  agent:
+    default-provider: ${MIHTNELIS_AGENT_DEFAULT_PROVIDER:auto}
+    allowed-providers: ${MIHTNELIS_AGENT_ALLOWED_PROVIDERS:auto,openai,deepseek,qwen,anthropic}
+    max-input-chars: ${MIHTNELIS_AGENT_MAX_INPUT_CHARS:8000}
+    oss-vector:
+      enabled: ${MIHTNELIS_AGENT_OSS_VECTOR_ENABLED:true}
+      endpoint: ${OSS_VECTOR_ENDPOINT}
+      access-key-id: ${OSS_VECTOR_ACCESS_KEY_ID}
+      access-key-secret: ${OSS_VECTOR_ACCESS_KEY_SECRET}
+      bucket-name: ${OSS_VECTOR_BUCKET_NAME}
+      domain: ${OSS_VECTOR_DOMAIN:}
+
 mybatis:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: com.pyisland.server.user.entity,com.pyisland.server.version.entity,com.pyisland.server.servicestatus.entity

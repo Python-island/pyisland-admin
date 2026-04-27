@@ -1,5 +1,6 @@
 package com.pyisland.server.agent.service;
 
+import com.pyisland.server.agent.config.MihtnelisAgentProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -17,11 +18,20 @@ import java.util.concurrent.Executors;
 @Service
 public class MihtnelisAgentStreamService {
 
+    private final MihtnelisAgentProperties properties;
+    private final MihtnelisAgentOrchestratorService orchestratorService;
+
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "mihtnelis-stream");
         t.setDaemon(true);
         return t;
     });
+
+    public MihtnelisAgentStreamService(MihtnelisAgentProperties properties,
+                                       MihtnelisAgentOrchestratorService orchestratorService) {
+        this.properties = properties;
+        this.orchestratorService = orchestratorService;
+    }
 
     /**
      * 启动 SSE 流
@@ -39,7 +49,7 @@ public class MihtnelisAgentStreamService {
     private void emitFlow(SseEmitter emitter, String username, MihtnelisStreamRequest request) {
         String userPrompt = request == null || request.message() == null ? "" : request.message().trim();
         String provider = request == null || request.provider() == null || request.provider().isBlank()
-                ? "auto"
+                ? properties.getDefaultProvider()
                 : request.provider().trim();
 
         if (userPrompt.isBlank()) {
@@ -51,6 +61,20 @@ public class MihtnelisAgentStreamService {
             return;
         }
 
+        int maxInputChars = Math.max(16, properties.getMaxInputChars());
+        if (userPrompt.length() > maxInputChars) {
+            sendEvent(emitter, "error", Map.of(
+                    "code", "INPUT_TOO_LONG",
+                    "message", "message 过长",
+                    "maxInputChars", maxInputChars
+            ));
+            emitter.complete();
+            return;
+        }
+
+        MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult = orchestratorService.orchestrate(username, request);
+        provider = executionResult.provider();
+
         sendEvent(emitter, "meta", Map.of(
                 "agent", "mihtnelis agent",
                 "provider", provider,
@@ -58,8 +82,7 @@ public class MihtnelisAgentStreamService {
                 "timestamp", LocalDateTime.now().toString()
         ));
 
-        String answer = "mihtnelis agent 已收到你的请求。当前为 Phase A 流式通道验证输出，"
-                + "后续将接入 Spring AI 和 LangChain4j 的真实工具链与计费链路。";
+        String answer = executionResult.answer();
 
         int billedTokenDelta = 0;
         String[] chunks = answer.split("，");
