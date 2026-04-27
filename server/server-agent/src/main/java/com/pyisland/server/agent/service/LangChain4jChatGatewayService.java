@@ -212,6 +212,28 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("session.context.get", Map.of());
         }
 
+        @Tool("联网搜索网页结果")
+        public Map<String, Object> webSearch(@P("query") String query,
+                                             @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (query != null && !query.isBlank()) {
+                arguments.put("query", AgentStringUtils.trimToEmpty(query));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(10, limit)));
+            }
+            return invoke("web.search", arguments);
+        }
+
+        @Tool("读取指定网页正文，需用户授权")
+        public Map<String, Object> webPageRead(@P("url") String url) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (url != null && !url.isBlank()) {
+                arguments.put("url", AgentStringUtils.trimToEmpty(url));
+            }
+            return invoke("web.page.read", arguments);
+        }
+
         private Map<String, Object> invoke(String toolName, Map<String, Object> arguments) {
             AgentToolExecutionService.ToolResult result = toolExecutionService.execute(toolName, arguments, proUser, context);
             return Map.of(

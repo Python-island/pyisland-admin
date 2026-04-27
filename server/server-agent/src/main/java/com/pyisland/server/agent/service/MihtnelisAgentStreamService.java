@@ -26,10 +26,12 @@ import java.util.regex.Pattern;
 public class MihtnelisAgentStreamService {
 
     private static final long ORCHESTRATION_TIMEOUT_SECONDS = 25L;
+    private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final MihtnelisAgentProperties properties;
     private final MihtnelisAgentOrchestratorService orchestratorService;
+    private final AgentWebAuthorizationService webAuthorizationService;
 
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "mihtnelis-stream");
@@ -38,9 +40,11 @@ public class MihtnelisAgentStreamService {
     });
 
     public MihtnelisAgentStreamService(MihtnelisAgentProperties properties,
-                                       MihtnelisAgentOrchestratorService orchestratorService) {
+                                       MihtnelisAgentOrchestratorService orchestratorService,
+                                       AgentWebAuthorizationService webAuthorizationService) {
         this.properties = properties;
         this.orchestratorService = orchestratorService;
+        this.webAuthorizationService = webAuthorizationService;
     }
 
     /**
@@ -84,39 +88,59 @@ public class MihtnelisAgentStreamService {
             }
 
             MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult;
-            try {
-                executionResult = CompletableFuture
-                        .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request), streamExecutor)
-                        .get(ORCHESTRATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (TimeoutException timeoutException) {
-                sendEvent(emitter, "error", Map.of(
-                        "code", "MODEL_TIMEOUT",
-                        "message", "模型处理超时，请稍后重试"
-                ));
-                emitter.complete();
-                return;
-            } catch (ExecutionException executionException) {
-                String reason = executionException.getCause() == null
-                        ? ""
-                        : executionException.getCause().getMessage();
-                sendEvent(emitter, "error", Map.of(
-                        "code", "MODEL_EXECUTION_ERROR",
-                        "message", reason == null || reason.isBlank()
-                                ? "模型调用失败，请检查 DeepSeek 配置"
-                                : reason
-                ));
-                emitter.complete();
-                return;
+            boolean metaSent = false;
+            while (true) {
+                executionResult = runOrchestration(username, clientIp, request);
+                provider = executionResult.provider();
+                if (!metaSent) {
+                    sendEvent(emitter, "meta", Map.of(
+                            "agent", "mihtnelis agent",
+                            "provider", provider,
+                            "sessionId", normalizeSessionId(request),
+                            "timestamp", LocalDateTime.now().toString()
+                    ));
+                    metaSent = true;
+                }
+
+                if (executionResult.pausedForWebAccess() && executionResult.pendingWebAccess() != null) {
+                    MihtnelisAgentOrchestratorService.PendingWebAccess pendingWebAccess = executionResult.pendingWebAccess();
+                    sendEvent(emitter, "web_access_request", Map.of(
+                            "requestId", pendingWebAccess.requestId(),
+                            "url", pendingWebAccess.url(),
+                            "message", "该 URL 需要授权后才可继续读取"
+                    ));
+                    AgentWebAuthorizationService.AwaitResult awaitResult = webAuthorizationService.awaitDecision(
+                            username,
+                            pendingWebAccess.requestId(),
+                            WEB_ACCESS_WAIT_TIMEOUT_SECONDS
+                    );
+                    if (!awaitResult.resolved()) {
+                        sendEvent(emitter, "error", Map.of(
+                                "code", "WEB_ACCESS_TIMEOUT",
+                                "message", awaitResult.error().isBlank()
+                                        ? "网页访问授权等待超时"
+                                        : awaitResult.error()
+                        ));
+                        emitter.complete();
+                        return;
+                    }
+                    if (!awaitResult.allowed()) {
+                        sendEvent(emitter, "error", Map.of(
+                                "code", "WEB_ACCESS_DENIED",
+                                "message", "用户拒绝访问该 URL"
+                        ));
+                        emitter.complete();
+                        return;
+                    }
+                    sendEvent(emitter, "web_access_resolved", Map.of(
+                            "requestId", pendingWebAccess.requestId(),
+                            "url", pendingWebAccess.url(),
+                            "allowed", true
+                    ));
+                    continue;
+                }
+                break;
             }
-
-            provider = executionResult.provider();
-
-            sendEvent(emitter, "meta", Map.of(
-                    "agent", "mihtnelis agent",
-                    "provider", provider,
-                    "sessionId", normalizeSessionId(request),
-                    "timestamp", LocalDateTime.now().toString()
-            ));
 
             for (MihtnelisAgentOrchestratorService.ToolInvocationTrace trace : executionResult.toolInvocations()) {
                 sendEvent(emitter, "tool", Map.of(
@@ -184,6 +208,23 @@ public class MihtnelisAgentStreamService {
                     "username", Objects.requireNonNullElse(username, "")
             ));
             emitter.complete();
+        } catch (TimeoutException timeoutException) {
+            sendEvent(emitter, "error", Map.of(
+                    "code", "MODEL_TIMEOUT",
+                    "message", "模型处理超时，请稍后重试"
+            ));
+            emitter.complete();
+        } catch (ExecutionException executionException) {
+            String reason = executionException.getCause() == null
+                    ? ""
+                    : executionException.getCause().getMessage();
+            sendEvent(emitter, "error", Map.of(
+                    "code", "MODEL_EXECUTION_ERROR",
+                    "message", reason == null || reason.isBlank()
+                            ? "模型调用失败，请检查 DeepSeek 配置"
+                            : reason
+            ));
+            emitter.complete();
         } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
             sendEvent(emitter, "error", Map.of(
@@ -198,6 +239,15 @@ public class MihtnelisAgentStreamService {
             ));
             emitter.completeWithError(exception);
         }
+    }
+
+    private MihtnelisAgentOrchestratorService.AgentExecutionResult runOrchestration(String username,
+                                                                                     String clientIp,
+                                                                                     MihtnelisStreamRequest request)
+            throws TimeoutException, ExecutionException, InterruptedException {
+        return CompletableFuture
+                .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request), streamExecutor)
+                .get(ORCHESTRATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     private String normalizeSessionId(MihtnelisStreamRequest request) {

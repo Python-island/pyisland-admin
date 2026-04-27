@@ -15,8 +15,9 @@ public class AgentToolExecutionService {
 
     private final AgentToolUtils toolUtils;
 
-    public AgentToolExecutionService(QWeatherService qWeatherService) {
-        this.toolUtils = new AgentToolUtils(qWeatherService);
+    public AgentToolExecutionService(QWeatherService qWeatherService,
+                                     AgentWebAuthorizationService webAuthorizationService) {
+        this.toolUtils = new AgentToolUtils(qWeatherService, webAuthorizationService);
     }
 
     public ToolResult execute(String toolName,
@@ -44,6 +45,12 @@ public class AgentToolExecutionService {
         }
         if ("session.context.get".equals(safeToolName)) {
             return toolUtils.getSessionContext(context);
+        }
+        if ("web.search".equals(safeToolName)) {
+            return toolUtils.searchWeb(arguments);
+        }
+        if ("web.page.read".equals(safeToolName)) {
+            return toolUtils.readWebPage(arguments, context);
         }
         if ("weather.city.lookup".equals(safeToolName)) {
             if (!proUser) {

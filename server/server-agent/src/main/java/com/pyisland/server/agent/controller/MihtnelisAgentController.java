@@ -1,9 +1,12 @@
 package com.pyisland.server.agent.controller;
 
+import com.pyisland.server.agent.service.AgentWebAuthorizationService;
 import com.pyisland.server.agent.service.MihtnelisAgentStreamService;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * mihtnelis agent 用户流式接口。
@@ -25,11 +29,14 @@ import java.util.Locale;
 public class MihtnelisAgentController {
 
     private final MihtnelisAgentStreamService streamService;
+    private final AgentWebAuthorizationService webAuthorizationService;
     private final UserService userService;
 
     public MihtnelisAgentController(MihtnelisAgentStreamService streamService,
+                                    AgentWebAuthorizationService webAuthorizationService,
                                     UserService userService) {
         this.streamService = streamService;
+        this.webAuthorizationService = webAuthorizationService;
         this.userService = userService;
     }
 
@@ -56,6 +63,34 @@ public class MihtnelisAgentController {
         }
         SseEmitter emitter = streamService.openStream(caller, resolveClientIp(httpRequest), request);
         return emitter;
+    }
+
+    @PostMapping(value = "/agent/web-access/resolve", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> resolveWebAccess(Authentication authentication,
+                                              @RequestBody AgentWebAccessResolveRequest request) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "error", "未登录"
+            ));
+        }
+        AgentWebAuthorizationService.ResolveResult result = webAuthorizationService.resolve(
+                caller,
+                request == null ? "" : request.requestId(),
+                request != null && request.allow()
+        );
+        if (!result.success()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", result.error(),
+                    "data", result.data()
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", result.data()
+        ));
     }
 
     private SseEmitter deniedEmitter(String code, String message) {
@@ -120,5 +155,8 @@ public class MihtnelisAgentController {
     }
 
     private record AgentFinalPayload(boolean done) {
+    }
+
+    private record AgentWebAccessResolveRequest(String requestId, boolean allow) {
     }
 }

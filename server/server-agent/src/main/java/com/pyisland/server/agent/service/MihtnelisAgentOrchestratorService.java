@@ -80,7 +80,7 @@ public class MihtnelisAgentOrchestratorService {
                     proUser,
                     executionContext
             );
-            return new AgentExecutionResult(provider, AgentStringUtils.trimToDefault(answer, ""), proUser, traces);
+            return AgentExecutionResult.done(provider, AgentStringUtils.trimToDefault(answer, ""), proUser, traces);
         }
 
         String systemPrompt = workflowService.buildSystemPrompt(proUser);
@@ -93,11 +93,11 @@ public class MihtnelisAgentOrchestratorService {
             if (!decision.toolCall()) {
                 String finalAnswer = AgentStringUtils.trimToDefault(decision.finalAnswer(), "");
                 if (!finalAnswer.isBlank()) {
-                    return new AgentExecutionResult(provider, finalAnswer, proUser, traces);
+                    return AgentExecutionResult.done(provider, finalAnswer, proUser, traces);
                 }
                 String fallbackFromRaw = AgentStringUtils.trimToDefault(llmOutput, "");
                 if (!fallbackFromRaw.isBlank()) {
-                    return new AgentExecutionResult(provider, fallbackFromRaw, proUser, traces);
+                    return AgentExecutionResult.done(provider, fallbackFromRaw, proUser, traces);
                 }
                 break;
             }
@@ -108,6 +108,12 @@ public class MihtnelisAgentOrchestratorService {
                     proUser,
                     executionContext
             );
+            if (isPendingWebAccess(toolResult)) {
+                PendingWebAccess pendingWebAccess = extractPendingWebAccess(toolResult);
+                if (pendingWebAccess != null) {
+                    return AgentExecutionResult.paused(provider, proUser, traces, pendingWebAccess);
+                }
+            }
             traces.add(new ToolInvocationTrace(
                     turn,
                     AgentStringUtils.trimToDefault(decision.toolName(), "unknown"),
@@ -130,7 +136,7 @@ public class MihtnelisAgentOrchestratorService {
         }
         content.append("。");
 
-        return new AgentExecutionResult(provider, content.toString(), proUser, traces);
+        return AgentExecutionResult.done(provider, content.toString(), proUser, traces);
     }
 
     private ReActDecision parseDecision(String llmOutput) {
@@ -191,10 +197,68 @@ public class MihtnelisAgentOrchestratorService {
     /**
      * 编排结果。
      */
+    private boolean isPendingWebAccess(AgentToolExecutionService.ToolResult toolResult) {
+        if (toolResult == null || !"web.page.read".equals(toolResult.tool()) || !toolResult.success()) {
+            return false;
+        }
+        if (!(toolResult.data() instanceof Map<?, ?> map)) {
+            return false;
+        }
+        Object required = map.get("authorizationRequired");
+        if (required instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        return "true".equalsIgnoreCase(String.valueOf(required));
+    }
+
+    private PendingWebAccess extractPendingWebAccess(AgentToolExecutionService.ToolResult toolResult) {
+        if (toolResult == null || !(toolResult.data() instanceof Map<?, ?> map)) {
+            return null;
+        }
+        String requestId = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(map.get("requestId")));
+        String url = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(map.get("url")));
+        if (requestId.isBlank() || url.isBlank()) {
+            return null;
+        }
+        return new PendingWebAccess(requestId, url);
+    }
+
     public record AgentExecutionResult(String provider,
                                        String answer,
                                        boolean proUser,
-                                       List<ToolInvocationTrace> toolInvocations) {
+                                       List<ToolInvocationTrace> toolInvocations,
+                                       PendingWebAccess pendingWebAccess,
+                                       boolean pausedForWebAccess) {
+        public static AgentExecutionResult done(String provider,
+                                                String answer,
+                                                boolean proUser,
+                                                List<ToolInvocationTrace> traces) {
+            return new AgentExecutionResult(
+                    provider,
+                    AgentStringUtils.trimToDefault(answer, ""),
+                    proUser,
+                    traces == null ? List.of() : traces,
+                    null,
+                    false
+            );
+        }
+
+        public static AgentExecutionResult paused(String provider,
+                                                  boolean proUser,
+                                                  List<ToolInvocationTrace> traces,
+                                                  PendingWebAccess pendingWebAccess) {
+            return new AgentExecutionResult(
+                    provider,
+                    "",
+                    proUser,
+                    traces == null ? List.of() : traces,
+                    pendingWebAccess,
+                    true
+            );
+        }
+    }
+
+    public record PendingWebAccess(String requestId, String url) {
     }
 
     public record ToolInvocationTrace(int turn,
