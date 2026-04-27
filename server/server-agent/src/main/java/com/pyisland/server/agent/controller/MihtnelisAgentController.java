@@ -3,7 +3,6 @@ package com.pyisland.server.agent.controller;
 import com.pyisland.server.agent.service.MihtnelisAgentStreamService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,7 +17,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/v1/user/ai")
-@PreAuthorize("hasAnyRole('USER','PRO','ADMIN')")
 public class MihtnelisAgentController {
 
     private final MihtnelisAgentStreamService streamService;
