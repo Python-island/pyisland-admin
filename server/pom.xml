@@ -32,6 +32,7 @@
     <modules>
         <module>server-common</module>
         <module>server-user</module>
+        <module>server-agent</module>
         <module>server-weather</module>
         <module>server-payment</module>
         <module>server-auth</module>
@@ -51,6 +52,11 @@
             <dependency>
                 <groupId>com.pyisland</groupId>
                 <artifactId>server-user</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.pyisland</groupId>
+                <artifactId>server-agent</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

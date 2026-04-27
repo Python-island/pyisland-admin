@@ -75,6 +75,12 @@ aliyun:
       access-key-secret: ${OSS_FEEDBACK_ACCESS_KEY_SECRET}
       bucket-name: ${OSS_FEEDBACK_BUCKET_NAME:eisland-feedback-assets}
       domain: ${OSS_FEEDBACK_DOMAIN:}
+    vector:
+      endpoint: ${OSS_VECTOR_ENDPOINT}
+      access-key-id: ${OSS_VECTOR_ACCESS_KEY_ID}
+      access-key-secret: ${OSS_VECTOR_ACCESS_KEY_SECRET}
+      bucket-name: ${OSS_VECTOR_BUCKET_NAME}
+      domain: ${OSS_VECTOR_DOMAIN:}
 
 tencent:
   cos:
