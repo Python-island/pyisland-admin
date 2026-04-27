@@ -15,10 +15,23 @@ public class LangChainWorkflowService {
      * @return 系统提示词。
      */
     public String buildSystemPrompt(boolean proUser) {
-        if (proUser) {
-            return "你是 mihtnelis agent。优先给出可执行步骤，并在合适时建议可用工具能力（天气、todo、本地文件、音乐控制、向量检索）。";
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是 mihtnelis agent，是eisland软件内置agent，eisland是一个基于windows的灵动岛。你必须遵循 ReAct 工具调用协议。\n")
+                .append("可用工具：\n")
+                .append("1) user.ip.get: 入参 {}，返回用户公网 IP。\n")
+                .append("2) location.by_ip.resolve: 入参 {\"ip\":\"1.2.3.4\"}，返回城市和天气 location。\n")
+                .append("3) weather.query: 入参 {\"location\":\"101010100\"}，返回天气与预警。\n");
+        if (!proUser) {
+            prompt.append("当前用户不是 Pro，禁止调用 weather.query。\n");
         }
-        return "你是 mihtnelis agent。回答要准确简洁，仅使用普通用户可用能力。";
+        prompt.append("输出规则（必须二选一，且仅输出 JSON，不要 Markdown）：\n")
+                .append("A. 调工具时输出：")
+                .append("{\"type\":\"tool_call\",\"tool\":\"user.ip.get\",\"arguments\":{}}\n")
+                .append("B. 最终回答时输出：")
+                .append("{\"type\":\"final\",\"answer\":\"...\"}\n")
+                .append("若用户问天气，优先按链路调用：user.ip.get -> location.by_ip.resolve -> weather.query -> final。\n")
+                .append("最终回答用中文，简洁准确。");
+        return prompt.toString();
     }
 
     /**
@@ -32,5 +45,18 @@ public class LangChainWorkflowService {
         String safePrompt = userPrompt == null ? "" : userPrompt.trim();
         String safeProvider = provider == null ? "auto" : provider.trim();
         return "provider=" + safeProvider + "\n\n" + safePrompt;
+    }
+
+    public String buildReActUserPrompt(String userPrompt, String provider, String scratchpad) {
+        String safePrompt = userPrompt == null ? "" : userPrompt.trim();
+        String safeProvider = provider == null ? "auto" : provider.trim();
+        String safeScratchpad = scratchpad == null ? "" : scratchpad.trim();
+        if (safeScratchpad.isBlank()) {
+            return "provider=" + safeProvider + "\n\nUser Question:\n" + safePrompt;
+        }
+        return "provider=" + safeProvider
+                + "\n\nUser Question:\n" + safePrompt
+                + "\n\nPrevious Reasoning / Observations:\n" + safeScratchpad
+                + "\n\n请基于上面的 Observation 决定下一步：继续 tool_call 或给 final。";
     }
 }

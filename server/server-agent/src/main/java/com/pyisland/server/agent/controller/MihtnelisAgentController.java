@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.Map;
 
 /**
@@ -36,13 +38,38 @@ public class MihtnelisAgentController {
      */
     @PostMapping(value = "/agent/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Object stream(Authentication authentication,
+                         HttpServletRequest httpRequest,
                          @RequestBody MihtnelisAgentStreamService.MihtnelisStreamRequest request) {
         String caller = caller(authentication);
         if (caller == null) {
             return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
         }
-        SseEmitter emitter = streamService.openStream(caller, request);
+        SseEmitter emitter = streamService.openStream(caller, resolveClientIp(httpRequest), request);
         return emitter;
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return "";
+        }
+        String forwarded = firstIp(request.getHeader("X-Forwarded-For"));
+        if (!forwarded.isBlank()) {
+            return forwarded;
+        }
+        String realIp = firstIp(request.getHeader("X-Real-IP"));
+        if (!realIp.isBlank()) {
+            return realIp;
+        }
+        String remoteAddr = request.getRemoteAddr();
+        return remoteAddr == null ? "" : remoteAddr.trim();
+    }
+
+    private String firstIp(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        String[] values = raw.split(",");
+        return values.length == 0 ? "" : values[0].trim();
     }
 
     private String caller(Authentication authentication) {

@@ -138,6 +138,27 @@ public class QWeatherService {
         return data;
     }
 
+    public Map<String, Object> lookupCity(String queryText, String lang) {
+        String normalizedQuery = requireNonBlank(queryText, "query 参数不能为空");
+        String normalizedLang = safe(lang).isBlank() ? "zh" : safe(lang);
+        enforceMonthlyRequestLimit();
+        String cacheKey = cacheKeyPrefix + ":geo:city:" + normalizedQuery + ":" + normalizedLang;
+
+        Map<String, Object> cached = readCache(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        Map<String, String> query = new LinkedHashMap<>();
+        query.put("location", normalizedQuery);
+        query.put("lang", normalizedLang);
+        query.put("number", "1");
+
+        Map<String, Object> data = requestQWeather("/geo/v2/city/lookup", query);
+        writeCache(cacheKey, data, dailyCacheTtlSeconds);
+        return data;
+    }
+
     public Map<String, Object> getMonthlyQuotaStatus() {
         YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
         String key = monthlyQuotaKey(currentMonth);

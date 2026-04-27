@@ -45,13 +45,13 @@ public class MihtnelisAgentStreamService {
      * @param request  请求参数
      * @return SSE emitter
      */
-    public SseEmitter openStream(String username, MihtnelisStreamRequest request) {
+    public SseEmitter openStream(String username, String clientIp, MihtnelisStreamRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
-        CompletableFuture.runAsync(() -> emitFlow(emitter, username, request), streamExecutor);
+        CompletableFuture.runAsync(() -> emitFlow(emitter, username, clientIp, request), streamExecutor);
         return emitter;
     }
 
-    private void emitFlow(SseEmitter emitter, String username, MihtnelisStreamRequest request) {
+    private void emitFlow(SseEmitter emitter, String username, String clientIp, MihtnelisStreamRequest request) {
         try {
             String userPrompt = request == null || request.message() == null ? "" : request.message().trim();
             String provider = request == null || request.provider() == null || request.provider().isBlank()
@@ -81,7 +81,7 @@ public class MihtnelisAgentStreamService {
             MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult;
             try {
                 executionResult = CompletableFuture
-                        .supplyAsync(() -> orchestratorService.orchestrate(username, request), streamExecutor)
+                        .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request), streamExecutor)
                         .get(ORCHESTRATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (TimeoutException timeoutException) {
                 sendEvent(emitter, "error", Map.of(
