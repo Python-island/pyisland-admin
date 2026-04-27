@@ -14,4 +14,17 @@ public interface AgentChatGatewayService {
      * @return 模型输出。
      */
     String chat(String provider, String systemPrompt, String userPrompt);
+
+    default boolean supportsNativeToolCalling() {
+        return false;
+    }
+
+    default String chatWithNativeTools(String provider,
+                                       String systemPrompt,
+                                       String userPrompt,
+                                       AgentToolExecutionService toolExecutionService,
+                                       boolean proUser,
+                                       AgentToolExecutionService.ExecutionContext context) {
+        return chat(provider, systemPrompt, userPrompt);
+    }
 }

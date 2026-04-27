@@ -1,11 +1,13 @@
 package com.pyisland.server.agent.service;
 
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
+import com.pyisland.server.agent.utils.AgentStreamChunkUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -116,24 +118,13 @@ public class MihtnelisAgentStreamService {
             String answer = executionResult.answer();
 
             int billedTokenDelta = 0;
-            String[] chunks = answer.split("，");
-            for (int i = 0; i < chunks.length; i++) {
-                String chunk = chunks[i];
-                String safeChunk = chunk == null ? "" : chunk.trim();
+            List<String> chunks = AgentStreamChunkUtils.splitForStreaming(answer);
+            for (String chunk : chunks) {
+                String safeChunk = chunk == null ? "" : chunk;
                 if (safeChunk.isBlank()) {
                     continue;
                 }
-                boolean hasMoreChunk = false;
-                for (int next = i + 1; next < chunks.length; next++) {
-                    String nextChunk = chunks[next];
-                    if (nextChunk != null && !nextChunk.trim().isBlank()) {
-                        hasMoreChunk = true;
-                        break;
-                    }
-                }
-
-                String chunkText = hasMoreChunk ? safeChunk + "，" : safeChunk;
-                sendEvent(emitter, "chunk", Map.of("text", chunkText));
+                sendEvent(emitter, "chunk", Map.of("text", safeChunk));
                 billedTokenDelta += estimateTokenDelta(safeChunk);
                 sendEvent(emitter, "billing", Map.of(
                         "tokenDelta", estimateTokenDelta(safeChunk),

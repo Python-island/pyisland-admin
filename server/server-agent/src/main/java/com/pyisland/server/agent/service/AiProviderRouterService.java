@@ -1,10 +1,10 @@
 package com.pyisland.server.agent.service;
 
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
+import com.pyisland.server.agent.utils.AgentStringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Locale;
 
 /**
  * 供应商路由服务（Phase B 骨架）。
@@ -26,12 +26,12 @@ public class AiProviderRouterService {
      */
     public String resolveProvider(String requestedProvider) {
         List<String> allowed = properties.getAllowedProviders();
-        String normalizedDefault = normalize(properties.getDefaultProvider());
+        String normalizedDefault = AgentStringUtils.lowerTrim(properties.getDefaultProvider());
         if (normalizedDefault.isBlank()) {
             normalizedDefault = "auto";
         }
 
-        String normalizedRequested = normalize(requestedProvider);
+        String normalizedRequested = AgentStringUtils.lowerTrim(requestedProvider);
         if (normalizedRequested.isBlank()) {
             return normalizedDefault;
         }
@@ -39,17 +39,10 @@ public class AiProviderRouterService {
             return normalizedRequested;
         }
         for (String item : allowed) {
-            if (normalize(item).equals(normalizedRequested)) {
+            if (AgentStringUtils.lowerTrim(item).equals(normalizedRequested)) {
                 return normalizedRequested;
             }
         }
         return normalizedDefault;
-    }
-
-    private String normalize(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.trim().toLowerCase(Locale.ROOT);
     }
 }

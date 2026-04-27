@@ -1,6 +1,7 @@
 package com.pyisland.server.agent.service;
 
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
+import com.pyisland.server.agent.utils.AgentStringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -42,9 +43,9 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         if (cfg == null || !cfg.isEnabled()) {
             throw new IllegalStateException("DeepSeek provider is disabled");
         }
-        String baseUrl = normalizeBaseUrl(cfg.getBaseUrl());
-        String apiKey = normalize(cfg.getApiKey());
-        String model = normalize(cfg.getModel());
+        String baseUrl = AgentStringUtils.trimTrailingSlash(cfg.getBaseUrl());
+        String apiKey = AgentStringUtils.trimToEmpty(cfg.getApiKey());
+        String model = AgentStringUtils.trimToEmpty(cfg.getModel());
         if (baseUrl.isBlank()) {
             throw new IllegalStateException("DeepSeek baseUrl is empty");
         }
@@ -56,8 +57,8 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         }
 
         try {
-            String safeSystemPrompt = normalize(systemPrompt);
-            String safeUserPrompt = normalize(userPrompt);
+            String safeSystemPrompt = AgentStringUtils.trimToEmpty(systemPrompt);
+            String safeUserPrompt = AgentStringUtils.trimToEmpty(userPrompt);
             OpenAiApi openAiApi = OpenAiApi.builder()
                     .baseUrl(baseUrl)
                     .apiKey(apiKey)
@@ -77,19 +78,19 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
             if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
                 throw new IllegalStateException("DeepSeek returned empty response");
             }
-            String text = normalize(response.getResult().getOutput().getText());
+            String text = AgentStringUtils.trimToEmpty(response.getResult().getOutput().getText());
             if (text.isBlank()) {
                 throw new IllegalStateException("DeepSeek returned blank text");
             }
             return text;
         } catch (Exception exception) {
             log.warn("mihtnelis deepseek invoke failed, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
-                    normalize(provider),
+                    AgentStringUtils.trimToEmpty(provider),
                     baseUrl,
                     model,
                     !apiKey.isBlank(),
                     exception.getMessage());
-            throw new IllegalStateException("DeepSeek invoke failed: " + normalize(exception.getMessage()), exception);
+            throw new IllegalStateException("DeepSeek invoke failed: " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
         }
     }
 
@@ -99,20 +100,5 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
             return null;
         }
         return llm.getDeepseek();
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim();
-    }
-
-    private String normalizeBaseUrl(String value) {
-        String base = normalize(value);
-        if (base.isBlank()) {
-            return "";
-        }
-        if (base.endsWith("/")) {
-            base = base.substring(0, base.length() - 1);
-        }
-        return base;
     }
 }

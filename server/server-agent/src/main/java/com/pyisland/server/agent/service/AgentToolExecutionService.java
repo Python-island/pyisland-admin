@@ -2,6 +2,8 @@ package com.pyisland.server.agent.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pyisland.server.agent.utils.AgentIpUtils;
+import com.pyisland.server.agent.utils.AgentStringUtils;
 import com.pyisland.server.weather.service.QWeatherService;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +15,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,6 +26,7 @@ public class AgentToolExecutionService {
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final String IP_GEO_URL_TEMPLATE = "http://ip-api.com/json/%s?lang=zh-CN";
+    private static final String IP_LOCATION_FIELDS = "query,lat,lon,city,regionName,country";
 
     private final QWeatherService qWeatherService;
     private final ObjectMapper objectMapper;
@@ -42,7 +44,7 @@ public class AgentToolExecutionService {
                               Map<String, Object> arguments,
                               boolean proUser,
                               ExecutionContext context) {
-        String safeToolName = normalize(toolName);
+        String safeToolName = AgentStringUtils.trimToEmpty(toolName);
         if (safeToolName.isBlank()) {
             return ToolResult.error("unknown", "tool name is empty");
         }
@@ -62,49 +64,64 @@ public class AgentToolExecutionService {
     }
 
     private ToolResult getUserIp(ExecutionContext context) {
-        String ip = context == null ? "" : normalize(context.clientIp());
+        String ip = context == null ? "" : AgentIpUtils.sanitizeIp(context.clientIp());
         if (ip.isBlank()) {
             return ToolResult.error("user.ip.get", "client ip is unavailable");
         }
         return ToolResult.ok("user.ip.get", Map.of(
-                "ip", ip
+                "ip", ip,
+                "provider", "request-context"
         ));
     }
 
     private ToolResult resolveLocationByIp(Map<String, Object> arguments, ExecutionContext context) {
-        String ip = normalize(arg(arguments, "ip"));
+        String ip = AgentIpUtils.sanitizeIp(arg(arguments, "ip"));
         if (ip.isBlank() && context != null) {
-            ip = normalize(context.clientIp());
+            ip = AgentIpUtils.sanitizeIp(context.clientIp());
         }
         if (ip.isBlank()) {
             return ToolResult.error("location.by_ip.resolve", "ip is required");
         }
         try {
             Map<String, Object> ipGeo = requestIpLocation(ip);
-            String city = normalize(value(ipGeo.get("city")));
-            if (city.isBlank()) {
-                return ToolResult.error("location.by_ip.resolve", "city resolved from ip is empty");
+            String resolvedIp = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("query")));
+            if (resolvedIp.isBlank()) {
+                resolvedIp = ip;
             }
-            Map<String, Object> cityPayload = qWeatherService.lookupCity(city, "zh");
-            Map<String, Object> locationItem = firstLocation(cityPayload);
-            String locationId = normalize(value(locationItem.get("id")));
-            if (locationId.isBlank()) {
-                return ToolResult.error("location.by_ip.resolve", "qweather location id is empty");
+            String city = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("city")));
+            String regionName = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("regionName")));
+            String country = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("country")));
+            String lat = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("lat")));
+            String lon = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("lon")));
+            if (lat.isBlank() || lon.isBlank()) {
+                return ToolResult.error("location.by_ip.resolve", "lat/lon resolved from ip is empty");
             }
+            String location = lon + "," + lat;
             return ToolResult.ok("location.by_ip.resolve", Map.of(
-                    "ip", ip,
+                    "ip", resolvedIp,
                     "city", city,
-                    "location", locationId,
-                    "provider", "ip-api+qweather"
+                    "regionName", regionName,
+                    "country", country,
+                    "latitude", lat,
+                    "longitude", lon,
+                    "location", location,
+                    "provider", "ip-api"
             ));
         } catch (Exception exception) {
-            return ToolResult.error("location.by_ip.resolve", normalize(exception.getMessage()));
+            return ToolResult.error("location.by_ip.resolve", AgentStringUtils.trimToEmpty(exception.getMessage()));
         }
     }
 
     private Map<String, Object> requestIpLocation(String ip) throws Exception {
-        String safeIp = URLEncoder.encode(ip, StandardCharsets.UTF_8);
-        String url = String.format(IP_GEO_URL_TEMPLATE, safeIp);
+        String safeIp = AgentStringUtils.trimToEmpty(ip);
+        String encodedFields = URLEncoder.encode(IP_LOCATION_FIELDS, StandardCharsets.UTF_8);
+        String url;
+        if (safeIp.isBlank()) {
+            url = "http://ip-api.com/json/?fields=" + encodedFields + "&lang=zh-CN";
+        } else {
+            String encodedIp = URLEncoder.encode(safeIp, StandardCharsets.UTF_8);
+            url = String.format(IP_GEO_URL_TEMPLATE, encodedIp) + "&fields=" + encodedFields;
+        }
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("Accept", "application/json")
                 .GET()
@@ -119,39 +136,11 @@ public class AgentToolExecutionService {
             throw new IllegalStateException("ip geo response is empty");
         }
         Map<String, Object> payload = objectMapper.readValue(body, MAP_TYPE);
-        String status = normalize(value(payload.get("status"))).toLowerCase();
+        String status = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("status"))).toLowerCase();
         if (!status.isBlank() && !"success".equals(status)) {
-            throw new IllegalStateException("ip geo resolve failed: " + normalize(value(payload.get("message"))));
+            throw new IllegalStateException("ip geo resolve failed: " + AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("message"))));
         }
         return payload;
-    }
-
-    private Map<String, Object> firstLocation(Map<String, Object> payload) {
-        if (payload == null) {
-            return Map.of();
-        }
-        Object raw = payload.get("location");
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            return Map.of();
-        }
-        Object first = list.get(0);
-        if (!(first instanceof Map<?, ?> map)) {
-            return Map.of();
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            String key = entry.getKey() == null ? "" : String.valueOf(entry.getKey());
-            result.put(key, entry.getValue());
-        }
-        return result;
-    }
-
-    private String value(Object value) {
-        return value == null ? "" : String.valueOf(value);
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim();
     }
 
     private ToolResult queryWeather(Map<String, Object> arguments) {
@@ -168,7 +157,7 @@ public class AgentToolExecutionService {
                     "alerts", alerts
             ));
         } catch (Exception exception) {
-            return ToolResult.error("weather.query", normalize(exception.getMessage()));
+            return ToolResult.error("weather.query", AgentStringUtils.trimToEmpty(exception.getMessage()));
         }
     }
 

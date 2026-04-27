@@ -59,4 +59,17 @@ public class LangChainWorkflowService {
                 + "\n\nPrevious Reasoning / Observations:\n" + safeScratchpad
                 + "\n\n请基于上面的 Observation 决定下一步：继续 tool_call 或给 final。";
     }
+
+    public String buildNativeToolSystemPrompt(boolean proUser) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是 mihtnelis agent，是 eisland 软件内置 agent。\n")
+                .append("你可以按需调用工具帮助回答：userIpGet、locationByIpResolve、weatherQuery。\n")
+                .append("回答要求：中文、简洁、准确，不输出 markdown 代码块。\n");
+        if (!proUser) {
+            prompt.append("当前用户不是 Pro，禁止调用 weatherQuery。\n");
+        }
+        prompt.append("如果用户询问天气，优先使用工具链：userIpGet -> locationByIpResolve -> weatherQuery。\n")
+                .append("当工具返回失败时，解释原因并给可执行建议。\n");
+        return prompt.toString();
+    }
 }
