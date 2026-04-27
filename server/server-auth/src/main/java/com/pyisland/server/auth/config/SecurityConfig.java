@@ -5,6 +5,7 @@ import com.pyisland.server.auth.security.JsonAuthenticationEntryPoint;
 import com.pyisland.server.auth.security.ClientVersionGateFilter;
 import com.pyisland.server.auth.security.JwtAuthenticationFilter;
 import com.pyisland.server.auth.security.ReplayProtectionFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -79,7 +80,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(reg -> reg
+                        .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD, DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/version", "/v1/version/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/version/update-count").permitAll()
