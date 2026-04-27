@@ -1,8 +1,9 @@
 package com.pyisland.server.agent.controller;
 
 import com.pyisland.server.agent.service.MihtnelisAgentStreamService;
+import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.UserService;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,7 +13,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.util.Map;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.Locale;
 
 /**
  * mihtnelis agent 用户流式接口。
@@ -22,9 +25,12 @@ import java.util.Map;
 public class MihtnelisAgentController {
 
     private final MihtnelisAgentStreamService streamService;
+    private final UserService userService;
 
-    public MihtnelisAgentController(MihtnelisAgentStreamService streamService) {
+    public MihtnelisAgentController(MihtnelisAgentStreamService streamService,
+                                    UserService userService) {
         this.streamService = streamService;
+        this.userService = userService;
     }
 
     /**
@@ -42,10 +48,41 @@ public class MihtnelisAgentController {
                          @RequestBody MihtnelisAgentStreamService.MihtnelisStreamRequest request) {
         String caller = caller(authentication);
         if (caller == null) {
-            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+            return deniedEmitter("UNAUTHORIZED", "未登录");
+        }
+        User user = userService.getByUsername(caller);
+        if (!hasAgentAccess(user)) {
+            return deniedEmitter("FORBIDDEN", "仅 Pro 用户可使用 mihtnelis agent");
         }
         SseEmitter emitter = streamService.openStream(caller, resolveClientIp(httpRequest), request);
         return emitter;
+    }
+
+    private SseEmitter deniedEmitter(String code, String message) {
+        SseEmitter emitter = new SseEmitter(0L);
+        try {
+            emitter.send(SseEmitter.event().name("error").data(new AgentErrorPayload(code, message)));
+            emitter.send(SseEmitter.event().name("final").data(new AgentFinalPayload(true)));
+            emitter.complete();
+        } catch (IOException ioException) {
+            emitter.completeWithError(ioException);
+        }
+        return emitter;
+    }
+
+    private boolean hasAgentAccess(User user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+        String role = user.getRole().trim().toLowerCase(Locale.ROOT);
+        if (User.ROLE_ADMIN.equals(role)) {
+            return true;
+        }
+        if (!User.ROLE_PRO.equals(role)) {
+            return false;
+        }
+        LocalDateTime expireAt = user.getProExpireAt();
+        return expireAt == null || expireAt.isAfter(LocalDateTime.now());
     }
 
     private String resolveClientIp(HttpServletRequest request) {
@@ -77,5 +114,11 @@ public class MihtnelisAgentController {
             return null;
         }
         return authentication.getName();
+    }
+
+    private record AgentErrorPayload(String code, String message) {
+    }
+
+    private record AgentFinalPayload(boolean done) {
     }
 }
