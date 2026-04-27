@@ -20,9 +20,14 @@ public class LangChainWorkflowService {
                 .append("可用工具：\n")
                 .append("1) user.ip.get: 入参 {}，返回用户公网 IP。\n")
                 .append("2) location.by_ip.resolve: 入参 {\"ip\":\"1.2.3.4\"}，返回城市和天气 location。\n")
-                .append("3) weather.query: 入参 {\"location\":\"101010100\"}，返回天气与预警。\n");
+                .append("3) weather.query: 入参 {\"location\":\"101010100\"}，返回天气与预警。\n")
+                .append("4) weather.city.lookup: 入参 {\"query\":\"上海\"}，返回城市匹配和 location。\n")
+                .append("5) weather.by_city.query: 入参 {\"query\":\"上海\"}，自动查城市并返回天气与预警。\n")
+                .append("6) weather.quota.status: 入参 {}，返回天气接口月配额状态。\n")
+                .append("7) time.now: 入参 {}，返回当前系统时间与时区。\n")
+                .append("8) session.context.get: 入参 {}，返回当前会话上下文（username/clientIp/timestamp）。\n");
         if (!proUser) {
-            prompt.append("当前用户不是 Pro，禁止调用 weather.query。\n");
+            prompt.append("当前用户不是 Pro，禁止调用 weather.query、weather.city.lookup、weather.by_city.query、weather.quota.status。\n");
         }
         prompt.append("输出规则（必须二选一，且仅输出 JSON，不要 Markdown）：\n")
                 .append("A. 调工具时输出：")
@@ -30,7 +35,7 @@ public class LangChainWorkflowService {
                 .append("B. 最终回答时输出：")
                 .append("{\"type\":\"final\",\"answer\":\"...\"}\n")
                 .append("当输出 final.answer 时，可以使用 <think>你的思考过程</think> + 面向用户可见答案。\n")
-                .append("若用户问天气，优先按链路调用：user.ip.get -> location.by_ip.resolve -> weather.query -> final。\n")
+                .append("若用户问天气，优先按链路调用：user.ip.get -> location.by_ip.resolve -> weather.query -> final；若用户提供城市名，优先 weather.by_city.query。\n")
                 .append("最终回答用中文，简洁准确。");
         return prompt.toString();
     }
@@ -64,13 +69,13 @@ public class LangChainWorkflowService {
     public String buildNativeToolSystemPrompt(boolean proUser) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("你是 mihtnelis agent，是 eisland 软件内置 agent。\n")
-                .append("你可以按需调用工具帮助回答：userIpGet、locationByIpResolve、weatherQuery。\n")
+                .append("你可以按需调用工具帮助回答：userIpGet、locationByIpResolve、weatherQuery、weatherCityLookup、weatherByCityQuery、weatherQuotaStatus、timeNow、sessionContextGet。\n")
                 .append("回答要求：中文、简洁、准确，不输出 markdown 代码块。\n")
                 .append("如果需要展示思考过程，请使用 <think>...</think> 标签包裹。\n");
         if (!proUser) {
-            prompt.append("当前用户不是 Pro，禁止调用 weatherQuery。\n");
+            prompt.append("当前用户不是 Pro，禁止调用 weatherQuery、weatherCityLookup、weatherByCityQuery、weatherQuotaStatus。\n");
         }
-        prompt.append("如果用户询问天气，优先使用工具链：userIpGet -> locationByIpResolve -> weatherQuery。\n")
+        prompt.append("如果用户询问天气，优先使用工具链：userIpGet -> locationByIpResolve -> weatherQuery；若用户直接给城市名，优先 weatherByCityQuery。\n")
                 .append("当工具返回失败时，解释原因并给可执行建议。\n");
         return prompt.toString();
     }

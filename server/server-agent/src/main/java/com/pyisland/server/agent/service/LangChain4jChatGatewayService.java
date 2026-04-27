@@ -171,6 +171,47 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("weather.query", arguments);
         }
 
+        @Tool("根据城市名查找天气 location")
+        public Map<String, Object> weatherCityLookup(@P("query") String query,
+                                                     @P("lang") String lang) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (query != null && !query.isBlank()) {
+                arguments.put("query", AgentStringUtils.trimToEmpty(query));
+            }
+            if (lang != null && !lang.isBlank()) {
+                arguments.put("lang", AgentStringUtils.trimToEmpty(lang));
+            }
+            return invoke("weather.city.lookup", arguments);
+        }
+
+        @Tool("根据城市名直接查询天气与预警")
+        public Map<String, Object> weatherByCityQuery(@P("query") String query,
+                                                      @P("lang") String lang) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (query != null && !query.isBlank()) {
+                arguments.put("query", AgentStringUtils.trimToEmpty(query));
+            }
+            if (lang != null && !lang.isBlank()) {
+                arguments.put("lang", AgentStringUtils.trimToEmpty(lang));
+            }
+            return invoke("weather.by_city.query", arguments);
+        }
+
+        @Tool("查询天气接口月配额状态")
+        public Map<String, Object> weatherQuotaStatus() {
+            return invoke("weather.quota.status", Map.of());
+        }
+
+        @Tool("获取当前系统时间和时区")
+        public Map<String, Object> timeNow() {
+            return invoke("time.now", Map.of());
+        }
+
+        @Tool("获取当前会话上下文")
+        public Map<String, Object> sessionContextGet() {
+            return invoke("session.context.get", Map.of());
+        }
+
         private Map<String, Object> invoke(String toolName, Map<String, Object> arguments) {
             AgentToolExecutionService.ToolResult result = toolExecutionService.execute(toolName, arguments, proUser, context);
             return Map.of(
