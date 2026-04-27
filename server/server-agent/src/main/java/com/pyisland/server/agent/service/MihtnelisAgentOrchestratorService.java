@@ -26,7 +26,7 @@ public class MihtnelisAgentOrchestratorService {
     private final UserService userService;
     private final LangChainWorkflowService workflowService;
     private final AgentToolExecutionService toolExecutionService;
-    private final SpringAiChatGatewayService chatGatewayService;
+    private final AgentChatGatewayService chatGatewayService;
     private final ObjectMapper objectMapper;
 
     public MihtnelisAgentOrchestratorService(AiProviderRouterService providerRouterService,
@@ -34,7 +34,7 @@ public class MihtnelisAgentOrchestratorService {
                                              UserService userService,
                                              LangChainWorkflowService workflowService,
                                              AgentToolExecutionService toolExecutionService,
-                                             SpringAiChatGatewayService chatGatewayService) {
+                                             AgentChatGatewayService chatGatewayService) {
         this.providerRouterService = providerRouterService;
         this.properties = properties;
         this.userService = userService;

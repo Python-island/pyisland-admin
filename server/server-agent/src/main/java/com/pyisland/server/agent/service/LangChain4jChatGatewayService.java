@@ -1,41 +1,27 @@
 package com.pyisland.server.agent.service;
 
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.stereotype.Service;
 
 /**
- * Spring AI 网关服务。
+ * LangChain4j 网关服务。
  */
 @Service
-@ConditionalOnProperty(prefix = "mihtnelis.agent.llm", name = "gateway", havingValue = "spring-ai", matchIfMissing = true)
-public class SpringAiChatGatewayService implements AgentChatGatewayService {
+@ConditionalOnProperty(prefix = "mihtnelis.agent.llm", name = "gateway", havingValue = "langchain4j")
+public class LangChain4jChatGatewayService implements AgentChatGatewayService {
 
-    private static final Logger log = LoggerFactory.getLogger(SpringAiChatGatewayService.class);
+    private static final Logger log = LoggerFactory.getLogger(LangChain4jChatGatewayService.class);
 
     private final MihtnelisAgentProperties properties;
 
-    public SpringAiChatGatewayService(MihtnelisAgentProperties properties) {
+    public LangChain4jChatGatewayService(MihtnelisAgentProperties properties) {
         this.properties = properties;
     }
 
-    /**
-     * 调用模型完成单轮对话。
-     *
-     * @param provider     供应商。
-     * @param systemPrompt 系统提示词。
-     * @param userPrompt   用户提示词。
-     * @return 模型输出文本；无法调用时返回 null。
-     */
     @Override
     public String chat(String provider, String systemPrompt, String userPrompt) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
@@ -54,36 +40,21 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         if (model.isBlank()) {
             throw new IllegalStateException("DeepSeek model is empty");
         }
-
+        String prompt = "System:\n" + normalize(systemPrompt) + "\n\nUser:\n" + normalize(userPrompt);
         try {
-            String safeSystemPrompt = normalize(systemPrompt);
-            String safeUserPrompt = normalize(userPrompt);
-            OpenAiApi openAiApi = OpenAiApi.builder()
+            OpenAiChatModel modelClient = OpenAiChatModel.builder()
                     .baseUrl(baseUrl)
                     .apiKey(apiKey)
+                    .modelName(model)
+                    .temperature(0.2)
                     .build();
-            OpenAiChatModel chatModel = OpenAiChatModel.builder()
-                    .openAiApi(openAiApi)
-                    .defaultOptions(OpenAiChatOptions.builder()
-                            .model(model)
-                            .temperature(0.2)
-                            .build())
-                    .build();
-            Prompt prompt = new Prompt(
-                    new SystemMessage(safeSystemPrompt),
-                    new UserMessage(safeUserPrompt)
-            );
-            ChatResponse response = chatModel.call(prompt);
-            if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
-                throw new IllegalStateException("DeepSeek returned empty response");
-            }
-            String text = normalize(response.getResult().getOutput().getText());
+            String text = normalize(modelClient.generate(prompt));
             if (text.isBlank()) {
                 throw new IllegalStateException("DeepSeek returned blank text");
             }
             return text;
         } catch (Exception exception) {
-            log.warn("mihtnelis deepseek invoke failed, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
+            log.warn("mihtnelis deepseek invoke failed by langchain4j, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
                     normalize(provider),
                     baseUrl,
                     model,

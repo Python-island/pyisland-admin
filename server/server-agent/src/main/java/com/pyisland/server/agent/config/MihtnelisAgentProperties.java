@@ -68,7 +68,16 @@ public class MihtnelisAgentProperties {
      */
     public static class Llm {
 
+        private String gateway = "spring-ai";
         private Provider deepseek = new Provider();
+
+        public String getGateway() {
+            return gateway;
+        }
+
+        public void setGateway(String gateway) {
+            this.gateway = gateway;
+        }
 
         public Provider getDeepseek() {
             return deepseek;
