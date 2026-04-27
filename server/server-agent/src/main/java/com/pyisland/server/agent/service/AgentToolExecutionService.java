@@ -25,8 +25,7 @@ public class AgentToolExecutionService {
 
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
-    private static final String IP_GEO_URL_TEMPLATE = "http://ip-api.com/json/%s?lang=zh-CN";
-    private static final String IP_LOCATION_FIELDS = "query,lat,lon,city,regionName,country";
+    private static final String UAPIS_IPINFO_URL_TEMPLATE = "https://uapis.cn/api/v1/network/ipinfo?ip=%s";
 
     private final QWeatherService qWeatherService;
     private final ObjectMapper objectMapper;
@@ -84,29 +83,38 @@ public class AgentToolExecutionService {
         }
         try {
             Map<String, Object> ipGeo = requestIpLocation(ip);
-            String resolvedIp = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("query")));
+            String resolvedIp = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("ip")));
             if (resolvedIp.isBlank()) {
                 resolvedIp = ip;
             }
-            String city = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("city")));
-            String regionName = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("regionName")));
-            String country = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("country")));
-            String lat = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("lat")));
-            String lon = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("lon")));
+            String region = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("region")));
+            String[] regionParts = splitRegion(region);
+            String country = regionParts[0];
+            String regionName = regionParts[1];
+            String city = regionParts[2];
+            String lat = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("latitude")));
+            String lon = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("longitude")));
+            String isp = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("isp")));
+            String asn = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("asn")));
+            String llc = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(ipGeo.get("llc")));
             if (lat.isBlank() || lon.isBlank()) {
                 return ToolResult.error("location.by_ip.resolve", "lat/lon resolved from ip is empty");
             }
             String location = lon + "," + lat;
-            return ToolResult.ok("location.by_ip.resolve", Map.of(
-                    "ip", resolvedIp,
-                    "city", city,
-                    "regionName", regionName,
-                    "country", country,
-                    "latitude", lat,
-                    "longitude", lon,
-                    "location", location,
-                    "provider", "ip-api"
-            ));
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("ip", resolvedIp);
+            result.put("city", city);
+            result.put("regionName", regionName);
+            result.put("country", country);
+            result.put("latitude", lat);
+            result.put("longitude", lon);
+            result.put("location", location);
+            result.put("region", region);
+            result.put("isp", isp);
+            result.put("asn", asn);
+            result.put("llc", llc);
+            result.put("provider", "uapis");
+            return ToolResult.ok("location.by_ip.resolve", result);
         } catch (Exception exception) {
             return ToolResult.error("location.by_ip.resolve", AgentStringUtils.trimToEmpty(exception.getMessage()));
         }
@@ -114,14 +122,8 @@ public class AgentToolExecutionService {
 
     private Map<String, Object> requestIpLocation(String ip) throws Exception {
         String safeIp = AgentStringUtils.trimToEmpty(ip);
-        String encodedFields = URLEncoder.encode(IP_LOCATION_FIELDS, StandardCharsets.UTF_8);
-        String url;
-        if (safeIp.isBlank()) {
-            url = "http://ip-api.com/json/?fields=" + encodedFields + "&lang=zh-CN";
-        } else {
-            String encodedIp = URLEncoder.encode(safeIp, StandardCharsets.UTF_8);
-            url = String.format(IP_GEO_URL_TEMPLATE, encodedIp) + "&fields=" + encodedFields;
-        }
+        String encodedIp = URLEncoder.encode(safeIp, StandardCharsets.UTF_8);
+        String url = String.format(UAPIS_IPINFO_URL_TEMPLATE, encodedIp);
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("Accept", "application/json")
                 .GET()
@@ -136,11 +138,34 @@ public class AgentToolExecutionService {
             throw new IllegalStateException("ip geo response is empty");
         }
         Map<String, Object> payload = objectMapper.readValue(body, MAP_TYPE);
-        String status = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("status"))).toLowerCase();
-        if (!status.isBlank() && !"success".equals(status)) {
-            throw new IllegalStateException("ip geo resolve failed: " + AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("message"))));
+        if (payload.containsKey("code") || payload.containsKey("message")) {
+            String errorCode = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("code")));
+            String errorMessage = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("message")));
+            if (!errorCode.isBlank() || !errorMessage.isBlank()) {
+                throw new IllegalStateException("ip geo resolve failed: " + errorCode + (errorMessage.isBlank() ? "" : " - " + errorMessage));
+            }
+        }
+        String latitude = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("latitude")));
+        String longitude = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(payload.get("longitude")));
+        if (latitude.isBlank() || longitude.isBlank()) {
+            throw new IllegalStateException("ip geo resolve failed: latitude/longitude missing");
         }
         return payload;
+    }
+
+    private String[] splitRegion(String region) {
+        String safe = AgentStringUtils.trimToEmpty(region);
+        if (safe.isBlank()) {
+            return new String[]{"", "", ""};
+        }
+        String[] parts = safe.split("\\s+");
+        if (parts.length == 1) {
+            return new String[]{parts[0], "", ""};
+        }
+        if (parts.length == 2) {
+            return new String[]{parts[0], parts[1], ""};
+        }
+        return new String[]{parts[0], parts[1], parts[2]};
     }
 
     private ToolResult queryWeather(Map<String, Object> arguments) {
