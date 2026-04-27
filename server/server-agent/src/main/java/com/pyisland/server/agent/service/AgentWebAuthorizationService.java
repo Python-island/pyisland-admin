@@ -7,7 +7,6 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,19 +21,13 @@ public class AgentWebAuthorizationService {
 
     private final Map<String, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<Boolean>> decisionFutures = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> grantedUrlsByUser = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Instant>> oneTimeAllowedUrlsByUser = new ConcurrentHashMap<>();
 
-    public String createOrReusePendingRequest(String username, String rawUrl) {
+    public String createPendingRequest(String username, String rawUrl) {
         String safeUser = AgentStringUtils.trimToEmpty(username);
         String normalizedUrl = normalizeUrl(rawUrl);
         if (safeUser.isBlank() || normalizedUrl.isBlank()) {
             return "";
-        }
-        for (PendingRequest request : pendingRequests.values()) {
-            if (safeUser.equals(request.username()) && normalizedUrl.equals(request.url())) {
-                decisionFutures.computeIfAbsent(request.requestId(), key -> new CompletableFuture<>());
-                return request.requestId();
-            }
         }
         String requestId = UUID.randomUUID().toString();
         pendingRequests.put(requestId, new PendingRequest(requestId, safeUser, normalizedUrl, Instant.now()));
@@ -42,14 +35,21 @@ public class AgentWebAuthorizationService {
         return requestId;
     }
 
-    public boolean isGranted(String username, String rawUrl) {
+    public boolean consumeOneTimeGrant(String username, String rawUrl) {
         String safeUser = AgentStringUtils.trimToEmpty(username);
         String normalizedUrl = normalizeUrl(rawUrl);
         if (safeUser.isBlank() || normalizedUrl.isBlank()) {
             return false;
         }
-        Set<String> granted = grantedUrlsByUser.get(safeUser);
-        return granted != null && granted.contains(normalizedUrl);
+        Map<String, Instant> grantedByUrl = oneTimeAllowedUrlsByUser.get(safeUser);
+        if (grantedByUrl == null) {
+            return false;
+        }
+        Instant removed = grantedByUrl.remove(normalizedUrl);
+        if (grantedByUrl.isEmpty()) {
+            oneTimeAllowedUrlsByUser.remove(safeUser);
+        }
+        return removed != null;
     }
 
     public ResolveResult resolve(String username, String requestId, boolean allow) {
@@ -67,7 +67,9 @@ public class AgentWebAuthorizationService {
         }
         pendingRequests.remove(safeRequestId);
         if (allow) {
-            grantedUrlsByUser.computeIfAbsent(safeUser, key -> ConcurrentHashMap.newKeySet()).add(pending.url());
+            oneTimeAllowedUrlsByUser
+                    .computeIfAbsent(safeUser, key -> new ConcurrentHashMap<>())
+                    .put(pending.url(), Instant.now());
         }
         CompletableFuture<Boolean> decisionFuture = decisionFutures.remove(safeRequestId);
         if (decisionFuture != null && !decisionFuture.isDone()) {

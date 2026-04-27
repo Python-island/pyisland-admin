@@ -295,8 +295,8 @@ public class AgentToolUtils {
         if (username.isBlank()) {
             return AgentToolExecutionService.ToolResult.error("web.page.read", "username is required");
         }
-        if (!webAuthorizationService.isGranted(username, url)) {
-            String requestId = webAuthorizationService.createOrReusePendingRequest(username, url);
+        if (!webAuthorizationService.consumeOneTimeGrant(username, url)) {
+            String requestId = webAuthorizationService.createPendingRequest(username, url);
             Map<String, Object> pending = new LinkedHashMap<>();
             pending.put("authorizationRequired", true);
             pending.put("requestId", requestId);
