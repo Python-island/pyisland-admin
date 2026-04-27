@@ -15,11 +15,12 @@ import java.util.List;
 @ConfigurationProperties(prefix = "mihtnelis.agent")
 public class MihtnelisAgentProperties {
 
-    private String defaultProvider = "auto";
-    private List<String> allowedProviders = new ArrayList<>(List.of("auto", "openai", "deepseek", "qwen", "anthropic"));
+    private String defaultProvider = "deepseek";
+    private List<String> allowedProviders = new ArrayList<>(List.of("deepseek"));
     @Min(16)
     @Max(32768)
     private int maxInputChars = 8000;
+    private Llm llm = new Llm();
     private OssVector ossVector = new OssVector();
 
     public String getDefaultProvider() {
@@ -52,6 +53,73 @@ public class MihtnelisAgentProperties {
 
     public void setOssVector(OssVector ossVector) {
         this.ossVector = ossVector;
+    }
+
+    public Llm getLlm() {
+        return llm;
+    }
+
+    public void setLlm(Llm llm) {
+        this.llm = llm;
+    }
+
+    /**
+     * LLM 供应商配置。
+     */
+    public static class Llm {
+
+        private Provider deepseek = new Provider();
+
+        public Provider getDeepseek() {
+            return deepseek;
+        }
+
+        public void setDeepseek(Provider deepseek) {
+            this.deepseek = deepseek;
+        }
+    }
+
+    /**
+     * 单供应商配置。
+     */
+    public static class Provider {
+
+        private boolean enabled;
+        private String baseUrl;
+        private String apiKey;
+        private String model;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public String getModel() {
+            return model;
+        }
+
+        public void setModel(String model) {
+            this.model = model;
+        }
     }
 
     /**

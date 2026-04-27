@@ -204,9 +204,15 @@ payment:
 
 mihtnelis:
   agent:
-    default-provider: ${MIHTNELIS_AGENT_DEFAULT_PROVIDER:auto}
-    allowed-providers: ${MIHTNELIS_AGENT_ALLOWED_PROVIDERS:auto,openai,deepseek,qwen,anthropic}
+    default-provider: ${MIHTNELIS_AGENT_DEFAULT_PROVIDER:deepseek}
+    allowed-providers: ${MIHTNELIS_AGENT_ALLOWED_PROVIDERS:deepseek}
     max-input-chars: ${MIHTNELIS_AGENT_MAX_INPUT_CHARS:8000}
+    llm:
+      deepseek:
+        enabled: ${MIHTNELIS_AGENT_DEEPSEEK_ENABLED:true}
+        base-url: ${MIHTNELIS_AGENT_DEEPSEEK_BASE_URL:}
+        api-key: ${MIHTNELIS_AGENT_DEEPSEEK_API_KEY:}
+        model: ${MIHTNELIS_AGENT_DEEPSEEK_MODEL:}
     oss-vector:
       enabled: ${MIHTNELIS_AGENT_OSS_VECTOR_ENABLED:true}
       endpoint: ${OSS_VECTOR_ENDPOINT}
