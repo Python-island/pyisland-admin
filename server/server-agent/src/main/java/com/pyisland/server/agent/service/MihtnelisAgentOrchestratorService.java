@@ -82,12 +82,13 @@ public class MihtnelisAgentOrchestratorService {
         MihtnelisAgentProperties.Provider providerConfig = resolveProviderConfig(provider);
         AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig);
 
+        java.util.List<String> workspaces = request == null ? null : request.workspaces();
         AgentToolExecutionService.ExecutionContext executionContext =
                 new AgentToolExecutionService.ExecutionContext(username, clientIp, toolExecutionObserver);
         List<ToolInvocationTrace> traces = new java.util.ArrayList<>();
 
         if (chatGatewayService.supportsNativeToolCalling()) {
-            String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(proUser);
+            String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(proUser, workspaces);
             String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider);
             String answer = chatGatewayService.chatWithNativeTools(
                     provider,
@@ -101,7 +102,7 @@ public class MihtnelisAgentOrchestratorService {
             return AgentExecutionResult.done(provider, AgentStringUtils.trimToDefault(answer, ""), proUser, traces);
         }
 
-        String systemPrompt = workflowService.buildSystemPrompt(proUser);
+        String systemPrompt = workflowService.buildSystemPrompt(proUser, workspaces);
         String scratchpad = "";
         for (int turn = 1; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);

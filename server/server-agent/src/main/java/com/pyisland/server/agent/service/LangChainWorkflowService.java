@@ -14,7 +14,7 @@ public class LangChainWorkflowService {
      * @param proUser 是否 Pro 用户。
      * @return 系统提示词。
      */
-    public String buildSystemPrompt(boolean proUser) {
+    public String buildSystemPrompt(boolean proUser, java.util.List<String> workspaces) {
         StringBuilder p = new StringBuilder();
 
         // ── 身份 ──
@@ -97,7 +97,16 @@ public class LangChainWorkflowService {
          .append("- 查找代码或配置：优先用 file.grep（内容搜索）或 file.search（文件名搜索），避免盲目 file.list 逐层浏览。\n")
          .append("- 读取文件前如果不确定路径，先用 file.search 或 file.list 定位。\n")
          .append("- 写文件前先确认目标路径；危险操作（file.delete、cmd.exec 的 rm/format 等）前在 answer 中提醒风险。\n")
-         .append("- cmd.exec 默认 timeoutMs=20000；长时间任务适当加大。\n\n");
+         .append("- cmd.exec 默认 timeoutMs=20000；长时间任务适当加大。\n");
+        if (workspaces != null && !workspaces.isEmpty()) {
+            p.append("- **工作区限制**：所有 file.* 和 cmd.exec 操作必须在以下工作区目录内执行，超出范围会被拒绝：\n");
+            for (String ws : workspaces) {
+                p.append("  - ").append(ws).append("\n");
+            }
+        } else {
+            p.append("- **工作区未配置**：用户尚未配置工作区目录，所有 file.* 和 cmd.exec 操作将被拒绝。如果用户请求文件操作，请提醒他先在设置中配置 Agent 工作区。\n");
+        }
+        p.append("\n");
 
         p.append("## 任务进度（agent.todo.write）\n")
          .append("- 仅当任务涉及 ≥3 步多阶段执行时才使用，简单问答禁止使用。\n")
@@ -172,7 +181,7 @@ public class LangChainWorkflowService {
         return promptBuilder.toString();
     }
 
-    public String buildNativeToolSystemPrompt(boolean proUser) {
+    public String buildNativeToolSystemPrompt(boolean proUser, java.util.List<String> workspaces) {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n")
@@ -193,8 +202,15 @@ public class LangChainWorkflowService {
          .append("- 纯知识问答 → 直接回答，不调工具。\n")
          .append("- 天气：用户给城市名 → weatherByCityQuery；未给 → userIpGet → locationByIpResolve → weatherQuery。\n")
          .append("- 联网：先 webSearch，snippet 足够就直接回答；需原文才调 webPageRead（最多一次），授权拒绝时如实告知。\n")
-         .append("- 本地文件/命令：基于工具返回结果推理；危险操作提醒风险。\n")
-         .append("- 工具失败 → 分析原因，尝试替代方案；全部失败则诚实告知并给建议。\n\n");
+         .append("- 本地文件/命令：基于工具返回结果推理；危险操作提醒风险。\n");
+        if (workspaces != null && !workspaces.isEmpty()) {
+            p.append("- 工作区限制：所有文件/命令操作仅限以下目录：");
+            p.append(String.join("、", workspaces));
+            p.append("\n");
+        } else {
+            p.append("- 工作区未配置，文件/命令操作将被拒绝。请提醒用户先配置工作区。\n");
+        }
+        p.append("- 工具失败 → 分析原因，尝试替代方案；全部失败则诚实告知并给建议。\n\n");
 
         p.append("# 回答要求\n")
          .append("- 语言：中文为主，专有名词保留英文。\n")

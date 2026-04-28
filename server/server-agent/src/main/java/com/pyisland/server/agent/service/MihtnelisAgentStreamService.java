@@ -86,6 +86,7 @@ public class MihtnelisAgentStreamService {
                     userPrompt,
                     provider,
                     context,
+                    request == null ? null : request.workspaces(),
                     request == null ? null : request.thinking(),
                     request == null ? null : request.reasoningEffort()
             );
@@ -526,6 +527,7 @@ public class MihtnelisAgentStreamService {
                                          String message,
                                          String provider,
                                          String context,
+                                         java.util.List<String> workspaces,
                                          Boolean thinking,
                                          String reasoningEffort) {
     }
