@@ -97,6 +97,8 @@ public class MihtnelisAgentProperties {
         private String baseUrl;
         private String apiKey;
         private String model;
+        private boolean thinking;
+        private String reasoningEffort = "medium";
 
         public boolean isEnabled() {
             return enabled;
@@ -128,6 +130,22 @@ public class MihtnelisAgentProperties {
 
         public void setModel(String model) {
             this.model = model;
+        }
+
+        public boolean isThinking() {
+            return thinking;
+        }
+
+        public void setThinking(boolean thinking) {
+            this.thinking = thinking;
+        }
+
+        public String getReasoningEffort() {
+            return reasoningEffort;
+        }
+
+        public void setReasoningEffort(String reasoningEffort) {
+            this.reasoningEffort = reasoningEffort;
         }
     }
 

@@ -19,8 +19,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * mihtnelis agent 流式输出服务
@@ -31,7 +29,6 @@ public class MihtnelisAgentStreamService {
     private static final long ORCHESTRATION_TIMEOUT_SECONDS = 25L;
     private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
     private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
-    private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final MihtnelisAgentProperties properties;
     private final MihtnelisAgentOrchestratorService orchestratorService;
@@ -73,6 +70,8 @@ public class MihtnelisAgentStreamService {
             String provider = request == null || request.provider() == null || request.provider().isBlank()
                     ? properties.getDefaultProvider()
                     : request.provider().trim();
+            boolean thinkingEnabled = resolveThinkingEnabled(request);
+            String reasoningEffort = resolveReasoningEffort(request);
 
             if (userPrompt.isBlank()) {
                 sendEvent(emitter, "error", Map.of(
@@ -146,6 +145,8 @@ public class MihtnelisAgentStreamService {
                             "agent", "mihtnelis agent",
                             "provider", provider,
                             "sessionId", normalizeSessionId(request),
+                            "thinkingEnabled", thinkingEnabled,
+                            "reasoningEffort", reasoningEffort,
                             "timestamp", LocalDateTime.now().toString()
                     ));
                     metaSent = true;
@@ -226,34 +227,7 @@ public class MihtnelisAgentStreamService {
                 break;
             }
 
-            String answer = executionResult.answer();
-            List<String> thinkBlocks = extractThinkBlocks(answer);
-            for (int thinkIndex = 0; thinkIndex < thinkBlocks.size(); thinkIndex++) {
-                String think = thinkBlocks.get(thinkIndex);
-                String safeThink = think == null ? "" : think.trim();
-                if (safeThink.isBlank()) {
-                    continue;
-                }
-                List<String> thinkChunks = AgentStreamChunkUtils.splitForStreaming(safeThink);
-                if (thinkChunks.isEmpty()) {
-                    continue;
-                }
-                for (int chunkIndex = 0; chunkIndex < thinkChunks.size(); chunkIndex++) {
-                    String thinkChunk = thinkChunks.get(chunkIndex);
-                    String safeChunk = thinkChunk == null ? "" : thinkChunk;
-                    if (safeChunk.isBlank()) {
-                        continue;
-                    }
-                    boolean done = chunkIndex == thinkChunks.size() - 1;
-                    sendEvent(emitter, "think", Map.of(
-                            "text", safeChunk,
-                            "index", thinkIndex,
-                            "done", done
-                    ));
-                    sleepSilently(90);
-                }
-            }
-            String visibleAnswer = stripThinkBlocks(answer);
+            String visibleAnswer = executionResult.answer();
 
             int billedTokenDelta = 0;
             List<String> chunks = AgentStreamChunkUtils.splitForStreaming(visibleAnswer);
@@ -350,28 +324,38 @@ public class MihtnelisAgentStreamService {
         return request.sessionId().trim();
     }
 
+    private boolean resolveThinkingEnabled(MihtnelisStreamRequest request) {
+        MihtnelisAgentProperties.Provider deepseek = properties.getLlm() == null ? null : properties.getLlm().getDeepseek();
+        boolean defaultThinking = deepseek != null && deepseek.isThinking();
+        if (request == null || request.thinking() == null) {
+            return defaultThinking;
+        }
+        return request.thinking();
+    }
+
+    private String resolveReasoningEffort(MihtnelisStreamRequest request) {
+        MihtnelisAgentProperties.Provider deepseek = properties.getLlm() == null ? null : properties.getLlm().getDeepseek();
+        String defaultEffort = deepseek == null ? "medium" : normalizeReasoningEffort(deepseek.getReasoningEffort());
+        if (request == null || request.reasoningEffort() == null || request.reasoningEffort().isBlank()) {
+            return defaultEffort;
+        }
+        return normalizeReasoningEffort(request.reasoningEffort());
+    }
+
+    private String normalizeReasoningEffort(String source) {
+        String candidate = source == null ? "" : source.trim().toLowerCase();
+        if ("low".equals(candidate) || "high".equals(candidate)) {
+            return candidate;
+        }
+        return "medium";
+    }
+
     private int estimateTokenDelta(String text) {
         if (text == null || text.isBlank()) {
             return 0;
         }
         int charCount = text.length();
         return Math.max(1, (int) Math.ceil(charCount / 1.6));
-    }
-
-    private List<String> extractThinkBlocks(String answer) {
-        String source = answer == null ? "" : answer;
-        Matcher matcher = THINK_TAG_PATTERN.matcher(source);
-        List<String> blocks = new java.util.ArrayList<>();
-        while (matcher.find()) {
-            blocks.add(matcher.group(1));
-        }
-        return blocks;
-    }
-
-    private String stripThinkBlocks(String answer) {
-        String source = answer == null ? "" : answer;
-        String cleaned = THINK_TAG_PATTERN.matcher(source).replaceAll("");
-        return cleaned.trim();
     }
 
     private void sendEvent(SseEmitter emitter, String event, Object data) {
@@ -397,6 +381,10 @@ public class MihtnelisAgentStreamService {
      * @param message   用户输入。
      * @param provider  指定供应商（可选）。
      */
-    public record MihtnelisStreamRequest(String sessionId, String message, String provider) {
+    public record MihtnelisStreamRequest(String sessionId,
+                                         String message,
+                                         String provider,
+                                         Boolean thinking,
+                                         String reasoningEffort) {
     }
 }

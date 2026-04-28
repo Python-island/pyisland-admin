@@ -214,6 +214,8 @@ mihtnelis:
         base-url: ${MIHTNELIS_AGENT_DEEPSEEK_BASE_URL:}
         api-key: ${MIHTNELIS_AGENT_DEEPSEEK_API_KEY:}
         model: ${MIHTNELIS_AGENT_DEEPSEEK_MODEL:}
+        thinking: ${MIHTNELIS_AGENT_DEEPSEEK_THINKING:false}
+        reasoning-effort: ${MIHTNELIS_AGENT_DEEPSEEK_REASONING_EFFORT:medium}
     oss-vector:
       enabled: ${MIHTNELIS_AGENT_OSS_VECTOR_ENABLED:true}
       endpoint: ${OSS_VECTOR_ENDPOINT}

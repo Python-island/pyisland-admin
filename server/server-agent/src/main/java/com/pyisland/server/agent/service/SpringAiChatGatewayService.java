@@ -38,7 +38,10 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
      * @return 模型输出文本；无法调用时返回 null。
      */
     @Override
-    public String chat(String provider, String systemPrompt, String userPrompt) {
+    public String chat(String provider,
+                       String systemPrompt,
+                       String userPrompt,
+                       ChatRequestOptions requestOptions) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
         if (cfg == null || !cfg.isEnabled()) {
             throw new IllegalStateException("DeepSeek provider is disabled");
@@ -59,6 +62,7 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         try {
             String safeSystemPrompt = AgentStringUtils.trimToEmpty(systemPrompt);
             String safeUserPrompt = AgentStringUtils.trimToEmpty(userPrompt);
+            ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
             OpenAiApi openAiApi = OpenAiApi.builder()
                     .baseUrl(baseUrl)
                     .apiKey(apiKey)
@@ -72,7 +76,7 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                     .build();
             Prompt prompt = new Prompt(
                     new SystemMessage(safeSystemPrompt),
-                    new UserMessage(safeUserPrompt)
+                    new UserMessage(appendThinkingHint(safeUserPrompt, safeRequestOptions))
             );
             ChatResponse response = chatModel.call(prompt);
             if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
@@ -100,5 +104,25 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
             return null;
         }
         return llm.getDeepseek();
+    }
+
+    private ChatRequestOptions normalizeRequestOptions(ChatRequestOptions requestOptions) {
+        if (requestOptions == null) {
+            return new ChatRequestOptions(false, "medium");
+        }
+        String effort = AgentStringUtils.trimToEmpty(requestOptions.reasoningEffort()).toLowerCase();
+        if (!"low".equals(effort) && !"high".equals(effort)) {
+            effort = "medium";
+        }
+        return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort);
+    }
+
+    private String appendThinkingHint(String userPrompt, ChatRequestOptions requestOptions) {
+        String safePrompt = AgentStringUtils.trimToEmpty(userPrompt);
+        String effort = requestOptions == null ? "medium" : requestOptions.reasoningEffort();
+        boolean thinkingEnabled = requestOptions != null && requestOptions.thinkingEnabled();
+        return safePrompt
+                + "\n\n[deepseek_options] thinking=" + thinkingEnabled
+                + ", reasoning_effort=" + AgentStringUtils.trimToDefault(effort, "medium");
     }
 }

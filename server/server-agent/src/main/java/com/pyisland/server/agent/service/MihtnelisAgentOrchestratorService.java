@@ -74,6 +74,8 @@ public class MihtnelisAgentOrchestratorService {
         User user = username == null || username.isBlank() ? null : userService.getByUsername(username);
         boolean proUser = isProUser(user);
         String userPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.message(), "");
+        MihtnelisAgentProperties.Provider providerConfig = resolveProviderConfig(provider);
+        AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig);
 
         AgentToolExecutionService.ExecutionContext executionContext =
                 new AgentToolExecutionService.ExecutionContext(username, clientIp, toolExecutionObserver);
@@ -88,7 +90,8 @@ public class MihtnelisAgentOrchestratorService {
                     nativeUserPrompt,
                     toolExecutionService,
                     proUser,
-                    executionContext
+                    executionContext,
+                    chatRequestOptions
             );
             return AgentExecutionResult.done(provider, AgentStringUtils.trimToDefault(answer, ""), proUser, traces);
         }
@@ -97,7 +100,7 @@ public class MihtnelisAgentOrchestratorService {
         String scratchpad = "";
         for (int turn = 1; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, provider, scratchpad);
-            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt);
+            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions);
             ReActDecision decision = parseDecision(llmOutput);
 
             if (!decision.toolCall()) {
@@ -213,6 +216,40 @@ public class MihtnelisAgentOrchestratorService {
         }
         String role = user.getRole().trim().toLowerCase(Locale.ROOT);
         return User.ROLE_PRO.equals(role) || User.ROLE_ADMIN.equals(role);
+    }
+
+    private MihtnelisAgentProperties.Provider resolveProviderConfig(String provider) {
+        String safeProvider = AgentStringUtils.trimToEmpty(provider).toLowerCase(Locale.ROOT);
+        MihtnelisAgentProperties.Llm llm = properties.getLlm();
+        if (llm == null) {
+            return null;
+        }
+        if ("deepseek".equals(safeProvider) || safeProvider.isBlank()) {
+            return llm.getDeepseek();
+        }
+        return llm.getDeepseek();
+    }
+
+    private AgentChatGatewayService.ChatRequestOptions resolveChatRequestOptions(
+            MihtnelisAgentStreamService.MihtnelisStreamRequest request,
+            MihtnelisAgentProperties.Provider providerConfig) {
+        boolean defaultThinking = providerConfig != null && providerConfig.isThinking();
+        String defaultReasoningEffort = normalizeReasoningEffort(providerConfig == null ? "" : providerConfig.getReasoningEffort());
+        Boolean requestThinking = request == null ? null : request.thinking();
+        String requestReasoningEffort = request == null ? "" : AgentStringUtils.trimToEmpty(request.reasoningEffort());
+        boolean effectiveThinking = requestThinking == null ? defaultThinking : requestThinking;
+        String effectiveReasoningEffort = requestReasoningEffort.isBlank()
+                ? defaultReasoningEffort
+                : normalizeReasoningEffort(requestReasoningEffort);
+        return new AgentChatGatewayService.ChatRequestOptions(effectiveThinking, effectiveReasoningEffort);
+    }
+
+    private String normalizeReasoningEffort(String value) {
+        String candidate = AgentStringUtils.trimToEmpty(value).toLowerCase(Locale.ROOT);
+        if ("low".equals(candidate) || "high".equals(candidate)) {
+            return candidate;
+        }
+        return "medium";
     }
 
     /**

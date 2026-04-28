@@ -33,9 +33,16 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
     }
 
     @Override
-    public String chat(String provider, String systemPrompt, String userPrompt) {
+    public String chat(String provider,
+                       String systemPrompt,
+                       String userPrompt,
+                       ChatRequestOptions requestOptions) {
         OpenAiChatModel modelClient = buildModelClient();
-        String prompt = "System:\n" + AgentStringUtils.trimToEmpty(systemPrompt) + "\n\nUser:\n" + AgentStringUtils.trimToEmpty(userPrompt);
+        ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
+        String prompt = "System:\n"
+                + AgentStringUtils.trimToEmpty(systemPrompt)
+                + "\n\nUser:\n"
+                + appendThinkingHint(userPrompt, safeRequestOptions);
         try {
             String text = AgentStringUtils.trimToEmpty(modelClient.generate(prompt));
             if (text.isBlank()) {
@@ -65,8 +72,10 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                       String userPrompt,
                                       AgentToolExecutionService toolExecutionService,
                                       boolean proUser,
-                                      AgentToolExecutionService.ExecutionContext context) {
+                                      AgentToolExecutionService.ExecutionContext context,
+                                      ChatRequestOptions requestOptions) {
         OpenAiChatModel modelClient = buildModelClient();
+        ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
         NativeToolBridge toolBridge = new NativeToolBridge(toolExecutionService, proUser, context);
         NativeToolAssistant assistant = AiServices.builder(NativeToolAssistant.class)
                 .chatLanguageModel(modelClient)
@@ -75,7 +84,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         try {
             String result = AgentStringUtils.trimToEmpty(assistant.chat(
                     AgentStringUtils.trimToEmpty(systemPrompt),
-                    AgentStringUtils.trimToEmpty(userPrompt)
+                    appendThinkingHint(userPrompt, safeRequestOptions)
             ));
             if (result.isBlank()) {
                 throw new IllegalStateException("DeepSeek returned blank text");
@@ -124,6 +133,26 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return null;
         }
         return llm.getDeepseek();
+    }
+
+    private ChatRequestOptions normalizeRequestOptions(ChatRequestOptions requestOptions) {
+        if (requestOptions == null) {
+            return new ChatRequestOptions(false, "medium");
+        }
+        String effort = AgentStringUtils.trimToEmpty(requestOptions.reasoningEffort()).toLowerCase();
+        if (!"low".equals(effort) && !"high".equals(effort)) {
+            effort = "medium";
+        }
+        return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort);
+    }
+
+    private String appendThinkingHint(String userPrompt, ChatRequestOptions requestOptions) {
+        String safePrompt = AgentStringUtils.trimToEmpty(userPrompt);
+        String effort = requestOptions == null ? "medium" : requestOptions.reasoningEffort();
+        boolean thinkingEnabled = requestOptions != null && requestOptions.thinkingEnabled();
+        return safePrompt
+                + "\n\n[deepseek_options] thinking=" + thinkingEnabled
+                + ", reasoning_effort=" + AgentStringUtils.trimToDefault(effort, "medium");
     }
 
     private interface NativeToolAssistant {
