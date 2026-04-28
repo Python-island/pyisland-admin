@@ -19,6 +19,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * mihtnelis agent 流式输出服务
@@ -29,6 +31,7 @@ public class MihtnelisAgentStreamService {
     private static final long ORCHESTRATION_TIMEOUT_SECONDS = 25L;
     private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
     private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
+    private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final MihtnelisAgentProperties properties;
     private final MihtnelisAgentOrchestratorService orchestratorService;
@@ -227,7 +230,34 @@ public class MihtnelisAgentStreamService {
                 break;
             }
 
-            String visibleAnswer = executionResult.answer();
+            String rawAnswer = executionResult.answer();
+            String visibleAnswer = rawAnswer;
+            if (thinkingEnabled) {
+                List<String> thinkBlocks = extractThinkBlocks(rawAnswer);
+                for (int thinkIndex = 0; thinkIndex < thinkBlocks.size(); thinkIndex++) {
+                    String think = thinkBlocks.get(thinkIndex);
+                    String safeThink = think == null ? "" : think.trim();
+                    if (safeThink.isBlank()) {
+                        continue;
+                    }
+                    List<String> thinkChunks = AgentStreamChunkUtils.splitForStreaming(safeThink);
+                    for (int chunkIndex = 0; chunkIndex < thinkChunks.size(); chunkIndex++) {
+                        String thinkChunk = thinkChunks.get(chunkIndex);
+                        String safeChunk = thinkChunk == null ? "" : thinkChunk;
+                        if (safeChunk.isBlank()) {
+                            continue;
+                        }
+                        boolean done = chunkIndex == thinkChunks.size() - 1;
+                        sendEvent(emitter, "think", Map.of(
+                                "text", safeChunk,
+                                "index", thinkIndex,
+                                "done", done
+                        ));
+                        sleepSilently(90);
+                    }
+                }
+                visibleAnswer = stripThinkBlocks(rawAnswer);
+            }
 
             int billedTokenDelta = 0;
             List<String> chunks = AgentStreamChunkUtils.splitForStreaming(visibleAnswer);
@@ -348,6 +378,22 @@ public class MihtnelisAgentStreamService {
             return candidate;
         }
         return "medium";
+    }
+
+    private List<String> extractThinkBlocks(String answer) {
+        String source = answer == null ? "" : answer;
+        Matcher matcher = THINK_TAG_PATTERN.matcher(source);
+        List<String> blocks = new java.util.ArrayList<>();
+        while (matcher.find()) {
+            blocks.add(matcher.group(1));
+        }
+        return blocks;
+    }
+
+    private String stripThinkBlocks(String answer) {
+        String source = answer == null ? "" : answer;
+        String cleaned = THINK_TAG_PATTERN.matcher(source).replaceAll("");
+        return cleaned.trim();
     }
 
     private int estimateTokenDelta(String text) {
