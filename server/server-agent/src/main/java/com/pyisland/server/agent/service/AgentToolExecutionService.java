@@ -150,7 +150,9 @@ public class AgentToolExecutionService {
 
     private boolean isClientLocalTool(String toolName) {
         String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase();
-        return safeToolName.startsWith("file.") || safeToolName.startsWith("cmd.");
+        return safeToolName.startsWith("file.")
+                || safeToolName.startsWith("cmd.")
+                || "web.search".equals(safeToolName);
     }
 
     private void notifyToolCallStart(ExecutionContext context,

@@ -369,7 +369,9 @@ public class MihtnelisAgentStreamService {
 
     private boolean isClientLocalTool(String toolName) {
         String safeToolName = toolName == null ? "" : toolName.trim().toLowerCase();
-        return safeToolName.startsWith("file.") || safeToolName.startsWith("cmd.");
+        return safeToolName.startsWith("file.")
+                || safeToolName.startsWith("cmd.")
+                || "web.search".equals(safeToolName);
     }
 
     private boolean isPendingLocalToolResult(AgentToolExecutionService.ToolResult toolResult) {
