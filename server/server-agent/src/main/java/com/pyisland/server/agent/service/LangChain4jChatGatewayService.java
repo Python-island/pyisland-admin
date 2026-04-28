@@ -234,6 +234,65 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("web.page.read", arguments);
         }
 
+        @Tool("列出本地目录内容，客户端执行")
+        public Map<String, Object> fileList(@P("path") String path,
+                                            @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(500, limit)));
+            }
+            return invoke("file.list", arguments);
+        }
+
+        @Tool("读取本地文本文件，客户端执行")
+        public Map<String, Object> fileRead(@P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("file.read", arguments);
+        }
+
+        @Tool("写入本地文本文件，客户端执行")
+        public Map<String, Object> fileWrite(@P("path") String path,
+                                             @P("content") String content) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            arguments.put("content", content == null ? "" : content);
+            return invoke("file.write", arguments);
+        }
+
+        @Tool("删除本地文件或目录，客户端执行")
+        public Map<String, Object> fileDelete(@P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("file.delete", arguments);
+        }
+
+        @Tool("执行本地命令行，客户端执行")
+        public Map<String, Object> cmdExec(@P("command") String command,
+                                           @P("cwd") String cwd,
+                                           @P("timeoutMs") Integer timeoutMs) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (command != null && !command.isBlank()) {
+                arguments.put("command", AgentStringUtils.trimToEmpty(command));
+            }
+            if (cwd != null && !cwd.isBlank()) {
+                arguments.put("cwd", AgentStringUtils.trimToEmpty(cwd));
+            }
+            if (timeoutMs != null) {
+                arguments.put("timeoutMs", Math.max(1000, Math.min(60000, timeoutMs)));
+            }
+            return invoke("cmd.exec", arguments);
+        }
+
         private Map<String, Object> invoke(String toolName, Map<String, Object> arguments) {
             AgentToolExecutionService.ToolResult result = toolExecutionService.execute(toolName, arguments, proUser, context);
             return Map.of(
