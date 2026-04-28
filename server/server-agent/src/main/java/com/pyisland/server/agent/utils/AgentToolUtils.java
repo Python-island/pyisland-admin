@@ -47,7 +47,7 @@ public class AgentToolUtils {
         this.webAuthorizationService = webAuthorizationService;
         this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
+                .connectTimeout(Duration.ofSeconds(10))
                 .build();
     }
 
@@ -251,27 +251,36 @@ public class AgentToolUtils {
         try {
             String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
             String url = String.format(DUCK_DUCK_GO_SEARCH_URL_TEMPLATE, encodedQuery);
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .header("Accept", "application/json")
-                    .GET()
-                    .timeout(Duration.ofSeconds(8))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                return AgentToolExecutionService.ToolResult.error("web.search", "search request failed: HTTP " + response.statusCode());
-            }
-            String body = response.body() == null ? "" : response.body().trim();
-            if (body.isBlank()) {
-                return AgentToolExecutionService.ToolResult.error("web.search", "search response is empty");
-            }
-            Map<String, Object> payload = objectMapper.readValue(body, MAP_TYPE);
             List<Map<String, Object>> results = new ArrayList<>();
-            collectWebSearchResults(payload, results, limit);
+            String jsonError = "";
+            try {
+                HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                        .header("Accept", "application/json")
+                        .header("User-Agent", "Mozilla/5.0")
+                        .GET()
+                        .timeout(Duration.ofSeconds(12))
+                        .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    String body = response.body() == null ? "" : response.body().trim();
+                    if (!body.isBlank()) {
+                        Map<String, Object> payload = objectMapper.readValue(body, MAP_TYPE);
+                        collectWebSearchResults(payload, results, limit);
+                    } else {
+                        jsonError = "search response is empty";
+                    }
+                } else {
+                    jsonError = "search request failed: HTTP " + response.statusCode();
+                }
+            } catch (Exception jsonException) {
+                jsonError = AgentStringUtils.trimToDefault(jsonException.getMessage(), "json request failed");
+            }
             if (results.isEmpty()) {
                 collectWebSearchResultsFromHtml(query, results, limit);
             }
             if (results.isEmpty()) {
-                return AgentToolExecutionService.ToolResult.error("web.search", "no results found for query: " + query);
+                String suffix = jsonError.isBlank() ? "" : " (json: " + jsonError + ")";
+                return AgentToolExecutionService.ToolResult.error("web.search", "no results found for query: " + query + suffix);
             }
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("query", query);

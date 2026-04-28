@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 @Service
 public class MihtnelisAgentOrchestratorService {
 
-    private static final int MAX_REACT_TURNS = 3;
+    private static final int MAX_REACT_TURNS = 5;
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>.*?</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -154,18 +154,8 @@ public class MihtnelisAgentOrchestratorService {
             scratchpad = appendObservation(scratchpad, turn, decision.toolName(), decision.arguments(), toolResult);
         }
 
-        StringBuilder content = new StringBuilder();
-        content.append("mihtnelis agent 已完成 Phase 3 编排与模型网关接线。")
-                .append("当前 provider=").append(provider).append("，")
-                .append("当前未读取到可用模型配置，已回退到占位输出。")
-                .append("本轮可用能力：基础对话");
-
-        if (proUser && properties.getOssVector() != null && properties.getOssVector().isEnabled()) {
-            content.append("、OSS 向量检索(预留)");
-        }
-        content.append("。");
-
-        return AgentExecutionResult.done(provider, content.toString(), proUser, traces);
+        String fallbackMessage = resolveFallbackMessage(provider, traces);
+        return AgentExecutionResult.done(provider, fallbackMessage, proUser, traces);
     }
 
     private ReActDecision parseDecision(String llmOutput) {
@@ -287,6 +277,23 @@ public class MihtnelisAgentOrchestratorService {
             return candidate;
         }
         return "medium";
+    }
+
+    private String resolveFallbackMessage(String provider, List<ToolInvocationTrace> traces) {
+        if (traces != null && !traces.isEmpty()) {
+            ToolInvocationTrace lastTrace = traces.get(traces.size() - 1);
+            String tool = AgentStringUtils.trimToDefault(lastTrace.tool(), "unknown");
+            String error = AgentStringUtils.trimToDefault(lastTrace.error(), "");
+            if (!error.isBlank()) {
+                return "工具调用失败：" + tool + "，原因：" + error;
+            }
+            if (lastTrace.success()) {
+                return "已完成工具调用：" + tool + "，但模型未生成最终结论。请继续追问“请基于以上工具结果给出最终回答”。";
+            }
+            return "工具调用未返回可用结论：" + tool + "，请重试或调整问题后再试。";
+        }
+        return "当前 provider=" + AgentStringUtils.trimToDefault(provider, "deepseek")
+                + " 未返回有效结果，请检查模型配置与网络后重试。";
     }
 
     /**
