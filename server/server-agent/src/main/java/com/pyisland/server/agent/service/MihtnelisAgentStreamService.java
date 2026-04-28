@@ -182,7 +182,9 @@ public class MihtnelisAgentStreamService {
                             if (items == null) {
                                 return;
                             }
+                            int turn = toolTurnCounter.incrementAndGet();
                             sendEvent(emitter, "todo", Map.of(
+                                    "turn", turn,
                                     "items", items,
                                     "count", items.size()
                             ));
