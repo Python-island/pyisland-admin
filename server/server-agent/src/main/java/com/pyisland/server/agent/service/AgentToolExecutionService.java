@@ -5,6 +5,7 @@ import com.pyisland.server.agent.utils.AgentToolUtils;
 import com.pyisland.server.weather.service.QWeatherService;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -31,12 +32,17 @@ public class AgentToolExecutionService {
         if (safeToolName.isBlank()) {
             return ToolResult.error("unknown", "tool name is empty");
         }
+        Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+        notifyToolCallStart(context, safeToolName, safeArguments);
+
+        ToolResult result;
         if (isClientLocalTool(safeToolName)) {
             String username = context == null ? "" : AgentStringUtils.trimToEmpty(context.username());
             if (username.isBlank()) {
-                return ToolResult.error(safeToolName, "username is required for local tool execution");
+                result = ToolResult.error(safeToolName, "username is required for local tool execution");
+                notifyToolCallResult(context, safeToolName, safeArguments, result);
+                return result;
             }
-            Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
             AgentLocalToolRelayService.LocalToolExecutionPayload payload =
                     localToolRelayService.consumeResolvedTool(username, safeToolName, safeArguments);
             if (payload != null) {
@@ -51,59 +57,95 @@ public class AgentToolExecutionService {
                         "result", payload.result() == null ? Map.of() : payload.result()
                 );
                 if (payload.success()) {
-                    return ToolResult.ok(safeToolName, data);
+                    result = ToolResult.ok(safeToolName, data);
+                    notifyToolCallResult(context, safeToolName, safeArguments, result);
+                    return result;
                 }
-                return ToolResult.error(safeToolName, AgentStringUtils.trimToDefault(payload.error(), "local tool execution failed"));
+                result = ToolResult.error(safeToolName, AgentStringUtils.trimToDefault(payload.error(), "local tool execution failed"));
+                notifyToolCallResult(context, safeToolName, safeArguments, result);
+                return result;
             }
-            return ToolResult.ok(safeToolName, Map.of(
+            result = ToolResult.ok(safeToolName, Map.of(
                     "localToolExecutionRequired", true,
                     "tool", safeToolName,
                     "arguments", safeArguments
             ));
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("user.ip.get".equals(safeToolName)) {
-            return toolUtils.getUserIp(context);
+            result = toolUtils.getUserIp(context);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("location.by_ip.resolve".equals(safeToolName)) {
-            return toolUtils.resolveLocationByIp(arguments, context);
+            result = toolUtils.resolveLocationByIp(safeArguments, context);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("weather.query".equals(safeToolName)) {
             if (!proUser) {
-                return ToolResult.error("weather.query", "weather tool requires pro user");
+                result = ToolResult.error("weather.query", "weather tool requires pro user");
+                notifyToolCallResult(context, safeToolName, safeArguments, result);
+                return result;
             }
-            return toolUtils.queryWeather(arguments);
+            result = toolUtils.queryWeather(safeArguments);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("time.now".equals(safeToolName)) {
-            return toolUtils.getCurrentTime();
+            result = toolUtils.getCurrentTime();
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("session.context.get".equals(safeToolName)) {
-            return toolUtils.getSessionContext(context);
+            result = toolUtils.getSessionContext(context);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("web.search".equals(safeToolName)) {
-            return toolUtils.searchWeb(arguments);
+            result = toolUtils.searchWeb(safeArguments);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("web.page.read".equals(safeToolName)) {
-            return toolUtils.readWebPage(arguments, context);
+            result = toolUtils.readWebPage(safeArguments, context);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("weather.city.lookup".equals(safeToolName)) {
             if (!proUser) {
-                return ToolResult.error("weather.city.lookup", "weather tool requires pro user");
+                result = ToolResult.error("weather.city.lookup", "weather tool requires pro user");
+                notifyToolCallResult(context, safeToolName, safeArguments, result);
+                return result;
             }
-            return toolUtils.lookupWeatherCity(arguments);
+            result = toolUtils.lookupWeatherCity(safeArguments);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("weather.by_city.query".equals(safeToolName)) {
             if (!proUser) {
-                return ToolResult.error("weather.by_city.query", "weather tool requires pro user");
+                result = ToolResult.error("weather.by_city.query", "weather tool requires pro user");
+                notifyToolCallResult(context, safeToolName, safeArguments, result);
+                return result;
             }
-            return toolUtils.queryWeatherByCity(arguments);
+            result = toolUtils.queryWeatherByCity(safeArguments);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
         if ("weather.quota.status".equals(safeToolName)) {
             if (!proUser) {
-                return ToolResult.error("weather.quota.status", "weather tool requires pro user");
+                result = ToolResult.error("weather.quota.status", "weather tool requires pro user");
+                notifyToolCallResult(context, safeToolName, safeArguments, result);
+                return result;
             }
-            return toolUtils.queryWeatherQuotaStatus();
+            result = toolUtils.queryWeatherQuotaStatus();
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
         }
-        return ToolResult.error(safeToolName, "tool not supported");
+        result = ToolResult.error(safeToolName, "tool not supported");
+        notifyToolCallResult(context, safeToolName, safeArguments, result);
+        return result;
     }
 
     private boolean isClientLocalTool(String toolName) {
@@ -111,7 +153,46 @@ public class AgentToolExecutionService {
         return safeToolName.startsWith("file.") || safeToolName.startsWith("cmd.");
     }
 
-    public record ExecutionContext(String username, String clientIp) {
+    private void notifyToolCallStart(ExecutionContext context,
+                                     String tool,
+                                     Map<String, Object> arguments) {
+        if (context == null || context.toolExecutionObserver() == null) {
+            return;
+        }
+        context.toolExecutionObserver().onToolCallRequested(tool, cloneArguments(arguments));
+    }
+
+    private void notifyToolCallResult(ExecutionContext context,
+                                      String tool,
+                                      Map<String, Object> arguments,
+                                      ToolResult result) {
+        if (context == null || context.toolExecutionObserver() == null || result == null) {
+            return;
+        }
+        context.toolExecutionObserver().onToolCallCompleted(tool, cloneArguments(arguments), result);
+    }
+
+    private Map<String, Object> cloneArguments(Map<String, Object> arguments) {
+        if (arguments == null || arguments.isEmpty()) {
+            return Map.of();
+        }
+        return new LinkedHashMap<>(arguments);
+    }
+
+    public record ExecutionContext(String username,
+                                   String clientIp,
+                                   ToolExecutionObserver toolExecutionObserver) {
+
+        public ExecutionContext(String username, String clientIp) {
+            this(username, clientIp, null);
+        }
+    }
+
+    public interface ToolExecutionObserver {
+
+        void onToolCallRequested(String toolName, Map<String, Object> arguments);
+
+        void onToolCallCompleted(String toolName, Map<String, Object> arguments, ToolResult result);
     }
 
     public record ToolResult(String tool, boolean success, Object data, String error) {

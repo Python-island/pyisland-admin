@@ -60,6 +60,13 @@ public class MihtnelisAgentOrchestratorService {
     public AgentExecutionResult orchestrate(String username,
                                             String clientIp,
                                             MihtnelisAgentStreamService.MihtnelisStreamRequest request) {
+        return orchestrate(username, clientIp, request, null);
+    }
+
+    public AgentExecutionResult orchestrate(String username,
+                                            String clientIp,
+                                            MihtnelisAgentStreamService.MihtnelisStreamRequest request,
+                                            AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver) {
         String provider = providerRouterService.resolveProvider(request == null ? null : request.provider());
         if ("auto".equalsIgnoreCase(provider)) {
             provider = AgentStringUtils.trimToDefault(properties.getDefaultProvider(), "deepseek");
@@ -69,7 +76,7 @@ public class MihtnelisAgentOrchestratorService {
         String userPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.message(), "");
 
         AgentToolExecutionService.ExecutionContext executionContext =
-                new AgentToolExecutionService.ExecutionContext(username, clientIp);
+                new AgentToolExecutionService.ExecutionContext(username, clientIp, toolExecutionObserver);
         List<ToolInvocationTrace> traces = new java.util.ArrayList<>();
 
         if (chatGatewayService.supportsNativeToolCalling()) {

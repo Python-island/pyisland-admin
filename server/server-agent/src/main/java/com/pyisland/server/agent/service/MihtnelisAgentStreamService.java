@@ -7,6 +7,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -91,10 +94,52 @@ public class MihtnelisAgentStreamService {
                 return;
             }
 
+            AtomicInteger toolTurnCounter = new AtomicInteger(0);
+            Deque<Integer> pendingToolTurns = new ArrayDeque<>();
+            AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver =
+                    new AgentToolExecutionService.ToolExecutionObserver() {
+                        @Override
+                        public void onToolCallRequested(String toolName, Map<String, Object> arguments) {
+                            if (isClientLocalTool(toolName)) {
+                                return;
+                            }
+                            int turn = toolTurnCounter.incrementAndGet();
+                            pendingToolTurns.addLast(turn);
+                            sendEvent(emitter, "tool_call_request", Map.of(
+                                    "requestId", "",
+                                    "turn", turn,
+                                    "tool", toolName,
+                                    "arguments", arguments == null ? Map.of() : arguments,
+                                    "riskLevel", "server"
+                            ));
+                        }
+
+                        @Override
+                        public void onToolCallCompleted(String toolName,
+                                                        Map<String, Object> arguments,
+                                                        AgentToolExecutionService.ToolResult result) {
+                            if (isClientLocalTool(toolName) || isPendingLocalToolResult(result)) {
+                                return;
+                            }
+                            int turn = pendingToolTurns.isEmpty()
+                                    ? toolTurnCounter.incrementAndGet()
+                                    : pendingToolTurns.removeFirst();
+                            sendEvent(emitter, "tool_call_result", Map.of(
+                                    "requestId", "",
+                                    "turn", turn,
+                                    "tool", result == null ? toolName : result.tool(),
+                                    "success", result != null && result.success(),
+                                    "error", result == null || result.error() == null ? "" : result.error(),
+                                    "result", result == null || result.data() == null ? Map.of() : result.data(),
+                                    "durationMs", 0
+                            ));
+                        }
+                    };
+
             MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult;
             boolean metaSent = false;
             while (true) {
-                executionResult = runOrchestration(username, clientIp, request);
+                executionResult = runOrchestration(username, clientIp, request, toolExecutionObserver);
                 provider = executionResult.provider();
                 if (!metaSent) {
                     sendEvent(emitter, "meta", Map.of(
@@ -179,17 +224,6 @@ public class MihtnelisAgentStreamService {
                     continue;
                 }
                 break;
-            }
-
-            for (MihtnelisAgentOrchestratorService.ToolInvocationTrace trace : executionResult.toolInvocations()) {
-                sendEvent(emitter, "tool", Map.of(
-                        "turn", trace.turn(),
-                        "tool", trace.tool(),
-                        "arguments", trace.arguments(),
-                        "success", trace.success(),
-                        "error", trace.error() == null ? "" : trace.error(),
-                        "result", trace.result()
-                ));
             }
 
             String answer = executionResult.answer();
@@ -282,11 +316,31 @@ public class MihtnelisAgentStreamService {
 
     private MihtnelisAgentOrchestratorService.AgentExecutionResult runOrchestration(String username,
                                                                                      String clientIp,
-                                                                                     MihtnelisStreamRequest request)
+                                                                                     MihtnelisStreamRequest request,
+                                                                                     AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver)
             throws TimeoutException, ExecutionException, InterruptedException {
         return CompletableFuture
-                .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request), streamExecutor)
+                .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request, toolExecutionObserver), streamExecutor)
                 .get(ORCHESTRATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private boolean isClientLocalTool(String toolName) {
+        String safeToolName = toolName == null ? "" : toolName.trim().toLowerCase();
+        return safeToolName.startsWith("file.") || safeToolName.startsWith("cmd.");
+    }
+
+    private boolean isPendingLocalToolResult(AgentToolExecutionService.ToolResult toolResult) {
+        if (toolResult == null || !toolResult.success()) {
+            return false;
+        }
+        if (!(toolResult.data() instanceof Map<?, ?> map)) {
+            return false;
+        }
+        Object required = map.get("localToolExecutionRequired");
+        if (required instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        return "true".equalsIgnoreCase(String.valueOf(required));
     }
 
     private String normalizeSessionId(MihtnelisStreamRequest request) {
