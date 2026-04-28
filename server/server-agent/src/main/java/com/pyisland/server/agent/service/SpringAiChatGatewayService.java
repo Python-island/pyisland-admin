@@ -15,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -112,17 +113,18 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                 ? "medium"
                 : AgentStringUtils.trimToDefault(requestOptions.reasoningEffort(), "medium");
         String url = resolveCompletionsUrl(baseUrl);
-        Map<String, Object> payload = Map.of(
-                "model", model,
-                "messages", new Object[]{
-                        Map.of("role", "system", "content", AgentStringUtils.trimToEmpty(systemPrompt)),
-                        Map.of("role", "user", "content", AgentStringUtils.trimToEmpty(userPrompt))
-                },
-                "temperature", 0.2,
-                "stream", false,
-                "thinking", Map.of("type", thinkingEnabled ? "enabled" : "disabled"),
-                "reasoning_effort", effort
-        );
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", model);
+        payload.put("messages", new Object[]{
+                Map.of("role", "system", "content", AgentStringUtils.trimToEmpty(systemPrompt)),
+                Map.of("role", "user", "content", AgentStringUtils.trimToEmpty(userPrompt))
+        });
+        payload.put("temperature", 0.2);
+        payload.put("stream", false);
+        if (thinkingEnabled) {
+            payload.put("thinking", Map.of("type", "enabled"));
+            payload.put("reasoning_effort", effort);
+        }
         String requestBody = OBJECT_MAPPER.writeValueAsString(payload);
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(60))
