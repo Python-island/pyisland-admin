@@ -64,13 +64,22 @@ public class MihtnelisAgentOrchestratorService {
     public AgentExecutionResult orchestrate(String username,
                                             String clientIp,
                                             MihtnelisAgentStreamService.MihtnelisStreamRequest request) {
-        return orchestrate(username, clientIp, request, null);
+        return orchestrate(username, clientIp, request, null, "", 1);
     }
 
     public AgentExecutionResult orchestrate(String username,
                                             String clientIp,
                                             MihtnelisAgentStreamService.MihtnelisStreamRequest request,
                                             AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver) {
+        return orchestrate(username, clientIp, request, toolExecutionObserver, "", 1);
+    }
+
+    public AgentExecutionResult orchestrate(String username,
+                                            String clientIp,
+                                            MihtnelisAgentStreamService.MihtnelisStreamRequest request,
+                                            AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver,
+                                            String initialScratchpad,
+                                            int startTurn) {
         String provider = providerRouterService.resolveProvider(request == null ? null : request.provider());
         if ("auto".equalsIgnoreCase(provider)) {
             provider = AgentStringUtils.trimToDefault(properties.getDefaultProvider(), "deepseek");
@@ -103,8 +112,9 @@ public class MihtnelisAgentOrchestratorService {
         }
 
         String systemPrompt = workflowService.buildSystemPrompt(proUser, workspaces);
-        String scratchpad = "";
-        for (int turn = 1; turn <= MAX_REACT_TURNS; turn++) {
+        String scratchpad = initialScratchpad == null ? "" : initialScratchpad;
+        int effectiveStartTurn = Math.max(1, startTurn);
+        for (int turn = effectiveStartTurn; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
             String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions);
             notifyThinking(executionContext, turn, llmOutput);
@@ -142,7 +152,7 @@ public class MihtnelisAgentOrchestratorService {
                         toolResult
                 );
                 if (pendingLocalTool != null) {
-                    return AgentExecutionResult.pausedForLocalTool(provider, proUser, traces, pendingLocalTool);
+                    return AgentExecutionResult.pausedForLocalTool(provider, proUser, traces, pendingLocalTool, scratchpad, turn);
                 }
             }
             traces.add(new ToolInvocationTrace(
@@ -404,7 +414,9 @@ public class MihtnelisAgentOrchestratorService {
                                        PendingWebAccess pendingWebAccess,
                                        boolean pausedForWebAccess,
                                        PendingLocalTool pendingLocalTool,
-                                       boolean pausedForLocalTool) {
+                                       boolean pausedForLocalTool,
+                                       String resumeScratchpad,
+                                       int resumeTurn) {
         public static AgentExecutionResult done(String provider,
                                                 String answer,
                                                 boolean proUser,
@@ -417,7 +429,9 @@ public class MihtnelisAgentOrchestratorService {
                     null,
                     false,
                     null,
-                    false
+                    false,
+                    "",
+                    0
             );
         }
 
@@ -433,14 +447,18 @@ public class MihtnelisAgentOrchestratorService {
                     pendingWebAccess,
                     true,
                     null,
-                    false
+                    false,
+                    "",
+                    0
             );
         }
 
         public static AgentExecutionResult pausedForLocalTool(String provider,
                                                               boolean proUser,
                                                               List<ToolInvocationTrace> traces,
-                                                              PendingLocalTool pendingLocalTool) {
+                                                              PendingLocalTool pendingLocalTool,
+                                                              String scratchpad,
+                                                              int turn) {
             return new AgentExecutionResult(
                     provider,
                     "",
@@ -449,7 +467,9 @@ public class MihtnelisAgentOrchestratorService {
                     null,
                     false,
                     pendingLocalTool,
-                    true
+                    true,
+                    scratchpad == null ? "" : scratchpad,
+                    turn
             );
         }
     }

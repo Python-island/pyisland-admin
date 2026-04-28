@@ -194,8 +194,10 @@ public class MihtnelisAgentStreamService {
 
             MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult;
             boolean metaSent = false;
+            String accumulatedScratchpad = "";
+            int nextStartTurn = 1;
             while (true) {
-                executionResult = runOrchestration(username, clientIp, effectiveRequest, toolExecutionObserver);
+                executionResult = runOrchestration(username, clientIp, effectiveRequest, toolExecutionObserver, accumulatedScratchpad, nextStartTurn);
                 provider = executionResult.provider();
                 if (!metaSent) {
                     sendEvent(emitter, "meta", Map.of(
@@ -284,6 +286,14 @@ public class MihtnelisAgentStreamService {
                             "result", payload.result() == null ? Map.of() : payload.result(),
                             "durationMs", payload.durationMs()
                     ));
+                    accumulatedScratchpad = buildLocalToolObservation(
+                            executionResult.resumeScratchpad(),
+                            executionResult.resumeTurn(),
+                            pendingLocalTool.tool(),
+                            pendingLocalTool.arguments(),
+                            payload
+                    );
+                    nextStartTurn = executionResult.resumeTurn() + 1;
                     continue;
                 }
                 break;
@@ -380,11 +390,53 @@ public class MihtnelisAgentStreamService {
     private MihtnelisAgentOrchestratorService.AgentExecutionResult runOrchestration(String username,
                                                                                      String clientIp,
                                                                                      MihtnelisStreamRequest request,
-                                                                                     AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver)
+                                                                                     AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver,
+                                                                                     String initialScratchpad,
+                                                                                     int startTurn)
             throws TimeoutException, ExecutionException, InterruptedException {
         return CompletableFuture
-                .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request, toolExecutionObserver), streamExecutor)
+                .supplyAsync(() -> orchestratorService.orchestrate(username, clientIp, request, toolExecutionObserver, initialScratchpad, startTurn), streamExecutor)
                 .get(ORCHESTRATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private String buildLocalToolObservation(String previousScratchpad,
+                                              int turn,
+                                              String toolName,
+                                              Map<String, Object> arguments,
+                                              AgentLocalToolRelayService.LocalToolExecutionPayload payload) {
+        StringBuilder builder = new StringBuilder();
+        String prev = previousScratchpad == null ? "" : previousScratchpad;
+        builder.append(prev);
+        if (builder.length() > 0) {
+            builder.append("\n\n");
+        }
+        String safeToolName = toolName == null ? "unknown" : toolName;
+        String argJson = "{}";
+        try {
+            if (arguments != null && !arguments.isEmpty()) {
+                argJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(arguments);
+                if (argJson.length() > 1200) {
+                    argJson = argJson.substring(0, 1200) + "...";
+                }
+            }
+        } catch (Exception ignored) { }
+        Map<String, Object> obsMap = new java.util.LinkedHashMap<>();
+        obsMap.put("tool", payload.tool());
+        obsMap.put("success", payload.success());
+        obsMap.put("data", payload.result() == null ? Map.of() : payload.result());
+        obsMap.put("error", payload.error() == null ? "" : payload.error());
+        String obsJson = "{}";
+        try {
+            obsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(obsMap);
+            if (obsJson.length() > 8000) {
+                obsJson = obsJson.substring(0, 8000) + "...";
+            }
+        } catch (Exception ignored) { }
+        builder.append("Turn ").append(turn).append(':').append("\n")
+                .append("Action: ").append(safeToolName).append("\n")
+                .append("Action Input: ").append(argJson).append("\n")
+                .append("Observation: ").append(obsJson);
+        return builder.toString();
     }
 
     private boolean isClientLocalTool(String toolName) {
