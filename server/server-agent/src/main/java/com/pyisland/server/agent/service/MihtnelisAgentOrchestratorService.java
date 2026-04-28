@@ -78,6 +78,7 @@ public class MihtnelisAgentOrchestratorService {
         User user = username == null || username.isBlank() ? null : userService.getByUsername(username);
         boolean proUser = isProUser(user);
         String userPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.message(), "");
+        String contextPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.context(), "");
         MihtnelisAgentProperties.Provider providerConfig = resolveProviderConfig(provider);
         AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig);
 
@@ -87,7 +88,7 @@ public class MihtnelisAgentOrchestratorService {
 
         if (chatGatewayService.supportsNativeToolCalling()) {
             String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(proUser);
-            String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, provider);
+            String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider);
             String answer = chatGatewayService.chatWithNativeTools(
                     provider,
                     nativeSystemPrompt,
@@ -103,7 +104,7 @@ public class MihtnelisAgentOrchestratorService {
         String systemPrompt = workflowService.buildSystemPrompt(proUser);
         String scratchpad = "";
         for (int turn = 1; turn <= MAX_REACT_TURNS; turn++) {
-            String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, provider, scratchpad);
+            String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
             String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions);
             notifyThinking(executionContext, turn, llmOutput);
             ReActDecision decision = parseDecision(llmOutput);

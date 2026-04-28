@@ -55,23 +55,38 @@ public class LangChainWorkflowService {
      * @param provider   当前供应商。
      * @return 组合后提示词。
      */
-    public String buildUserPrompt(String userPrompt, String provider) {
+    public String buildUserPrompt(String userPrompt, String context, String provider) {
         String safePrompt = userPrompt == null ? "" : userPrompt.trim();
+        String safeContext = context == null ? "" : context.trim();
         String safeProvider = provider == null ? "auto" : provider.trim();
-        return "provider=" + safeProvider + "\n\n" + safePrompt;
-    }
-
-    public String buildReActUserPrompt(String userPrompt, String provider, String scratchpad) {
-        String safePrompt = userPrompt == null ? "" : userPrompt.trim();
-        String safeProvider = provider == null ? "auto" : provider.trim();
-        String safeScratchpad = scratchpad == null ? "" : scratchpad.trim();
-        if (safeScratchpad.isBlank()) {
-            return "provider=" + safeProvider + "\n\nUser Question:\n" + safePrompt;
+        if (safeContext.isBlank()) {
+            return "provider=" + safeProvider + "\n\n" + safePrompt;
         }
         return "provider=" + safeProvider
-                + "\n\nUser Question:\n" + safePrompt
-                + "\n\nPrevious Reasoning / Observations:\n" + safeScratchpad
-                + "\n\n请基于上面的 Observation 决定下一步：继续 tool_call 或给 final。";
+                + "\n\nConversation Context:\n" + safeContext
+                + "\n\nUser Question:\n" + safePrompt;
+    }
+
+    public String buildReActUserPrompt(String userPrompt, String context, String provider, String scratchpad) {
+        String safePrompt = userPrompt == null ? "" : userPrompt.trim();
+        String safeContext = context == null ? "" : context.trim();
+        String safeProvider = provider == null ? "auto" : provider.trim();
+        String safeScratchpad = scratchpad == null ? "" : scratchpad.trim();
+        StringBuilder promptBuilder = new StringBuilder();
+        promptBuilder.append("provider=").append(safeProvider).append("\n\n");
+        if (!safeContext.isBlank()) {
+            promptBuilder.append("Conversation Context:\n")
+                    .append(safeContext)
+                    .append("\n\n");
+        }
+        promptBuilder.append("User Question:\n").append(safePrompt);
+        if (safeScratchpad.isBlank()) {
+            return promptBuilder.toString();
+        }
+        promptBuilder.append("\n\nPrevious Reasoning / Observations:\n")
+                .append(safeScratchpad)
+                .append("\n\n请基于上面的 Observation 决定下一步：继续 tool_call 或给 final。");
+        return promptBuilder.toString();
     }
 
     public String buildNativeToolSystemPrompt(boolean proUser) {

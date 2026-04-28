@@ -33,6 +33,7 @@ public class MihtnelisAgentStreamService {
     private static final long ORCHESTRATION_TIMEOUT_SECONDS = 25L;
     private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
     private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
+    private static final int MAX_CONTEXT_CHARS = 1_000_000;
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -73,11 +74,20 @@ public class MihtnelisAgentStreamService {
     private void emitFlow(SseEmitter emitter, String username, String clientIp, MihtnelisStreamRequest request) {
         try {
             String userPrompt = request == null || request.message() == null ? "" : request.message().trim();
+            String context = normalizeContext(request == null ? null : request.context());
             String provider = request == null || request.provider() == null || request.provider().isBlank()
                     ? properties.getDefaultProvider()
                     : request.provider().trim();
             boolean thinkingEnabled = resolveThinkingEnabled(request);
             String reasoningEffort = resolveReasoningEffort(request);
+            MihtnelisStreamRequest effectiveRequest = new MihtnelisStreamRequest(
+                    normalizeSessionId(request),
+                    userPrompt,
+                    provider,
+                    context,
+                    request == null ? null : request.thinking(),
+                    request == null ? null : request.reasoningEffort()
+            );
 
             if (userPrompt.isBlank()) {
                 sendEvent(emitter, "error", Map.of(
@@ -170,13 +180,13 @@ public class MihtnelisAgentStreamService {
             MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult;
             boolean metaSent = false;
             while (true) {
-                executionResult = runOrchestration(username, clientIp, request, toolExecutionObserver);
+                executionResult = runOrchestration(username, clientIp, effectiveRequest, toolExecutionObserver);
                 provider = executionResult.provider();
                 if (!metaSent) {
                     sendEvent(emitter, "meta", Map.of(
                             "agent", "mihtnelis agent",
                             "provider", provider,
-                            "sessionId", normalizeSessionId(request),
+                            "sessionId", effectiveRequest.sessionId(),
                             "thinkingEnabled", thinkingEnabled,
                             "reasoningEffort", reasoningEffort,
                             "timestamp", LocalDateTime.now().toString()
@@ -383,6 +393,14 @@ public class MihtnelisAgentStreamService {
         return request.sessionId().trim();
     }
 
+    private String normalizeContext(String context) {
+        String safeContext = context == null ? "" : context;
+        if (safeContext.length() <= MAX_CONTEXT_CHARS) {
+            return safeContext;
+        }
+        return safeContext.substring(safeContext.length() - MAX_CONTEXT_CHARS);
+    }
+
     private boolean resolveThinkingEnabled(MihtnelisStreamRequest request) {
         MihtnelisAgentProperties.Provider deepseek = properties.getLlm() == null ? null : properties.getLlm().getDeepseek();
         boolean defaultThinking = deepseek != null && deepseek.isThinking();
@@ -477,6 +495,7 @@ public class MihtnelisAgentStreamService {
     public record MihtnelisStreamRequest(String sessionId,
                                          String message,
                                          String provider,
+                                         String context,
                                          Boolean thinking,
                                          String reasoningEffort) {
     }
