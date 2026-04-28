@@ -125,7 +125,7 @@ public class MihtnelisAgentOrchestratorService {
                 if (!finalAnswer.isBlank()) {
                     return AgentExecutionResult.done(provider, finalAnswer, proUser, traces);
                 }
-                String fallbackFromRaw = AgentStringUtils.trimToDefault(llmOutput, "");
+                String fallbackFromRaw = stripJsonEnvelopes(stripThinkBlocks(AgentStringUtils.trimToDefault(llmOutput, "")));
                 if (!fallbackFromRaw.isBlank()) {
                     return AgentExecutionResult.done(provider, fallbackFromRaw, proUser, traces);
                 }
@@ -170,6 +170,8 @@ public class MihtnelisAgentOrchestratorService {
         return AgentExecutionResult.done(provider, fallbackMessage, proUser, traces);
     }
 
+    private static final Pattern MARKDOWN_CODE_BLOCK_PATTERN = Pattern.compile("```(?:json)?\s*\n?(.*?)\n?\s*```", Pattern.DOTALL);
+
     private ReActDecision parseDecision(String llmOutput) {
         String output = AgentStringUtils.trimToDefault(llmOutput, "");
         if (output.isBlank()) {
@@ -179,8 +181,27 @@ public class MihtnelisAgentOrchestratorService {
         if (normalizedOutput.isBlank()) {
             return ReActDecision.finalAnswer("");
         }
-        // 模型可能返回字符串字面量内带未转义换行的 JSON，先严格解析，失败则尝试修复后再解析。
-        for (String candidate : new String[]{normalizedOutput, AgentJsonUtils.repairLiteralNewlinesInStrings(normalizedOutput)}) {
+        // 构造候选列表：原文 → 修复换行 → 去 Markdown 代码块 → 提取首个 JSON 对象
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(normalizedOutput);
+        String repaired = AgentJsonUtils.repairLiteralNewlinesInStrings(normalizedOutput);
+        if (repaired != null && !repaired.equals(normalizedOutput)) {
+            candidates.add(repaired);
+        }
+        // 去除 Markdown ```json ... ``` 包裹
+        Matcher mdMatcher = MARKDOWN_CODE_BLOCK_PATTERN.matcher(normalizedOutput);
+        if (mdMatcher.find()) {
+            String inner = mdMatcher.group(1).trim();
+            if (!inner.isBlank() && !candidates.contains(inner)) {
+                candidates.add(inner);
+            }
+        }
+        // 提取首个 { ... } 子串
+        String extracted = extractFirstJsonObject(normalizedOutput);
+        if (extracted != null && !candidates.contains(extracted)) {
+            candidates.add(extracted);
+        }
+        for (String candidate : candidates) {
             if (candidate == null || candidate.isBlank()) {
                 continue;
             }
@@ -202,7 +223,50 @@ public class MihtnelisAgentOrchestratorService {
                 // try next candidate
             }
         }
-        return ReActDecision.finalAnswer(normalizedOutput);
+        // 最终 fallback：去除残留的 JSON 信封，只保留自然语言
+        String cleaned = stripJsonEnvelopes(normalizedOutput);
+        return ReActDecision.finalAnswer(cleaned);
+    }
+
+    private String extractFirstJsonObject(String text) {
+        if (text == null) return null;
+        int start = text.indexOf('{');
+        if (start < 0) return null;
+        int depth = 0;
+        boolean inString = false;
+        boolean escape = false;
+        for (int i = start; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escape) { escape = false; continue; }
+            if (c == '\\') { escape = true; continue; }
+            if (c == '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return text.substring(start, i + 1);
+                }
+            }
+        }
+        return null;
+    }
+
+    private String stripJsonEnvelopes(String text) {
+        if (text == null || text.isBlank()) return "";
+        // 尝试解析并提取 answer 字段
+        String jsonObj = extractFirstJsonObject(text);
+        if (jsonObj != null) {
+            try {
+                Map<String, Object> payload = objectMapper.readValue(jsonObj, MAP_TYPE);
+                String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
+                if (!answer.isBlank()) return answer;
+            } catch (Exception ignored) { }
+            // 如果 JSON 对象占据了大部分文本，移除它；否则保留非 JSON 部分
+            String remaining = text.replace(jsonObj, "").trim();
+            if (!remaining.isBlank()) return remaining;
+        }
+        return text;
     }
 
     private String stripThinkBlocks(String text) {

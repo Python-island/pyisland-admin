@@ -519,7 +519,11 @@ public class MihtnelisAgentStreamService {
 
     private String unwrapFinalEnvelope(String answer) {
         String source = answer == null ? "" : answer.trim();
-        if (source.isBlank() || !source.startsWith("{")) {
+        if (source.isBlank()) {
+            return source;
+        }
+        // 如果不含 JSON 特征，直接返回
+        if (!source.contains("{")) {
             return source;
         }
         // 严格解析失败时再尝试修复字符串内未转义的换行/制表符等控制字符。
@@ -529,16 +533,37 @@ public class MihtnelisAgentStreamService {
             }
             try {
                 JsonNode root = OBJECT_MAPPER.readTree(candidate);
-                String type = root.path("type").asText("").trim();
-                if (!"final".equalsIgnoreCase(type)) {
-                    continue;
+                String answerField = root.path("answer").asText("").trim();
+                if (!answerField.isBlank()) {
+                    return answerField;
                 }
-                String finalAnswer = root.path("answer").asText("").trim();
-                if (!finalAnswer.isBlank()) {
-                    return finalAnswer;
+                // tool_call 信封泄漏 → 返回通用提示
+                String type = root.path("type").asText("").trim().toLowerCase();
+                if ("tool_call".equals(type)) {
+                    return "";
                 }
             } catch (Exception ignored) {
                 // try next candidate
+            }
+        }
+        // 尝试从混合文本中提取 JSON 并去除
+        int braceStart = source.indexOf('{');
+        int braceEnd = source.lastIndexOf('}');
+        if (braceStart >= 0 && braceEnd > braceStart) {
+            String jsonCandidate = source.substring(braceStart, braceEnd + 1);
+            try {
+                JsonNode root = OBJECT_MAPPER.readTree(jsonCandidate);
+                String answerField = root.path("answer").asText("").trim();
+                if (!answerField.isBlank()) {
+                    return answerField;
+                }
+            } catch (Exception ignored) { }
+            // 去掉 JSON 部分，保留其余文本
+            String before = source.substring(0, braceStart).trim();
+            String after = braceEnd + 1 < source.length() ? source.substring(braceEnd + 1).trim() : "";
+            String remaining = (before + " " + after).trim();
+            if (!remaining.isBlank()) {
+                return remaining;
             }
         }
         return source;
