@@ -5,7 +5,10 @@ import com.pyisland.server.agent.utils.AgentToolUtils;
 import com.pyisland.server.weather.service.QWeatherService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -143,9 +146,61 @@ public class AgentToolExecutionService {
             notifyToolCallResult(context, safeToolName, safeArguments, result);
             return result;
         }
+        if ("agent.todo.write".equals(safeToolName)) {
+            result = writeAgentTodoList(safeArguments, context);
+            notifyToolCallResult(context, safeToolName, safeArguments, result);
+            return result;
+        }
         result = ToolResult.error(safeToolName, "tool not supported");
         notifyToolCallResult(context, safeToolName, safeArguments, result);
         return result;
+    }
+
+    /**
+     * 处理 agent.todo.write 虚拟工具：归一化 items 并通过 observer 推送 todo SSE 事件。
+     */
+    private ToolResult writeAgentTodoList(Map<String, Object> arguments, ExecutionContext context) {
+        Object rawItems = arguments == null ? null : arguments.get("items");
+        if (!(rawItems instanceof java.util.Collection<?> collection)) {
+            return ToolResult.error("agent.todo.write", "items 必须是数组");
+        }
+        List<Map<String, Object>> normalized = new ArrayList<>();
+        int autoId = 1;
+        for (Object raw : collection) {
+            if (!(raw instanceof Map<?, ?> rawMap)) {
+                continue;
+            }
+            String content = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(rawMap.get("content")));
+            if (content.isBlank()) {
+                continue;
+            }
+            String id = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(rawMap.get("id")));
+            if (id.isBlank()) {
+                id = String.valueOf(autoId);
+            }
+            String status = AgentStringUtils.trimToEmpty(AgentStringUtils.toStringValue(rawMap.get("status"))).toLowerCase(Locale.ROOT);
+            if (!"pending".equals(status) && !"in_progress".equals(status) && !"completed".equals(status)) {
+                status = "pending";
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", id);
+            item.put("content", content);
+            item.put("status", status);
+            normalized.add(item);
+            autoId++;
+        }
+        if (normalized.isEmpty()) {
+            return ToolResult.error("agent.todo.write", "items 为空");
+        }
+        if (context != null && context.toolExecutionObserver() != null) {
+            context.toolExecutionObserver().onTodoUpdate(normalized);
+        }
+        long completed = normalized.stream().filter(it -> "completed".equals(it.get("status"))).count();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("count", normalized.size());
+        data.put("completed", completed);
+        data.put("items", normalized);
+        return ToolResult.ok("agent.todo.write", data);
     }
 
     private boolean isClientLocalTool(String toolName) {
@@ -197,6 +252,13 @@ public class AgentToolExecutionService {
         void onToolCallCompleted(String toolName, Map<String, Object> arguments, ToolResult result);
 
         default void onThinking(int turn, String content) {
+        }
+
+        /**
+         * agent.todo.write 触发的 TodoList 更新。
+         * @param items 已归一化的 TodoList，每项包含 id/content/status。
+         */
+        default void onTodoUpdate(List<Map<String, Object>> items) {
         }
     }
 

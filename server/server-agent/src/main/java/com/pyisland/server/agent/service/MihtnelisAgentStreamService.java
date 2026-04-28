@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
 @Service
 public class MihtnelisAgentStreamService {
 
-    private static final long ORCHESTRATION_TIMEOUT_SECONDS = 25L;
+    private static final long ORCHESTRATION_TIMEOUT_SECONDS = 120L;
     private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
     private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
     private static final int MAX_CONTEXT_CHARS = 1_000_000;
@@ -175,6 +175,17 @@ public class MihtnelisAgentStreamService {
                                 ));
                                 sleepSilently(90);
                             }
+                        }
+
+                        @Override
+                        public void onTodoUpdate(List<Map<String, Object>> items) {
+                            if (items == null) {
+                                return;
+                            }
+                            sendEvent(emitter, "todo", Map.of(
+                                    "items", items,
+                                    "count", items.size()
+                            ));
                         }
                     };
 
