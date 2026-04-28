@@ -1,5 +1,7 @@
 package com.pyisland.server.agent.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
 import com.pyisland.server.agent.utils.AgentStreamChunkUtils;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class MihtnelisAgentStreamService {
     private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
     private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final MihtnelisAgentProperties properties;
     private final MihtnelisAgentOrchestratorService orchestratorService;
@@ -230,7 +233,7 @@ public class MihtnelisAgentStreamService {
                 break;
             }
 
-            String rawAnswer = executionResult.answer();
+            String rawAnswer = unwrapFinalEnvelope(executionResult.answer());
             String visibleAnswer = rawAnswer;
             if (thinkingEnabled) {
                 List<String> thinkBlocks = extractThinkBlocks(rawAnswer);
@@ -394,6 +397,24 @@ public class MihtnelisAgentStreamService {
         String source = answer == null ? "" : answer;
         String cleaned = THINK_TAG_PATTERN.matcher(source).replaceAll("");
         return cleaned.trim();
+    }
+
+    private String unwrapFinalEnvelope(String answer) {
+        String source = answer == null ? "" : answer.trim();
+        if (source.isBlank() || !source.startsWith("{")) {
+            return source;
+        }
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(source);
+            String type = root.path("type").asText("").trim();
+            if (!"final".equalsIgnoreCase(type)) {
+                return source;
+            }
+            String finalAnswer = root.path("answer").asText("").trim();
+            return finalAnswer.isBlank() ? source : finalAnswer;
+        } catch (Exception ignored) {
+            return source;
+        }
     }
 
     private int estimateTokenDelta(String text) {

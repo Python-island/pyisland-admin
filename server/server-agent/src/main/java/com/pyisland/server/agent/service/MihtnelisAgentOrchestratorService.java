@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * mihtnelis agent 编排服务（Phase B 骨架）。
@@ -23,6 +24,7 @@ public class MihtnelisAgentOrchestratorService {
     private static final int MAX_REACT_TURNS = 3;
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
+    private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>.*?</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final AiProviderRouterService providerRouterService;
     private final MihtnelisAgentProperties properties;
@@ -168,8 +170,12 @@ public class MihtnelisAgentOrchestratorService {
         if (output.isBlank()) {
             return ReActDecision.finalAnswer("");
         }
+        String normalizedOutput = stripThinkBlocks(output);
+        if (normalizedOutput.isBlank()) {
+            return ReActDecision.finalAnswer("");
+        }
         try {
-            Map<String, Object> payload = objectMapper.readValue(output, MAP_TYPE);
+            Map<String, Object> payload = objectMapper.readValue(normalizedOutput, MAP_TYPE);
             String type = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("type")), "").toLowerCase(Locale.ROOT);
             if ("tool_call".equals(type)) {
                 String tool = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("tool")), "");
@@ -180,12 +186,20 @@ public class MihtnelisAgentOrchestratorService {
             }
             String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
             if (answer.isBlank()) {
-                answer = output;
+                answer = normalizedOutput;
             }
             return ReActDecision.finalAnswer(answer);
         } catch (Exception ignored) {
-            return ReActDecision.finalAnswer(output);
+            return ReActDecision.finalAnswer(normalizedOutput);
         }
+    }
+
+    private String stripThinkBlocks(String text) {
+        String source = AgentStringUtils.trimToDefault(text, "");
+        if (source.isBlank()) {
+            return "";
+        }
+        return THINK_TAG_PATTERN.matcher(source).replaceAll("").trim();
     }
 
     private String appendObservation(String scratchpad,
