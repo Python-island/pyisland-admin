@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -25,6 +26,7 @@ public class MihtnelisAgentOrchestratorService {
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>.*?</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern THINK_TAG_CAPTURE_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final AiProviderRouterService providerRouterService;
     private final MihtnelisAgentProperties properties;
@@ -103,6 +105,7 @@ public class MihtnelisAgentOrchestratorService {
         for (int turn = 1; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, provider, scratchpad);
             String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions);
+            notifyThinking(executionContext, turn, llmOutput);
             ReActDecision decision = parseDecision(llmOutput);
 
             if (!decision.toolCall()) {
@@ -200,6 +203,26 @@ public class MihtnelisAgentOrchestratorService {
             return "";
         }
         return THINK_TAG_PATTERN.matcher(source).replaceAll("").trim();
+    }
+
+    private void notifyThinking(AgentToolExecutionService.ExecutionContext context,
+                                int turn,
+                                String llmOutput) {
+        if (context == null || context.toolExecutionObserver() == null) {
+            return;
+        }
+        String source = AgentStringUtils.trimToDefault(llmOutput, "");
+        if (source.isBlank()) {
+            return;
+        }
+        Matcher matcher = THINK_TAG_CAPTURE_PATTERN.matcher(source);
+        while (matcher.find()) {
+            String content = AgentStringUtils.trimToDefault(matcher.group(1), "");
+            if (content.isBlank()) {
+                continue;
+            }
+            context.toolExecutionObserver().onThinking(turn, content);
+        }
     }
 
     private String appendObservation(String scratchpad,

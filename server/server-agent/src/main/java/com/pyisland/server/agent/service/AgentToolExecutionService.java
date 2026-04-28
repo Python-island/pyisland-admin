@@ -193,6 +193,9 @@ public class AgentToolExecutionService {
         void onToolCallRequested(String toolName, Map<String, Object> arguments);
 
         void onToolCallCompleted(String toolName, Map<String, Object> arguments, ToolResult result);
+
+        default void onThinking(int turn, String content) {
+        }
     }
 
     public record ToolResult(String tool, boolean success, Object data, String error) {

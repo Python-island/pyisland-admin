@@ -100,6 +100,7 @@ public class MihtnelisAgentStreamService {
             }
 
             AtomicInteger toolTurnCounter = new AtomicInteger(0);
+            AtomicInteger thinkTurnCounter = new AtomicInteger(0);
             Deque<Integer> pendingToolTurns = new ArrayDeque<>();
             AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver =
                     new AgentToolExecutionService.ToolExecutionObserver() {
@@ -138,6 +139,31 @@ public class MihtnelisAgentStreamService {
                                     "result", result == null || result.data() == null ? Map.of() : result.data(),
                                     "durationMs", 0
                             ));
+                        }
+
+                        @Override
+                        public void onThinking(int turn, String content) {
+                            String safeContent = content == null ? "" : content.trim();
+                            if (safeContent.isBlank()) {
+                                return;
+                            }
+                            int safeTurn = turn > 0 ? turn : thinkTurnCounter.incrementAndGet();
+                            thinkTurnCounter.set(Math.max(thinkTurnCounter.get(), safeTurn));
+                            List<String> thinkChunks = AgentStreamChunkUtils.splitForStreaming(safeContent);
+                            for (int chunkIndex = 0; chunkIndex < thinkChunks.size(); chunkIndex++) {
+                                String thinkChunk = thinkChunks.get(chunkIndex);
+                                String safeChunk = thinkChunk == null ? "" : thinkChunk;
+                                if (safeChunk.isBlank()) {
+                                    continue;
+                                }
+                                boolean done = chunkIndex == thinkChunks.size() - 1;
+                                sendEvent(emitter, "think", Map.of(
+                                        "text", safeChunk,
+                                        "index", Math.max(0, safeTurn - 1),
+                                        "done", done
+                                ));
+                                sleepSilently(90);
+                            }
                         }
                     };
 
@@ -235,7 +261,7 @@ public class MihtnelisAgentStreamService {
 
             String rawAnswer = unwrapFinalEnvelope(executionResult.answer());
             String visibleAnswer = rawAnswer;
-            if (thinkingEnabled) {
+            if (thinkingEnabled && thinkTurnCounter.get() == 0) {
                 List<String> thinkBlocks = extractThinkBlocks(rawAnswer);
                 for (int thinkIndex = 0; thinkIndex < thinkBlocks.size(); thinkIndex++) {
                     String think = thinkBlocks.get(thinkIndex);
