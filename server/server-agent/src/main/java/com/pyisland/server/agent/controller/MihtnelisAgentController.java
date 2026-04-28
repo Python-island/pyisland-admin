@@ -1,6 +1,7 @@
 package com.pyisland.server.agent.controller;
 
 import com.pyisland.server.agent.service.AgentWebAuthorizationService;
+import com.pyisland.server.agent.service.AgentLocalToolRelayService;
 import com.pyisland.server.agent.service.MihtnelisAgentStreamService;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.service.UserService;
@@ -30,13 +31,16 @@ public class MihtnelisAgentController {
 
     private final MihtnelisAgentStreamService streamService;
     private final AgentWebAuthorizationService webAuthorizationService;
+    private final AgentLocalToolRelayService localToolRelayService;
     private final UserService userService;
 
     public MihtnelisAgentController(MihtnelisAgentStreamService streamService,
                                     AgentWebAuthorizationService webAuthorizationService,
+                                    AgentLocalToolRelayService localToolRelayService,
                                     UserService userService) {
         this.streamService = streamService;
         this.webAuthorizationService = webAuthorizationService;
+        this.localToolRelayService = localToolRelayService;
         this.userService = userService;
     }
 
@@ -79,6 +83,37 @@ public class MihtnelisAgentController {
                 caller,
                 request == null ? "" : request.requestId(),
                 request != null && request.allow()
+        );
+        if (!result.success()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", result.error(),
+                    "data", result.data()
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", result.data()
+        ));
+    }
+
+    @PostMapping(value = "/agent/tool-result", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> resolveLocalToolResult(Authentication authentication,
+                                                    @RequestBody AgentLocalToolResolveRequest request) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "error", "未登录"
+            ));
+        }
+        AgentLocalToolRelayService.ResolveResult result = localToolRelayService.resolve(
+                caller,
+                request == null ? "" : request.requestId(),
+                request != null && request.success(),
+                request == null ? Map.of() : request.result(),
+                request == null ? "" : request.error(),
+                request == null ? 0L : request.durationMs()
         );
         if (!result.success()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -158,5 +193,12 @@ public class MihtnelisAgentController {
     }
 
     private record AgentWebAccessResolveRequest(String requestId, boolean allow) {
+    }
+
+    private record AgentLocalToolResolveRequest(String requestId,
+                                                boolean success,
+                                                Object result,
+                                                String error,
+                                                Long durationMs) {
     }
 }

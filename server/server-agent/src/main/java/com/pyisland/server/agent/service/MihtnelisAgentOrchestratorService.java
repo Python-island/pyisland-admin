@@ -29,6 +29,7 @@ public class MihtnelisAgentOrchestratorService {
     private final UserService userService;
     private final LangChainWorkflowService workflowService;
     private final AgentToolExecutionService toolExecutionService;
+    private final AgentLocalToolRelayService localToolRelayService;
     private final AgentChatGatewayService chatGatewayService;
     private final ObjectMapper objectMapper;
 
@@ -37,12 +38,14 @@ public class MihtnelisAgentOrchestratorService {
                                              UserService userService,
                                              LangChainWorkflowService workflowService,
                                              AgentToolExecutionService toolExecutionService,
+                                             AgentLocalToolRelayService localToolRelayService,
                                              AgentChatGatewayService chatGatewayService) {
         this.providerRouterService = providerRouterService;
         this.properties = properties;
         this.userService = userService;
         this.workflowService = workflowService;
         this.toolExecutionService = toolExecutionService;
+        this.localToolRelayService = localToolRelayService;
         this.chatGatewayService = chatGatewayService;
         this.objectMapper = new ObjectMapper();
     }
@@ -112,6 +115,17 @@ public class MihtnelisAgentOrchestratorService {
                 PendingWebAccess pendingWebAccess = extractPendingWebAccess(toolResult);
                 if (pendingWebAccess != null) {
                     return AgentExecutionResult.paused(provider, proUser, traces, pendingWebAccess);
+                }
+            }
+            if (isPendingLocalTool(toolResult)) {
+                PendingLocalTool pendingLocalTool = extractPendingLocalTool(
+                        executionContext,
+                        decision.toolName(),
+                        decision.arguments(),
+                        toolResult
+                );
+                if (pendingLocalTool != null) {
+                    return AgentExecutionResult.pausedForLocalTool(provider, proUser, traces, pendingLocalTool);
                 }
             }
             traces.add(new ToolInvocationTrace(
@@ -223,12 +237,69 @@ public class MihtnelisAgentOrchestratorService {
         return new PendingWebAccess(requestId, url);
     }
 
+    private boolean isPendingLocalTool(AgentToolExecutionService.ToolResult toolResult) {
+        if (toolResult == null || !toolResult.success()) {
+            return false;
+        }
+        if (!(toolResult.data() instanceof Map<?, ?> map)) {
+            return false;
+        }
+        Object required = map.get("localToolExecutionRequired");
+        if (required instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        return "true".equalsIgnoreCase(String.valueOf(required));
+    }
+
+    private PendingLocalTool extractPendingLocalTool(AgentToolExecutionService.ExecutionContext context,
+                                                     String toolName,
+                                                     Map<String, Object> arguments,
+                                                     AgentToolExecutionService.ToolResult toolResult) {
+        if (context == null) {
+            return null;
+        }
+        String username = AgentStringUtils.trimToEmpty(context.username());
+        String safeToolName = AgentStringUtils.trimToEmpty(toolName);
+        if (username.isBlank() || safeToolName.isBlank()) {
+            return null;
+        }
+        Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+        String riskLevel = resolveLocalToolRiskLevel(safeToolName);
+        AgentLocalToolRelayService.PendingRequestResult pending = localToolRelayService.createPendingRequest(
+                username,
+                safeToolName,
+                safeArguments,
+                riskLevel
+        );
+        if (pending == null) {
+            return null;
+        }
+        return new PendingLocalTool(
+                pending.requestId(),
+                pending.tool(),
+                pending.arguments(),
+                pending.argumentsDigest(),
+                pending.riskLevel(),
+                AgentStringUtils.trimToDefault(toolResult.tool(), safeToolName)
+        );
+    }
+
+    private String resolveLocalToolRiskLevel(String toolName) {
+        String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase(Locale.ROOT);
+        if (safeToolName.startsWith("file.read") || safeToolName.startsWith("file.list")) {
+            return "low";
+        }
+        return "high";
+    }
+
     public record AgentExecutionResult(String provider,
                                        String answer,
                                        boolean proUser,
                                        List<ToolInvocationTrace> toolInvocations,
                                        PendingWebAccess pendingWebAccess,
-                                       boolean pausedForWebAccess) {
+                                       boolean pausedForWebAccess,
+                                       PendingLocalTool pendingLocalTool,
+                                       boolean pausedForLocalTool) {
         public static AgentExecutionResult done(String provider,
                                                 String answer,
                                                 boolean proUser,
@@ -238,6 +309,8 @@ public class MihtnelisAgentOrchestratorService {
                     AgentStringUtils.trimToDefault(answer, ""),
                     proUser,
                     traces == null ? List.of() : traces,
+                    null,
+                    false,
                     null,
                     false
             );
@@ -253,12 +326,38 @@ public class MihtnelisAgentOrchestratorService {
                     proUser,
                     traces == null ? List.of() : traces,
                     pendingWebAccess,
+                    true,
+                    null,
+                    false
+            );
+        }
+
+        public static AgentExecutionResult pausedForLocalTool(String provider,
+                                                              boolean proUser,
+                                                              List<ToolInvocationTrace> traces,
+                                                              PendingLocalTool pendingLocalTool) {
+            return new AgentExecutionResult(
+                    provider,
+                    "",
+                    proUser,
+                    traces == null ? List.of() : traces,
+                    null,
+                    false,
+                    pendingLocalTool,
                     true
             );
         }
     }
 
     public record PendingWebAccess(String requestId, String url) {
+    }
+
+    public record PendingLocalTool(String requestId,
+                                   String tool,
+                                   Map<String, Object> arguments,
+                                   String argumentsDigest,
+                                   String riskLevel,
+                                   String sourceTool) {
     }
 
     public record ToolInvocationTrace(int turn,

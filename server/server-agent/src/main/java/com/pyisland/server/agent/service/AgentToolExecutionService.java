@@ -14,10 +14,13 @@ import java.util.Map;
 public class AgentToolExecutionService {
 
     private final AgentToolUtils toolUtils;
+    private final AgentLocalToolRelayService localToolRelayService;
 
     public AgentToolExecutionService(QWeatherService qWeatherService,
-                                     AgentWebAuthorizationService webAuthorizationService) {
+                                     AgentWebAuthorizationService webAuthorizationService,
+                                     AgentLocalToolRelayService localToolRelayService) {
         this.toolUtils = new AgentToolUtils(qWeatherService, webAuthorizationService);
+        this.localToolRelayService = localToolRelayService;
     }
 
     public ToolResult execute(String toolName,
@@ -27,6 +30,36 @@ public class AgentToolExecutionService {
         String safeToolName = AgentStringUtils.trimToEmpty(toolName);
         if (safeToolName.isBlank()) {
             return ToolResult.error("unknown", "tool name is empty");
+        }
+        if (isClientLocalTool(safeToolName)) {
+            String username = context == null ? "" : AgentStringUtils.trimToEmpty(context.username());
+            if (username.isBlank()) {
+                return ToolResult.error(safeToolName, "username is required for local tool execution");
+            }
+            Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+            AgentLocalToolRelayService.LocalToolExecutionPayload payload =
+                    localToolRelayService.consumeResolvedTool(username, safeToolName, safeArguments);
+            if (payload != null) {
+                Map<String, Object> data = Map.of(
+                        "requestId", payload.requestId(),
+                        "tool", payload.tool(),
+                        "arguments", payload.arguments(),
+                        "argumentsDigest", payload.argumentsDigest(),
+                        "durationMs", payload.durationMs(),
+                        "resolvedAt", payload.resolvedAt(),
+                        "source", "client-local-runtime",
+                        "result", payload.result() == null ? Map.of() : payload.result()
+                );
+                if (payload.success()) {
+                    return ToolResult.ok(safeToolName, data);
+                }
+                return ToolResult.error(safeToolName, AgentStringUtils.trimToDefault(payload.error(), "local tool execution failed"));
+            }
+            return ToolResult.ok(safeToolName, Map.of(
+                    "localToolExecutionRequired", true,
+                    "tool", safeToolName,
+                    "arguments", safeArguments
+            ));
         }
         if ("user.ip.get".equals(safeToolName)) {
             return toolUtils.getUserIp(context);
@@ -71,6 +104,11 @@ public class AgentToolExecutionService {
             return toolUtils.queryWeatherQuotaStatus();
         }
         return ToolResult.error(safeToolName, "tool not supported");
+    }
+
+    private boolean isClientLocalTool(String toolName) {
+        String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase();
+        return safeToolName.startsWith("file.") || safeToolName.startsWith("cmd.");
     }
 
     public record ExecutionContext(String username, String clientIp) {

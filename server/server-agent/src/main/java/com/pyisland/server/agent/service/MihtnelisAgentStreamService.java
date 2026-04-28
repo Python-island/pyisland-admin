@@ -27,11 +27,13 @@ public class MihtnelisAgentStreamService {
 
     private static final long ORCHESTRATION_TIMEOUT_SECONDS = 25L;
     private static final long WEB_ACCESS_WAIT_TIMEOUT_SECONDS = 120L;
+    private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final MihtnelisAgentProperties properties;
     private final MihtnelisAgentOrchestratorService orchestratorService;
     private final AgentWebAuthorizationService webAuthorizationService;
+    private final AgentLocalToolRelayService localToolRelayService;
 
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "mihtnelis-stream");
@@ -41,10 +43,12 @@ public class MihtnelisAgentStreamService {
 
     public MihtnelisAgentStreamService(MihtnelisAgentProperties properties,
                                        MihtnelisAgentOrchestratorService orchestratorService,
-                                       AgentWebAuthorizationService webAuthorizationService) {
+                                       AgentWebAuthorizationService webAuthorizationService,
+                                       AgentLocalToolRelayService localToolRelayService) {
         this.properties = properties;
         this.orchestratorService = orchestratorService;
         this.webAuthorizationService = webAuthorizationService;
+        this.localToolRelayService = localToolRelayService;
     }
 
     /**
@@ -136,6 +140,41 @@ public class MihtnelisAgentStreamService {
                             "requestId", pendingWebAccess.requestId(),
                             "url", pendingWebAccess.url(),
                             "allowed", true
+                    ));
+                    continue;
+                }
+                if (executionResult.pausedForLocalTool() && executionResult.pendingLocalTool() != null) {
+                    MihtnelisAgentOrchestratorService.PendingLocalTool pendingLocalTool = executionResult.pendingLocalTool();
+                    sendEvent(emitter, "tool_call_request", Map.of(
+                            "requestId", pendingLocalTool.requestId(),
+                            "tool", pendingLocalTool.tool(),
+                            "arguments", pendingLocalTool.arguments(),
+                            "argumentsDigest", pendingLocalTool.argumentsDigest(),
+                            "riskLevel", pendingLocalTool.riskLevel()
+                    ));
+                    AgentLocalToolRelayService.AwaitResult awaitResult = localToolRelayService.awaitResult(
+                            username,
+                            pendingLocalTool.requestId(),
+                            LOCAL_TOOL_WAIT_TIMEOUT_SECONDS
+                    );
+                    if (!awaitResult.resolved() || awaitResult.payload() == null) {
+                        sendEvent(emitter, "error", Map.of(
+                                "code", "LOCAL_TOOL_WAIT_TIMEOUT",
+                                "message", awaitResult.error().isBlank()
+                                        ? "本地工具执行等待超时"
+                                        : awaitResult.error()
+                        ));
+                        emitter.complete();
+                        return;
+                    }
+                    AgentLocalToolRelayService.LocalToolExecutionPayload payload = awaitResult.payload();
+                    sendEvent(emitter, "tool_call_result", Map.of(
+                            "requestId", payload.requestId(),
+                            "tool", payload.tool(),
+                            "success", payload.success(),
+                            "error", payload.error(),
+                            "result", payload.result() == null ? Map.of() : payload.result(),
+                            "durationMs", payload.durationMs()
                     ));
                     continue;
                 }
