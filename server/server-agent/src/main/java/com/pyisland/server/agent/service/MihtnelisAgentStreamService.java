@@ -3,6 +3,7 @@ package com.pyisland.server.agent.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
+import com.pyisland.server.agent.utils.AgentJsonUtils;
 import com.pyisland.server.agent.utils.AgentStreamChunkUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -157,8 +158,8 @@ public class MihtnelisAgentStreamService {
                             if (safeContent.isBlank()) {
                                 return;
                             }
-                            int safeTurn = turn > 0 ? turn : thinkTurnCounter.incrementAndGet();
-                            thinkTurnCounter.set(Math.max(thinkTurnCounter.get(), safeTurn));
+                            // 每次 onThinking 调用都视为一个新的思考块，避免跨编排迭代续写到旧块。
+                            int safeTurn = thinkTurnCounter.incrementAndGet();
                             List<String> thinkChunks = AgentStreamChunkUtils.splitForStreaming(safeContent);
                             for (int chunkIndex = 0; chunkIndex < thinkChunks.size(); chunkIndex++) {
                                 String thinkChunk = thinkChunks.get(chunkIndex);
@@ -233,8 +234,12 @@ public class MihtnelisAgentStreamService {
                 }
                 if (executionResult.pausedForLocalTool() && executionResult.pendingLocalTool() != null) {
                     MihtnelisAgentOrchestratorService.PendingLocalTool pendingLocalTool = executionResult.pendingLocalTool();
+                    // 本地工具在观察者侧被跳过，主循环负责自增 turn，
+                    // 保证与思考块的时间线对齐。
+                    int localToolTurn = toolTurnCounter.incrementAndGet();
                     sendEvent(emitter, "tool_call_request", Map.of(
                             "requestId", pendingLocalTool.requestId(),
+                            "turn", localToolTurn,
                             "tool", pendingLocalTool.tool(),
                             "arguments", pendingLocalTool.arguments(),
                             "argumentsDigest", pendingLocalTool.argumentsDigest(),
@@ -258,6 +263,7 @@ public class MihtnelisAgentStreamService {
                     AgentLocalToolRelayService.LocalToolExecutionPayload payload = awaitResult.payload();
                     sendEvent(emitter, "tool_call_result", Map.of(
                             "requestId", payload.requestId(),
+                            "turn", localToolTurn,
                             "tool", payload.tool(),
                             "success", payload.success(),
                             "error", payload.error(),
@@ -450,17 +456,26 @@ public class MihtnelisAgentStreamService {
         if (source.isBlank() || !source.startsWith("{")) {
             return source;
         }
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(source);
-            String type = root.path("type").asText("").trim();
-            if (!"final".equalsIgnoreCase(type)) {
-                return source;
+        // 严格解析失败时再尝试修复字符串内未转义的换行/制表符等控制字符。
+        for (String candidate : new String[]{source, AgentJsonUtils.repairLiteralNewlinesInStrings(source)}) {
+            if (candidate == null || candidate.isBlank()) {
+                continue;
             }
-            String finalAnswer = root.path("answer").asText("").trim();
-            return finalAnswer.isBlank() ? source : finalAnswer;
-        } catch (Exception ignored) {
-            return source;
+            try {
+                JsonNode root = OBJECT_MAPPER.readTree(candidate);
+                String type = root.path("type").asText("").trim();
+                if (!"final".equalsIgnoreCase(type)) {
+                    continue;
+                }
+                String finalAnswer = root.path("answer").asText("").trim();
+                if (!finalAnswer.isBlank()) {
+                    return finalAnswer;
+                }
+            } catch (Exception ignored) {
+                // try next candidate
+            }
         }
+        return source;
     }
 
     private int estimateTokenDelta(String text) {

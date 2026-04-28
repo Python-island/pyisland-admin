@@ -43,6 +43,7 @@ public class LangChainWorkflowService {
                 .append("{\"type\":\"final\",\"answer\":\"...\"}\n")
                 .append("若用户问天气，优先按链路调用：user.ip.get -> location.by_ip.resolve -> weather.query -> final；若用户提供城市名，优先 weather.by_city.query。\n")
                 .append("若需联网信息，先用 web.search，再按需调用 web.page.read；当 web.page.read 返回 authorizationRequired=true 时，先提醒用户点击授权按钮，不要伪造网页内容。\n")
+                .append("当 web.search 已经返回 results（count>0）时，请直接基于其中的 title/url/snippet 给出 final 回答，不要再次调用 web.search 重复检索；只有需要原文细节时才调用 web.page.read 一次。\n")
                 .append("涉及本地文件和命令行时，优先使用 file.list/file.read/file.write/file.delete/cmd.exec；这些工具由客户端执行，请基于工具结果再继续回答。\n")
                 .append("最终回答用中文，简洁准确。");
         return prompt.toString();

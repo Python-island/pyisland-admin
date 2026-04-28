@@ -168,24 +168,30 @@ public class MihtnelisAgentOrchestratorService {
         if (normalizedOutput.isBlank()) {
             return ReActDecision.finalAnswer("");
         }
-        try {
-            Map<String, Object> payload = objectMapper.readValue(normalizedOutput, MAP_TYPE);
-            String type = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("type")), "").toLowerCase(Locale.ROOT);
-            if ("tool_call".equals(type)) {
-                String tool = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("tool")), "");
-                Map<String, Object> arguments = AgentJsonUtils.toStringKeyMap(payload.get("arguments"));
-                if (!tool.isBlank()) {
-                    return ReActDecision.toolCall(tool, arguments);
+        // 模型可能返回字符串字面量内带未转义换行的 JSON，先严格解析，失败则尝试修复后再解析。
+        for (String candidate : new String[]{normalizedOutput, AgentJsonUtils.repairLiteralNewlinesInStrings(normalizedOutput)}) {
+            if (candidate == null || candidate.isBlank()) {
+                continue;
+            }
+            try {
+                Map<String, Object> payload = objectMapper.readValue(candidate, MAP_TYPE);
+                String type = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("type")), "").toLowerCase(Locale.ROOT);
+                if ("tool_call".equals(type)) {
+                    String tool = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("tool")), "");
+                    Map<String, Object> arguments = AgentJsonUtils.toStringKeyMap(payload.get("arguments"));
+                    if (!tool.isBlank()) {
+                        return ReActDecision.toolCall(tool, arguments);
+                    }
                 }
+                String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
+                if (!answer.isBlank()) {
+                    return ReActDecision.finalAnswer(answer);
+                }
+            } catch (Exception ignored) {
+                // try next candidate
             }
-            String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
-            if (answer.isBlank()) {
-                answer = normalizedOutput;
-            }
-            return ReActDecision.finalAnswer(answer);
-        } catch (Exception ignored) {
-            return ReActDecision.finalAnswer(normalizedOutput);
         }
+        return ReActDecision.finalAnswer(normalizedOutput);
     }
 
     private String stripThinkBlocks(String text) {
@@ -206,13 +212,22 @@ public class MihtnelisAgentOrchestratorService {
         if (source.isBlank()) {
             return;
         }
+        // 同一次 chat() 内的多个 <think> 块合并为一次 onThinking 通知，
+        // 与单次工具调用对齐，避免时间线混乱。
+        StringBuilder merged = new StringBuilder();
         Matcher matcher = THINK_TAG_CAPTURE_PATTERN.matcher(source);
         while (matcher.find()) {
             String content = AgentStringUtils.trimToDefault(matcher.group(1), "");
             if (content.isBlank()) {
                 continue;
             }
-            context.toolExecutionObserver().onThinking(turn, content);
+            if (merged.length() > 0) {
+                merged.append("\n\n");
+            }
+            merged.append(content);
+        }
+        if (merged.length() > 0) {
+            context.toolExecutionObserver().onThinking(turn, merged.toString());
         }
     }
 
@@ -234,7 +249,7 @@ public class MihtnelisAgentOrchestratorService {
                         "success", toolResult.success(),
                         "data", toolResult.data(),
                         "error", toolResult.error()
-                ), 1200));
+                ), 8000));
         return builder.toString();
     }
 
