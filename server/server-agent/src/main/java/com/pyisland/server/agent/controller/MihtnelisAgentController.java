@@ -65,7 +65,12 @@ public class MihtnelisAgentController {
         if (!hasAgentAccess(user)) {
             return deniedEmitter("FORBIDDEN", "仅 Pro 用户可使用 mihtnelis agent");
         }
-        SseEmitter emitter = streamService.openStream(caller, resolveClientIp(httpRequest), request);
+        SseEmitter emitter = streamService.openStream(
+                caller,
+                resolveClientIp(httpRequest),
+                resolveTraceId(httpRequest),
+                request
+        );
         return emitter;
     }
 
@@ -205,6 +210,20 @@ public class MihtnelisAgentController {
         }
         String[] values = raw.split(",");
         return values.length == 0 ? "" : values[0].trim();
+    }
+
+    private String resolveTraceId(HttpServletRequest request) {
+        if (request == null) {
+            return "";
+        }
+        String[] candidates = {"X-Trace-Id", "Trace-Id", "X-Request-Id", "Request-Id"};
+        for (String header : candidates) {
+            String value = request.getHeader(header);
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 
     private String caller(Authentication authentication) {

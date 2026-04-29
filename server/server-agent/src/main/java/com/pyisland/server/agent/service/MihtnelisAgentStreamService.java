@@ -12,9 +12,11 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -66,13 +68,13 @@ public class MihtnelisAgentStreamService {
      * @param request  请求参数
      * @return SSE emitter
      */
-    public SseEmitter openStream(String username, String clientIp, MihtnelisStreamRequest request) {
+    public SseEmitter openStream(String username, String clientIp, String traceId, MihtnelisStreamRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
-        CompletableFuture.runAsync(() -> emitFlow(emitter, username, clientIp, request), streamExecutor);
+        CompletableFuture.runAsync(() -> emitFlow(emitter, username, clientIp, traceId, request), streamExecutor);
         return emitter;
     }
 
-    private void emitFlow(SseEmitter emitter, String username, String clientIp, MihtnelisStreamRequest request) {
+    private void emitFlow(SseEmitter emitter, String username, String clientIp, String traceId, MihtnelisStreamRequest request) {
         try {
             String userPrompt = request == null || request.message() == null ? "" : request.message().trim();
             String context = normalizeContext(request == null ? null : request.context());
@@ -90,6 +92,8 @@ public class MihtnelisAgentStreamService {
                     request == null ? null : request.thinking(),
                     request == null ? null : request.reasoningEffort()
             );
+            String effectiveTraceId = normalizeTraceId(traceId);
+            String effectiveSessionId = effectiveRequest.sessionId() == null ? "" : effectiveRequest.sessionId();
 
             if (userPrompt.isBlank()) {
                 sendEvent(emitter, "error", Map.of(
@@ -200,14 +204,16 @@ public class MihtnelisAgentStreamService {
                 executionResult = runOrchestration(username, clientIp, effectiveRequest, toolExecutionObserver, accumulatedScratchpad, nextStartTurn);
                 provider = executionResult.provider();
                 if (!metaSent) {
-                    sendEvent(emitter, "meta", Map.of(
-                            "agent", "mihtnelis agent",
-                            "provider", provider,
-                            "sessionId", effectiveRequest.sessionId(),
-                            "thinkingEnabled", thinkingEnabled,
-                            "reasoningEffort", reasoningEffort,
-                            "timestamp", LocalDateTime.now().toString()
-                    ));
+                    Map<String, Object> metaPayload = new LinkedHashMap<>();
+                    metaPayload.put("agent", "mihtnelis agent");
+                    metaPayload.put("provider", provider);
+                    metaPayload.put("sessionId", effectiveSessionId);
+                    metaPayload.put("contextId", effectiveSessionId);
+                    metaPayload.put("traceId", effectiveTraceId);
+                    metaPayload.put("thinkingEnabled", thinkingEnabled);
+                    metaPayload.put("reasoningEffort", reasoningEffort);
+                    metaPayload.put("timestamp", LocalDateTime.now().toString());
+                    sendEvent(emitter, "meta", metaPayload);
                     metaSent = true;
                 }
 
@@ -348,14 +354,17 @@ public class MihtnelisAgentStreamService {
                 sleepSilently(170);
             }
 
-            sendEvent(emitter, "final", Map.of(
-                    "done", true,
-                    "billedTokenTotal", billedTokenDelta,
-                    "billingUnit", "1k_token",
-                    "agent", "mihtnelis agent",
-                    "provider", provider,
-                    "username", Objects.requireNonNullElse(username, "")
-            ));
+            Map<String, Object> finalPayload = new LinkedHashMap<>();
+            finalPayload.put("done", true);
+            finalPayload.put("billedTokenTotal", billedTokenDelta);
+            finalPayload.put("billingUnit", "1k_token");
+            finalPayload.put("agent", "mihtnelis agent");
+            finalPayload.put("provider", provider);
+            finalPayload.put("username", Objects.requireNonNullElse(username, ""));
+            finalPayload.put("sessionId", effectiveSessionId);
+            finalPayload.put("contextId", effectiveSessionId);
+            finalPayload.put("traceId", effectiveTraceId);
+            sendEvent(emitter, "final", finalPayload);
             emitter.complete();
         } catch (TimeoutException timeoutException) {
             sendEvent(emitter, "error", Map.of(
@@ -487,10 +496,19 @@ public class MihtnelisAgentStreamService {
     }
 
     private String normalizeSessionId(MihtnelisStreamRequest request) {
-        if (request == null || request.sessionId() == null || request.sessionId().isBlank()) {
-            return "mihtnelis-session";
+        String sessionId = request == null || request.sessionId() == null ? "" : request.sessionId().trim();
+        if (sessionId.isBlank()) {
+            return "sess-" + System.currentTimeMillis();
         }
-        return request.sessionId().trim();
+        return sessionId;
+    }
+
+    private String normalizeTraceId(String traceId) {
+        String value = traceId == null ? "" : traceId.trim();
+        if (!value.isBlank()) {
+            return value;
+        }
+        return "trace-" + UUID.randomUUID();
     }
 
     private String normalizeContext(String context) {
