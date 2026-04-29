@@ -131,6 +131,7 @@ public class MihtnelisAgentStreamService {
                                     "requestId", "",
                                     "turn", turn,
                                     "tool", toolName,
+                                    "purpose", "",
                                     "arguments", arguments == null ? Map.of() : arguments,
                                     "riskLevel", "server"
                             ));
@@ -257,6 +258,7 @@ public class MihtnelisAgentStreamService {
                 if (executionResult.pausedForLocalTool() && executionResult.pendingLocalTool() != null) {
                     MihtnelisAgentOrchestratorService.PendingLocalTool pendingLocalTool = executionResult.pendingLocalTool();
                     boolean authorizationRequired = requiresLocalToolAuthorization(pendingLocalTool);
+                    String localToolPurpose = normalizeToolPurpose(pendingLocalTool.tool(), pendingLocalTool.purpose());
                     // 本地工具在观察者侧被跳过，主循环负责自增 turn，
                     // 保证与思考块的时间线对齐。
                     int localToolTurn = toolTurnCounter.incrementAndGet();
@@ -266,9 +268,12 @@ public class MihtnelisAgentStreamService {
                             "tool", pendingLocalTool.tool(),
                             "arguments", pendingLocalTool.arguments(),
                             "argumentsDigest", pendingLocalTool.argumentsDigest(),
+                            "purpose", localToolPurpose,
                             "riskLevel", pendingLocalTool.riskLevel(),
                             "authorizationRequired", authorizationRequired,
-                            "message", authorizationRequired ? buildLocalToolAuthorizationMessage(pendingLocalTool.tool()) : ""
+                            "message", authorizationRequired
+                                    ? buildLocalToolAuthorizationMessage(pendingLocalTool.tool(), localToolPurpose)
+                                    : ""
                     ));
                     AgentLocalToolRelayService.AwaitResult awaitResult = localToolRelayService.awaitResult(
                             username,
@@ -470,15 +475,29 @@ public class MihtnelisAgentStreamService {
         return tool.startsWith("file.delete") || tool.startsWith("cmd.exec");
     }
 
-    private String buildLocalToolAuthorizationMessage(String toolName) {
+    private String buildLocalToolAuthorizationMessage(String toolName, String purpose) {
         String safeToolName = toolName == null ? "" : toolName.trim().toLowerCase();
+        String safePurpose = purpose == null ? "" : purpose.trim();
+        String suffix = safePurpose.isBlank() ? "" : "\n用途：" + safePurpose;
         if (safeToolName.startsWith("file.delete")) {
-            return "Agent 请求删除本地文件/目录，是否允许执行？";
+            return "Agent 请求删除本地文件/目录，是否允许执行？" + suffix;
         }
         if (safeToolName.startsWith("cmd.exec")) {
-            return "Agent 请求执行本地命令，是否允许执行？";
+            return "Agent 请求执行本地命令，是否允许执行？" + suffix;
         }
-        return "Agent 请求执行高风险本地操作，是否允许执行？";
+        return "Agent 请求执行高风险本地操作，是否允许执行？" + suffix;
+    }
+
+    private String normalizeToolPurpose(String toolName, String purpose) {
+        String safePurpose = purpose == null ? "" : purpose.trim();
+        if (!safePurpose.isBlank()) {
+            return safePurpose;
+        }
+        String safeToolName = toolName == null ? "" : toolName.trim();
+        if (!safeToolName.isBlank()) {
+            return "为完成当前请求，执行 " + safeToolName + " 获取必要结果";
+        }
+        return "为完成当前请求，执行本地工具获取必要结果";
     }
 
     private boolean isPendingLocalToolResult(AgentToolExecutionService.ToolResult toolResult) {

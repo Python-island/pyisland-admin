@@ -17,10 +17,12 @@ public class LangChainWorkflowService {
         // 输出格式
         p.append("# 输出格式（最高优先级铁律）\n")
          .append("每一轮必须且只能输出以下两种 JSON 之一，禁止输出任何其他内容：\n")
-         .append("1. 工具调用： {\"type\":\"tool_call\",\"tool\":\"工具名称\",\"arguments\":{...}}\n")
+         .append("1. 工具调用： {\"type\":\"tool_call\",\"tool\":\"工具名称\",\"purpose\":\"调用用途\",\"arguments\":{...}}\n")
          .append("2. 最终回答： {\"type\":\"final\",\"answer\":\"Markdown格式的回答\"}\n\n")
          .append("规则：绝对不要输出 JSON 以外的任何文字、思考过程或解释。\n")
-         .append("answer 字段支持完整 Markdown，JSON 必须单行合法，换行使用 \\n 转义。\n\n");
+         .append("answer 字段支持完整 Markdown，JSON 必须单行合法，换行使用 \\n 转义。\n")
+         .append("tool_call 的 purpose 必填，必须说明“为什么调用该工具”，且要和当前用户请求直接相关。\n")
+         .append("若调用 file.delete 或 cmd.exec，purpose 必须具体到目标与预期结果，不可使用“处理任务”“继续执行”等空泛描述。\n\n");
 
         // 可用工具
         p.append("# 可用工具\n")
@@ -62,21 +64,24 @@ public class LangChainWorkflowService {
          .append("{\"type\":\"final\",\"answer\":\"**String** 是不可变类，**StringBuilder** 是可变类，适合频繁修改场景。性能差异明显。\"}\n\n");
 
         p.append("示例2 - 天气查询：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"weather.by_city.query\",\"arguments\":{\"query\":\"广州\"}}\n\n");
+         .append("{\"type\":\"tool_call\",\"tool\":\"weather.by_city.query\",\"purpose\":\"查询用户指定城市当前天气\",\"arguments\":{\"query\":\"广州\"}}\n\n");
 
         p.append("示例3 - 联网搜索：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"web.search\",\"arguments\":{\"query\":\"2026 MacBook Pro 配置升级\",\"limit\":5}}\n\n");
+         .append("{\"type\":\"tool_call\",\"tool\":\"web.search\",\"purpose\":\"检索最新官方信息以回答用户的配置升级问题\",\"arguments\":{\"query\":\"2026 MacBook Pro 配置升级\",\"limit\":5}}\n\n");
 
         p.append("示例4 - 本地文件搜索：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"file.grep\",\"arguments\":{\"path\":\"<workspace_root>\",\"pattern\":\"FIXME\",\"limit\":30}}\n\n");
+         .append("{\"type\":\"tool_call\",\"tool\":\"file.grep\",\"purpose\":\"在工作区定位 FIXME 以便后续修复\",\"arguments\":{\"path\":\"<workspace_root>\",\"pattern\":\"FIXME\",\"limit\":30}}\n\n");
 
-        p.append("示例5 - 危险操作拒绝：\n")
+        p.append("示例5 - 高风险命令（需要明确用途）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"cmd.exec\",\"purpose\":\"执行 gradle test 复现并定位用户反馈的构建失败\",\"arguments\":{\"command\":\"./gradlew test\",\"cwd\":\"<workspace_root>\"}}\n\n");
+
+        p.append("示例6 - 危险操作拒绝：\n")
          .append("{\"type\":\"final\",\"answer\":\"抱歉，出于安全考虑，我只能在你设置的工作区目录内执行文件操作。请确认路径是否在工作区范围内，或前往设置调整工作区。\"}\n\n");
 
-        p.append("示例6 - 更新任务进度：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"agent.todo.write\",\"arguments\":{\"items\":[{\"id\":\"1\",\"content\":\"定位目标文件\",\"status\":\"in_progress\"},{\"id\":\"2\",\"content\":\"阅读并分析代码\",\"status\":\"pending\"}]}}\n\n");
+        p.append("示例7 - 更新任务进度：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"agent.todo.write\",\"purpose\":\"同步当前执行计划给用户\",\"arguments\":{\"items\":[{\"id\":\"1\",\"content\":\"定位目标文件\",\"status\":\"in_progress\"},{\"id\":\"2\",\"content\":\"阅读并分析代码\",\"status\":\"pending\"}]}}\n\n");
 
-        p.append("示例7 - 最终回答（有明确后续方向时可带下一步建议）：\n")
+        p.append("示例8 - 最终回答（有明确后续方向时可带下一步建议）：\n")
          .append("{\"type\":\"final\",\"answer\":\"已帮你找到所有 TODO 项，共 12 处。\\n\\n## 下一步建议\\n- 你可以让我帮你批量修改这些 TODO\\n- 或者让我分析某个具体文件的代码质量\\n- 需要我帮你生成修复建议吗？\"}\n\n");
 
         // 回答质量

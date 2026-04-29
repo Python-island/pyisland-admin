@@ -149,6 +149,7 @@ public class MihtnelisAgentOrchestratorService {
                         executionContext,
                         decision.toolName(),
                         decision.arguments(),
+                        decision.purpose(),
                         toolResult
                 );
                 if (pendingLocalTool != null) {
@@ -211,8 +212,9 @@ public class MihtnelisAgentOrchestratorService {
                 if ("tool_call".equals(type)) {
                     String tool = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("tool")), "");
                     Map<String, Object> arguments = AgentJsonUtils.toStringKeyMap(payload.get("arguments"));
+                    String purpose = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("purpose")), "");
                     if (!tool.isBlank()) {
-                        return ReActDecision.toolCall(tool, arguments);
+                        return ReActDecision.toolCall(tool, arguments, purpose);
                     }
                 }
                 String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
@@ -433,6 +435,7 @@ public class MihtnelisAgentOrchestratorService {
     private PendingLocalTool extractPendingLocalTool(AgentToolExecutionService.ExecutionContext context,
                                                      String toolName,
                                                      Map<String, Object> arguments,
+                                                     String purpose,
                                                      AgentToolExecutionService.ToolResult toolResult) {
         if (context == null) {
             return null;
@@ -459,6 +462,7 @@ public class MihtnelisAgentOrchestratorService {
                 pending.arguments(),
                 pending.argumentsDigest(),
                 pending.riskLevel(),
+                AgentStringUtils.trimToDefault(purpose, ""),
                 AgentStringUtils.trimToDefault(toolResult.tool(), safeToolName)
         );
     }
@@ -546,6 +550,7 @@ public class MihtnelisAgentOrchestratorService {
                                    Map<String, Object> arguments,
                                    String argumentsDigest,
                                    String riskLevel,
+                                   String purpose,
                                    String sourceTool) {
     }
 
@@ -557,14 +562,24 @@ public class MihtnelisAgentOrchestratorService {
                                       Object result) {
     }
 
-    private record ReActDecision(boolean toolCall, String toolName, Map<String, Object> arguments, String finalAnswer) {
+    private record ReActDecision(boolean toolCall,
+                                 String toolName,
+                                 Map<String, Object> arguments,
+                                 String purpose,
+                                 String finalAnswer) {
 
-        private static ReActDecision toolCall(String toolName, Map<String, Object> arguments) {
-            return new ReActDecision(true, toolName, arguments == null ? Map.of() : arguments, "");
+        private static ReActDecision toolCall(String toolName, Map<String, Object> arguments, String purpose) {
+            return new ReActDecision(
+                    true,
+                    toolName,
+                    arguments == null ? Map.of() : arguments,
+                    AgentStringUtils.trimToDefault(purpose, ""),
+                    ""
+            );
         }
 
         private static ReActDecision finalAnswer(String answer) {
-            return new ReActDecision(false, "", Map.of(), answer);
+            return new ReActDecision(false, "", Map.of(), "", answer);
         }
     }
 }
