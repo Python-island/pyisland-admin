@@ -551,13 +551,18 @@ public class MihtnelisAgentStreamService {
         int braceEnd = source.lastIndexOf('}');
         if (braceStart >= 0 && braceEnd > braceStart) {
             String jsonCandidate = source.substring(braceStart, braceEnd + 1);
-            try {
-                JsonNode root = OBJECT_MAPPER.readTree(jsonCandidate);
-                String answerField = root.path("answer").asText("").trim();
-                if (!answerField.isBlank()) {
-                    return answerField;
+            for (String jc : new String[]{jsonCandidate, AgentJsonUtils.repairLiteralNewlinesInStrings(jsonCandidate)}) {
+                if (jc == null || jc.isBlank()) {
+                    continue;
                 }
-            } catch (Exception ignored) { }
+                try {
+                    JsonNode root = OBJECT_MAPPER.readTree(jc);
+                    String answerField = root.path("answer").asText("").trim();
+                    if (!answerField.isBlank()) {
+                        return answerField;
+                    }
+                } catch (Exception ignored) { }
+            }
             // 去掉 JSON 部分，保留其余文本
             String before = source.substring(0, braceStart).trim();
             String after = braceEnd + 1 < source.length() ? source.substring(braceEnd + 1).trim() : "";
