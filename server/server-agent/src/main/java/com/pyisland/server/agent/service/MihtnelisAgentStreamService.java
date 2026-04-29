@@ -250,6 +250,7 @@ public class MihtnelisAgentStreamService {
                 }
                 if (executionResult.pausedForLocalTool() && executionResult.pendingLocalTool() != null) {
                     MihtnelisAgentOrchestratorService.PendingLocalTool pendingLocalTool = executionResult.pendingLocalTool();
+                    boolean authorizationRequired = requiresLocalToolAuthorization(pendingLocalTool);
                     // 本地工具在观察者侧被跳过，主循环负责自增 turn，
                     // 保证与思考块的时间线对齐。
                     int localToolTurn = toolTurnCounter.incrementAndGet();
@@ -259,7 +260,9 @@ public class MihtnelisAgentStreamService {
                             "tool", pendingLocalTool.tool(),
                             "arguments", pendingLocalTool.arguments(),
                             "argumentsDigest", pendingLocalTool.argumentsDigest(),
-                            "riskLevel", pendingLocalTool.riskLevel()
+                            "riskLevel", pendingLocalTool.riskLevel(),
+                            "authorizationRequired", authorizationRequired,
+                            "message", authorizationRequired ? buildLocalToolAuthorizationMessage(pendingLocalTool.tool()) : ""
                     ));
                     AgentLocalToolRelayService.AwaitResult awaitResult = localToolRelayService.awaitResult(
                             username,
@@ -444,6 +447,29 @@ public class MihtnelisAgentStreamService {
         return safeToolName.startsWith("file.")
                 || safeToolName.startsWith("cmd.")
                 || "web.search".equals(safeToolName);
+    }
+
+    private boolean requiresLocalToolAuthorization(MihtnelisAgentOrchestratorService.PendingLocalTool pendingLocalTool) {
+        if (pendingLocalTool == null) {
+            return false;
+        }
+        String riskLevel = pendingLocalTool.riskLevel() == null ? "" : pendingLocalTool.riskLevel().trim().toLowerCase();
+        if ("high".equals(riskLevel)) {
+            return true;
+        }
+        String tool = pendingLocalTool.tool() == null ? "" : pendingLocalTool.tool().trim().toLowerCase();
+        return tool.startsWith("file.delete") || tool.startsWith("cmd.exec");
+    }
+
+    private String buildLocalToolAuthorizationMessage(String toolName) {
+        String safeToolName = toolName == null ? "" : toolName.trim().toLowerCase();
+        if (safeToolName.startsWith("file.delete")) {
+            return "Agent 请求删除本地文件/目录，是否允许执行？";
+        }
+        if (safeToolName.startsWith("cmd.exec")) {
+            return "Agent 请求执行本地命令，是否允许执行？";
+        }
+        return "Agent 请求执行高风险本地操作，是否允许执行？";
     }
 
     private boolean isPendingLocalToolResult(AgentToolExecutionService.ToolResult toolResult) {

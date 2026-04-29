@@ -6,6 +6,7 @@ import com.pyisland.server.agent.utils.AgentStringUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -23,6 +24,7 @@ public class AgentLocalToolRelayService {
     private final Map<String, PendingLocalToolRequest> pendingRequests = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<LocalToolExecutionPayload>> decisionFutures = new ConcurrentHashMap<>();
     private final Map<String, LocalToolExecutionPayload> consumableResultsBySignature = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> authorizationDecisions = new ConcurrentHashMap<>();
     private final ObjectMapper digestObjectMapper;
 
     public AgentLocalToolRelayService() {
@@ -53,6 +55,7 @@ public class AgentLocalToolRelayService {
         );
         pendingRequests.put(requestId, pendingRequest);
         decisionFutures.put(requestId, new CompletableFuture<>());
+        authorizationDecisions.put(requestId, !requiresAuthorization(pendingRequest));
         return new PendingRequestResult(
                 pendingRequest.requestId(),
                 pendingRequest.tool(),
@@ -80,8 +83,12 @@ public class AgentLocalToolRelayService {
         if (!Objects.equals(safeUser, pendingRequest.username())) {
             return ResolveResult.failure("request does not belong to current user");
         }
+        if (requiresAuthorization(pendingRequest) && !Boolean.TRUE.equals(authorizationDecisions.get(safeRequestId))) {
+            return ResolveResult.failure("local tool authorization required");
+        }
 
         pendingRequests.remove(safeRequestId);
+        authorizationDecisions.remove(safeRequestId);
         LocalToolExecutionPayload payload = new LocalToolExecutionPayload(
                 pendingRequest.requestId(),
                 pendingRequest.tool(),
@@ -105,6 +112,63 @@ public class AgentLocalToolRelayService {
                 "tool", payload.tool(),
                 "success", payload.success(),
                 "resolvedAt", payload.resolvedAt()
+        ));
+    }
+
+    public ResolveAuthorizationResult resolveAuthorization(String username,
+                                                           String requestId,
+                                                           boolean allow) {
+        String safeUser = AgentStringUtils.trimToEmpty(username);
+        String safeRequestId = AgentStringUtils.trimToEmpty(requestId);
+        if (safeUser.isBlank() || safeRequestId.isBlank()) {
+            return ResolveAuthorizationResult.failure("requestId is required");
+        }
+        PendingLocalToolRequest pendingRequest = pendingRequests.get(safeRequestId);
+        if (pendingRequest == null) {
+            return ResolveAuthorizationResult.failure("pending local tool request not found");
+        }
+        if (!Objects.equals(safeUser, pendingRequest.username())) {
+            return ResolveAuthorizationResult.failure("request does not belong to current user");
+        }
+        if (!requiresAuthorization(pendingRequest)) {
+            return ResolveAuthorizationResult.success(Map.of(
+                    "requestId", pendingRequest.requestId(),
+                    "tool", pendingRequest.tool(),
+                    "allow", true,
+                    "resolvedAt", Instant.now().toString()
+            ));
+        }
+        if (!allow) {
+            pendingRequests.remove(safeRequestId);
+            authorizationDecisions.remove(safeRequestId);
+            LocalToolExecutionPayload deniedPayload = new LocalToolExecutionPayload(
+                    pendingRequest.requestId(),
+                    pendingRequest.tool(),
+                    pendingRequest.arguments(),
+                    pendingRequest.argumentsDigest(),
+                    false,
+                    Map.of(),
+                    "LOCAL_TOOL_DENIED_BY_USER",
+                    0L,
+                    Instant.now().toString()
+            );
+            CompletableFuture<LocalToolExecutionPayload> decisionFuture = decisionFutures.remove(safeRequestId);
+            if (decisionFuture != null && !decisionFuture.isDone()) {
+                decisionFuture.complete(deniedPayload);
+            }
+            return ResolveAuthorizationResult.success(Map.of(
+                    "requestId", deniedPayload.requestId(),
+                    "tool", deniedPayload.tool(),
+                    "allow", false,
+                    "resolvedAt", deniedPayload.resolvedAt()
+            ));
+        }
+        authorizationDecisions.put(safeRequestId, true);
+        return ResolveAuthorizationResult.success(Map.of(
+                "requestId", pendingRequest.requestId(),
+                "tool", pendingRequest.tool(),
+                "allow", true,
+                "resolvedAt", Instant.now().toString()
         ));
     }
 
@@ -133,12 +197,23 @@ public class AgentLocalToolRelayService {
         } catch (TimeoutException timeoutException) {
             pendingRequests.remove(safeRequestId);
             decisionFutures.remove(safeRequestId);
+            authorizationDecisions.remove(safeRequestId);
             return AwaitResult.failure("local tool execution decision timeout");
         } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
             return AwaitResult.failure("local tool execution wait interrupted");
         } catch (Exception exception) {
             return AwaitResult.failure("local tool execution wait failed");
+        }
+    }
+
+    public record ResolveAuthorizationResult(boolean success, String error, Map<String, Object> data) {
+        public static ResolveAuthorizationResult success(Map<String, Object> data) {
+            return new ResolveAuthorizationResult(true, "", data == null ? Map.of() : data);
+        }
+
+        public static ResolveAuthorizationResult failure(String error) {
+            return new ResolveAuthorizationResult(false, AgentStringUtils.trimToEmpty(error), Map.of());
         }
     }
 
@@ -166,6 +241,18 @@ public class AgentLocalToolRelayService {
         } catch (Exception ignored) {
             return "{}";
         }
+    }
+
+    private boolean requiresAuthorization(PendingLocalToolRequest request) {
+        if (request == null) {
+            return false;
+        }
+        String riskLevel = AgentStringUtils.trimToEmpty(request.riskLevel()).toLowerCase(Locale.ROOT);
+        if ("high".equals(riskLevel)) {
+            return true;
+        }
+        String tool = AgentStringUtils.trimToEmpty(request.tool()).toLowerCase(Locale.ROOT);
+        return tool.startsWith("file.delete") || tool.startsWith("cmd.exec");
     }
 
     private record PendingLocalToolRequest(String requestId,

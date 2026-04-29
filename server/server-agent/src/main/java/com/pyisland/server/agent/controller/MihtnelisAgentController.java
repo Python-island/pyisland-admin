@@ -97,6 +97,34 @@ public class MihtnelisAgentController {
         ));
     }
 
+    @PostMapping(value = "/agent/local-tool/resolve", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> resolveLocalToolAccess(Authentication authentication,
+                                                    @RequestBody AgentLocalToolAccessResolveRequest request) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "error", "未登录"
+            ));
+        }
+        AgentLocalToolRelayService.ResolveAuthorizationResult result = localToolRelayService.resolveAuthorization(
+                caller,
+                request == null ? "" : request.requestId(),
+                request != null && request.allow()
+        );
+        if (!result.success()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", result.error(),
+                    "data", result.data()
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", result.data()
+        ));
+    }
+
     @PostMapping(value = "/agent/tool-result", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> resolveLocalToolResult(Authentication authentication,
                                                     @RequestBody AgentLocalToolResolveRequest request) {
@@ -200,5 +228,9 @@ public class MihtnelisAgentController {
                                                 Object result,
                                                 String error,
                                                 Long durationMs) {
+    }
+
+    private record AgentLocalToolAccessResolveRequest(String requestId,
+                                                      boolean allow) {
     }
 }

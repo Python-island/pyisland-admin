@@ -465,10 +465,10 @@ public class MihtnelisAgentOrchestratorService {
 
     private String resolveLocalToolRiskLevel(String toolName) {
         String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase(Locale.ROOT);
-        if (safeToolName.startsWith("file.read") || safeToolName.startsWith("file.list")) {
-            return "low";
+        if (safeToolName.startsWith("file.delete") || safeToolName.startsWith("cmd.exec")) {
+            return "high";
         }
-        return "high";
+        return "low";
     }
 
     public record AgentExecutionResult(String provider,
