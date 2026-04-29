@@ -29,7 +29,7 @@ public class LangChainWorkflowService {
          .append("环境感知：user.ip.get、session.context.get、time.now\n")
          .append("天气：weather.by_city.query、weather.city.lookup、location.by_ip.resolve、weather.query、weather.quota.status\n")
          .append("联网：web.search、web.page.read\n")
-         .append("本地操作：file.list、file.read、file.write、file.delete、file.grep、file.search、cmd.exec\n")
+         .append("本地操作：file.list、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.delete、file.grep、file.search、cmd.exec\n")
          .append("任务管理：agent.todo.write\n\n");
 
         if (!proUser) {

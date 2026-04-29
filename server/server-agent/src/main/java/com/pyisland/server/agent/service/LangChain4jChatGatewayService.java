@@ -286,6 +286,54 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("file.read", arguments);
         }
 
+        @Tool("检查本地路径是否存在及类型，客户端执行")
+        public Map<String, Object> fileExists(@P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("file.exists", arguments);
+        }
+
+        @Tool("读取本地路径元信息（大小/时间戳/类型），客户端执行")
+        public Map<String, Object> fileStat(@P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("file.stat", arguments);
+        }
+
+        @Tool("创建本地目录，客户端执行")
+        public Map<String, Object> fileMkdir(@P("path") String path,
+                                              @P("recursive") Boolean recursive) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (recursive != null) {
+                arguments.put("recursive", recursive);
+            }
+            return invoke("file.mkdir", arguments);
+        }
+
+        @Tool("按行读取本地文本文件片段，客户端执行")
+        public Map<String, Object> fileReadLines(@P("path") String path,
+                                                 @P("startLine") Integer startLine,
+                                                 @P("endLine") Integer endLine) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (startLine != null) {
+                arguments.put("startLine", Math.max(1, startLine));
+            }
+            if (endLine != null) {
+                arguments.put("endLine", Math.max(1, endLine));
+            }
+            return invoke("file.read.lines", arguments);
+        }
+
         @Tool("写入本地文本文件，客户端执行")
         public Map<String, Object> fileWrite(@P("path") String path,
                                              @P("content") String content) {
