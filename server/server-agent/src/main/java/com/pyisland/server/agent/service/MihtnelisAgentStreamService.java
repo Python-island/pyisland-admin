@@ -610,7 +610,7 @@ public class MihtnelisAgentStreamService {
                 // try next candidate
             }
         }
-        // 尝试从混合文本中提取 JSON 并去除
+        // 尝试从混合文本中提取 JSON 信封（仅在确实包含有效 answer 字段时才提取）
         int braceStart = source.indexOf('{');
         int braceEnd = source.lastIndexOf('}');
         if (braceStart >= 0 && braceEnd > braceStart) {
@@ -626,13 +626,6 @@ public class MihtnelisAgentStreamService {
                         return answerField;
                     }
                 } catch (Exception ignored) { }
-            }
-            // 去掉 JSON 部分，保留其余文本
-            String before = source.substring(0, braceStart).trim();
-            String after = braceEnd + 1 < source.length() ? source.substring(braceEnd + 1).trim() : "";
-            String remaining = (before + " " + after).trim();
-            if (!remaining.isBlank()) {
-                return remaining;
             }
         }
         return source;

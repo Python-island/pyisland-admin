@@ -265,9 +265,7 @@ public class MihtnelisAgentOrchestratorService {
                 String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
                 if (!answer.isBlank()) return answer;
             } catch (Exception ignored) { }
-            // 如果 JSON 对象占据了大部分文本，移除它；否则保留非 JSON 部分
-            String remaining = text.replace(jsonObj, "").trim();
-            if (!remaining.isBlank()) return remaining;
+            // JSON 解析失败时不移除花括号内容（可能是代码中的花括号），直接返回原文
         }
         return text;
     }
