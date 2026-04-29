@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LangChainWorkflowService {
-    public String buildSystemPrompt(boolean proUser, java.util.List<String> workspaces) {
+    public String buildSystemPrompt(boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n")
@@ -100,6 +100,8 @@ public class LangChainWorkflowService {
 
         p.append("# 错误处理\n工具失败时尝试替代方案，全部失败后诚实告知用户并提供建议。\n");
 
+        appendSkills(p, skills);
+
         return p.toString();
     }
 
@@ -155,7 +157,7 @@ public class LangChainWorkflowService {
     /**
      * 原生工具系统提示词（已恢复关键策略）
      */
-    public String buildNativeToolSystemPrompt(boolean proUser, java.util.List<String> workspaces) {
+    public String buildNativeToolSystemPrompt(boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n你是 mihtnelis agent，eisland 的内置智能助手。\n\n");
@@ -196,6 +198,23 @@ public class LangChainWorkflowService {
          .append("使用中文为主 + Markdown 排版，准确简洁，不暴露工具名称和内部格式。\n")
          .append("- **绝对禁止输出任何形式的目录树 / 文件树状图，包括但不限于：ASCII 树形字符、缩进列表树、mermaid mindmap。改用普通 Markdown 列表或文字描述代替。**\n");
 
+        appendSkills(p, skills);
+
         return p.toString();
+    }
+
+    private void appendSkills(StringBuilder p, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {
+        if (skills == null || skills.isEmpty()) {
+            return;
+        }
+        p.append("\n# 用户自定义 Skills（必须遵循）\n");
+        for (MihtnelisAgentStreamService.SkillEntry skill : skills) {
+            if (skill == null || skill.name() == null || skill.content() == null) continue;
+            String name = skill.name().trim();
+            String content = skill.content().trim();
+            if (name.isEmpty() || content.isEmpty()) continue;
+            p.append("\n## Skill: ").append(name).append("\n");
+            p.append(content).append("\n");
+        }
     }
 }

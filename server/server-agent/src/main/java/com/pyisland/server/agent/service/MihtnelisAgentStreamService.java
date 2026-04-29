@@ -89,6 +89,7 @@ public class MihtnelisAgentStreamService {
                     provider,
                     context,
                     request == null ? null : request.workspaces(),
+                    request == null ? null : request.skills(),
                     request == null ? null : request.thinking(),
                     request == null ? null : request.reasoningEffort()
             );
@@ -668,11 +669,15 @@ public class MihtnelisAgentStreamService {
      * @param message   用户输入。
      * @param provider  指定供应商（可选）。
      */
+    public record SkillEntry(String name, String content) {
+    }
+
     public record MihtnelisStreamRequest(String sessionId,
                                          String message,
                                          String provider,
                                          String context,
                                          java.util.List<String> workspaces,
+                                         java.util.List<SkillEntry> skills,
                                          Boolean thinking,
                                          String reasoningEffort) {
     }
