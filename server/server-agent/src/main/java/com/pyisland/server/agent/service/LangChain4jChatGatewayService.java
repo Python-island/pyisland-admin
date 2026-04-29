@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -320,6 +321,47 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                 arguments.put("timeoutMs", Math.max(1000, Math.min(60000, timeoutMs)));
             }
             return invoke("cmd.exec", arguments);
+        }
+
+        @Tool("在本地文件内容中搜索匹配文本，客户端执行")
+        public Map<String, Object> fileGrep(@P("path") String path,
+                                            @P("pattern") String pattern,
+                                            @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (pattern != null && !pattern.isBlank()) {
+                arguments.put("pattern", AgentStringUtils.trimToEmpty(pattern));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(200, limit)));
+            }
+            return invoke("file.grep", arguments);
+        }
+
+        @Tool("按文件名搜索本地文件，客户端执行")
+        public Map<String, Object> fileSearch(@P("path") String path,
+                                              @P("keyword") String keyword,
+                                              @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (keyword != null && !keyword.isBlank()) {
+                arguments.put("keyword", AgentStringUtils.trimToEmpty(keyword));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(200, limit)));
+            }
+            return invoke("file.search", arguments);
+        }
+
+        @Tool("更新任务清单快照")
+        public Map<String, Object> agentTodoWrite(@P("items") Object items) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            arguments.put("items", items == null ? List.of() : items);
+            return invoke("agent.todo.write", arguments);
         }
 
         private Map<String, Object> invoke(String toolName, Map<String, Object> arguments) {
