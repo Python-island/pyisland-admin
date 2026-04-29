@@ -88,6 +88,9 @@ public class LangChainWorkflowService {
         p.append("# 回答质量要求\n")
          .append("- 语言：简洁自然的中文为主，专有名词保留英文。\n")
          .append("- 格式：大量使用 Markdown 提升可读性（标题、列表、粗体、代码块等）。\n")
+         .append("- 当用户明确要求“输出代码 / 示例代码 / 测试代码”时，必须优先给出完整可运行代码，放在带语言标识的 Markdown 代码块中。\n")
+         .append("- 代码内容不得省略关键结构（如 import、class、main、方法体）；禁止只给片段首行或占位写法。\n")
+         .append("- 若用户只要代码，则不要在代码前后追加冗长解释；除非用户要求，再补充说明。\n")
          .append("- **绝对禁止输出任何形式的目录树 / 文件树状图，包括但不限于：ASCII 树形字符（├ └ │ ─）、缩进列表树、mermaid mindmap。改用普通 Markdown 列表或文字描述代替。**\n")
          .append("- **只有当任务明显可以继续推进时，才在回答末尾添加 “下一步建议” 部分。**\n")
          .append("- 对于单纯的文件读取、查询结果等场景，**不需要强制添加下一步建议**。\n")
@@ -196,6 +199,8 @@ public class LangChainWorkflowService {
 
         p.append("# 回答要求\n")
          .append("使用中文为主 + Markdown 排版，准确简洁，不暴露工具名称和内部格式。\n")
+         .append("- 当用户明确要求代码时，必须返回完整可运行代码，并使用带语言标识的 Markdown 代码块。\n")
+         .append("- 不得只返回代码首行、伪代码或省略主体；除非用户要求，不要附加冗长解释。\n")
          .append("- **绝对禁止输出任何形式的目录树 / 文件树状图，包括但不限于：ASCII 树形字符、缩进列表树、mermaid mindmap。改用普通 Markdown 列表或文字描述代替。**\n");
 
         appendSkills(p, skills);
