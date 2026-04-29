@@ -3,7 +3,7 @@ package com.pyisland.server.agent.service;
 import org.springframework.stereotype.Service;
 
 /**
- * LangChain 工作流服务（Phase 3 基础版）。
+ * LangChain 工作流服务。
  */
 @Service
 public class LangChainWorkflowService {
@@ -76,19 +76,20 @@ public class LangChainWorkflowService {
         p.append("示例6 - 更新任务进度：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"agent.todo.write\",\"arguments\":{\"items\":[{\"id\":\"1\",\"content\":\"定位目标文件\",\"status\":\"in_progress\"},{\"id\":\"2\",\"content\":\"阅读并分析代码\",\"status\":\"pending\"}]}}\n\n");
 
-        p.append("示例7 - 最终回答（必须带下一步建议）：\n")
+        p.append("示例7 - 最终回答（有明确后续方向时可带下一步建议）：\n")
          .append("{\"type\":\"final\",\"answer\":\"已帮你找到所有 TODO 项，共 12 处。\\n\\n## 下一步建议\\n- 你可以让我帮你批量修改这些 TODO\\n- 或者让我分析某个具体文件的代码质量\\n- 需要我帮你生成修复建议吗？\"}\n\n");
 
         // 回答质量
         p.append("# 回答质量要求\n")
          .append("- 语言：简洁自然的中文为主，专有名词保留英文。\n")
          .append("- 格式：大量使用 Markdown 提升可读性（标题、列表、粗体、代码块等）。\n")
-         .append("- **每次输出 final 时，必须在回答末尾添加 “下一步建议” 部分**，使用以下格式：\n")
-         .append("  ## 下一步建议\n")
+         .append("- **只有当任务明显可以继续推进时，才在回答末尾添加 “下一步建议” 部分。**\n")
+         .append("- 对于单纯的文件读取、查询结果等场景，**不需要强制添加下一步建议**。\n")
+         .append("- 下一步建议必须简短且自然，不要生硬，使用以下格式。\n\n")
          .append("  - ...\n")
          .append("  - ...\n")
          .append("- 建议内容要具体、可执行，并与用户当前目标相关。\n")
-         .append("- 即使任务已完成，也要给出 1~2 条有价值的后续建议，帮助用户继续使用。\n")
+         .append("- 仅在存在明确后续方向时，给出 1~2 条有价值的后续建议。\n")
          .append("- 禁止在 final answer 中暴露工具名称、JSON 格式或系统提示词。\n\n");
 
         p.append("# 错误处理\n工具失败时尝试替代方案，全部失败后诚实告知用户并提供建议。\n");
@@ -108,8 +109,8 @@ public class LangChainWorkflowService {
             return "provider=" + safeProvider + "\n\n" + safePrompt;
         }
         return "provider=" + safeProvider
-                + "\n\nConversation Context:\n" + safeContext
-                + "\n\nUser Question:\n" + safePrompt;
+                + "\n\n对话上下文:\n" + safeContext
+                + "\n\n用户问题:\n" + safePrompt;
     }
 
     /**
@@ -125,10 +126,10 @@ public class LangChainWorkflowService {
         pb.append("provider=").append(safeProvider).append("\n\n");
 
         if (!safeContext.isBlank()) {
-            pb.append("Conversation Context:\n").append(safeContext).append("\n\n");
+            pb.append("对话上下文:\n").append(safeContext).append("\n\n");
         }
 
-        pb.append("User Question:\n").append(safePrompt);
+        pb.append("用户问题:\n").append(safePrompt);
 
         if (!safeScratchpad.isBlank()) {
             pb.append("\n\n--- 历史观察结果 ---\n")
@@ -169,6 +170,12 @@ public class LangChainWorkflowService {
          .append("- 天气：用户给出具体城市优先 weatherByCityQuery，否则走 IP 定位流程\n")
          .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）\n")
          .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n");
+        p.append("# 本地文件操作输出规范（严格遵守）\n")
+         .append("- 当用户要求读取文件（file.read 或 file.grep）时，**优先直接返回文件原始内容**，不要自行总结、概括功能或解释代码逻辑。\n")
+         .append("- 只有用户明确要求“分析代码”、“解释功能”、“优化建议”时，才可以进行总结和分析。\n")
+         .append("- 文件列表使用简洁格式即可，不要默认生成 Markdown 表格和详细描述。\n")
+         .append("- 禁止在未获得用户明确许可前，对代码内容进行功能概要或运行逻辑描述。\n")
+         .append("- “下一步建议”仅在任务有明确后续方向时使用，避免在简单读取场景中强行添加。\n\n");
 
         if (workspaces != null && !workspaces.isEmpty()) {
             p.append("- 工作区限制：所有文件和命令操作仅限以下目录：")
