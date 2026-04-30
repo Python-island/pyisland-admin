@@ -958,4 +958,10 @@ export const agentAdmin = {
       body: JSON.stringify({ enabled, message: message ?? "" }),
     });
   },
+  giftBalanceAll(amountFen: number) {
+    return request<ApiResponse<{ affected: number }>>("/v1/admin/agent/gift-balance-all", {
+      method: "PUT",
+      body: JSON.stringify({ amountFen }),
+    });
+  },
 };

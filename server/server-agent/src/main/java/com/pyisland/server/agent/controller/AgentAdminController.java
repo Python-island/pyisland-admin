@@ -6,12 +6,14 @@ import com.pyisland.server.servicestatus.service.ServiceStatusService;
 import com.pyisland.server.user.entity.AgentBillingDlqLog;
 import com.pyisland.server.user.entity.AgentModelPricing;
 import com.pyisland.server.user.mapper.AgentBillingDlqLogMapper;
+import com.pyisland.server.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -30,13 +32,16 @@ public class AgentAdminController {
     private final AgentModelPricingService pricingService;
     private final AgentBillingDlqLogMapper dlqLogMapper;
     private final ServiceStatusService serviceStatusService;
+    private final UserService userService;
 
     public AgentAdminController(AgentModelPricingService pricingService,
                                 AgentBillingDlqLogMapper dlqLogMapper,
-                                ServiceStatusService serviceStatusService) {
+                                ServiceStatusService serviceStatusService,
+                                UserService userService) {
         this.pricingService = pricingService;
         this.dlqLogMapper = dlqLogMapper;
         this.serviceStatusService = serviceStatusService;
+        this.userService = userService;
     }
 
     /**
@@ -112,7 +117,26 @@ public class AgentAdminController {
         ));
     }
 
+    /**
+     * 给所有普通/Pro 用户赠送 Agent 余额。
+     */
+    @PutMapping("/gift-balance-all")
+    public ResponseEntity<?> giftBalanceAll(@RequestBody GiftBalanceAllRequest request) {
+        BigDecimal amountFen = request != null ? request.amountFen() : null;
+        if (amountFen == null || amountFen.compareTo(BigDecimal.ZERO) <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "赠送金额必须大于 0"));
+        }
+        int affected = userService.addBalanceForAllAppUsers(amountFen);
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "赠送余额成功",
+                "data", Map.of("affected", affected)
+        ));
+    }
+
     private record ServiceEnabledRequest(Boolean enabled, String message) {}
+
+    private record GiftBalanceAllRequest(BigDecimal amountFen) {}
 
     // ========== DLQ 异常记录 ==========
 

@@ -50,6 +50,10 @@ export default function AgentModelPricing() {
   const [serviceToggling, setServiceToggling] = useState(false);
   const [serviceLoading, setServiceLoading] = useState(true);
 
+  // 全量赠送余额
+  const [giftBalanceYuan, setGiftBalanceYuan] = useState("1.00");
+  const [giftingBalance, setGiftingBalance] = useState(false);
+
   // form
   const [modelName, setModelName] = useState("");
   const [inputPrice, setInputPrice] = useState(0);
@@ -110,6 +114,36 @@ export default function AgentModelPricing() {
       showMsg("操作失败", "err");
     } finally {
       setServiceToggling(false);
+    }
+  };
+
+  const handleGiftBalanceAll = async () => {
+    const yuan = parseFloat(giftBalanceYuan);
+    if (Number.isNaN(yuan) || yuan <= 0) {
+      showMsg("赠送金额必须大于 0", "err");
+      return;
+    }
+    const amountFen = Math.round(yuan * 100);
+    if (amountFen <= 0) {
+      showMsg("赠送金额必须大于 0", "err");
+      return;
+    }
+    if (!confirm(`确认给所有普通用户与 Pro 用户赠送 ¥${(amountFen / 100).toFixed(2)} 余额？`)) {
+      return;
+    }
+    setGiftingBalance(true);
+    try {
+      const res = await agentAdmin.giftBalanceAll(amountFen);
+      if (res.code === 200) {
+        const affected = typeof res.data?.affected === "number" ? res.data.affected : 0;
+        showMsg(`赠送成功，已处理 ${affected} 位用户`, "ok");
+      } else {
+        showMsg(res.message || "赠送失败", "err");
+      }
+    } catch {
+      showMsg("赠送失败", "err");
+    } finally {
+      setGiftingBalance(false);
     }
   };
 
@@ -303,6 +337,57 @@ export default function AgentModelPricing() {
         </div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
           关闭后所有用户的 Agent 对话请求将被拒绝，状态说明内容会展示给用户。
+        </div>
+      </div>
+
+      {/* 全量赠送余额 */}
+      <div style={{ ...cardStyle, marginBottom: 24 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 21,
+              fontWeight: 600,
+              lineHeight: 1.19,
+              letterSpacing: "0.231px",
+              color: "#ffffff",
+            }}
+          >
+            全员赠送余额
+          </h2>
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={giftBalanceYuan}
+            onChange={(e) => setGiftBalanceYuan(e.target.value)}
+            placeholder="赠送金额（元）"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button
+            onClick={handleGiftBalanceAll}
+            disabled={giftingBalance}
+            className="cursor-pointer"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#30d158",
+              color: "#fff",
+              borderRadius: 980,
+              border: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              opacity: giftingBalance ? 0.6 : 1,
+              cursor: giftingBalance ? "not-allowed" : "pointer",
+            }}
+          >
+            {giftingBalance ? "赠送中..." : "确认赠送"}
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
+          将给所有普通用户与 Pro 用户统一增加指定余额（管理员账号不受影响）。
         </div>
       </div>
 

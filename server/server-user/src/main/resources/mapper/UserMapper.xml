@@ -186,6 +186,12 @@
         WHERE username = #{username}
     </update>
 
+    <update id="addBalanceForRoles">
+        UPDATE user_account
+        SET balance_fen = balance_fen + #{amountFen}
+        WHERE role IN (#{roleUser}, #{rolePro})
+    </update>
+
     <update id="setBalanceFen">
         UPDATE user_account
         SET balance_fen = #{balanceFen}

@@ -355,6 +355,19 @@ public class UserService {
     }
 
     /**
+     * 为所有普通用户与 Pro 用户统一赠送 Agent 余额。
+     * @param amountFen 赠送金额（分）。
+     * @return 影响行数。
+     */
+    @Transactional
+    public int addBalanceForAllAppUsers(java.math.BigDecimal amountFen) {
+        if (amountFen == null || amountFen.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return 0;
+        }
+        return userMapper.addBalanceForRoles(amountFen, User.ROLE_USER, User.ROLE_PRO);
+    }
+
+    /**
      * 自动降级已过期 Pro 用户。
      * @param now 当前时间。
      * @return 降级数量。

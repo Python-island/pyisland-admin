@@ -221,6 +221,17 @@ public interface UserMapper {
                    @Param("amountFen") java.math.BigDecimal amountFen);
 
     /**
+     * 为指定角色集合用户统一增加余额。
+     * @param amountFen 增加金额（分），支持小数。
+     * @param roleUser 普通用户角色值。
+     * @param rolePro Pro 用户角色值。
+     * @return 影响行数。
+     */
+    int addBalanceForRoles(@Param("amountFen") java.math.BigDecimal amountFen,
+                           @Param("roleUser") String roleUser,
+                           @Param("rolePro") String rolePro);
+
+    /**
      * 直接设置用户余额（管理员操作）。
      * @param username 用户名。
      * @param balanceFen 新余额（分）。
