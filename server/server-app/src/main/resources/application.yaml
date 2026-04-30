@@ -214,7 +214,7 @@ mihtnelis:
     allowed-providers: ${MIHTNELIS_AGENT_ALLOWED_PROVIDERS:deepseek}
     max-input-chars: ${MIHTNELIS_AGENT_MAX_INPUT_CHARS:8000}
     llm:
-      gateway: ${MIHTNELIS_AGENT_LLM_GATEWAY:spring-ai}
+      gateway: ${MIHTNELIS_AGENT_LLM_GATEWAY:langchain4j}
       deepseek:
         enabled: ${MIHTNELIS_AGENT_DEEPSEEK_ENABLED:true}
         base-url: ${MIHTNELIS_AGENT_DEEPSEEK_BASE_URL:}
