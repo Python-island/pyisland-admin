@@ -31,7 +31,7 @@ public class LangChainWorkflowService {
          .append("联网：web.search、web.page.read\n")
          .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
          .append("命令执行：cmd.exec（Windows CMD，cmd.exe）、cmd.powershell（Windows PowerShell，powershell.exe）\n")
-         .append("系统信息：sys.info（OS/CPU/内存）、sys.env（环境变量查询）\n")
+         .append("系统：sys.info（OS/CPU/内存）、sys.env（环境变量查询）、sys.open（打开 Windows 系统组件）\n")
          .append("窗口管理：win.list（列出可见窗口）、win.minimize（最小化）、win.maximize（最大化）、win.restore（还原）、win.close（关闭/终止进程）\n")
          .append("任务管理：agent.todo.write\n\n");
 
@@ -49,7 +49,13 @@ public class LangChainWorkflowService {
          .append("- win.list：列出当前所有可见窗口，返回 pid、name、title、handle、bounds、内存占用。可选 filter 过滤进程名或窗口标题。低风险无需授权。\n")
          .append("- win.minimize / win.maximize / win.restore：通过 pid、name 或 handle 定位窗口。建议先 win.list 确认目标，再用 handle 精确操作。高风险需用户授权。\n")
          .append("- win.close：关闭/终止进程，通过 pid 或 name 定位。高风险需用户授权。purpose 必须说明关闭哪个程序及原因。\n")
-         .append("- **窗口操作推荐流程：先 win.list 查看全部窗口 → 确认目标 → 再执行 win.minimize/maximize/restore/close。**\n\n");
+         .append("- **窗口操作推荐流程：先 win.list 查看全部窗口 → 确认目标 → 再执行 win.minimize/maximize/restore/close。**\n")
+         .append("- sys.open：打开 Windows 系统组件。target 参数支持预定义名称或 ms-settings: URI。\n")
+         .append("  预定义 target：explorer（资源管理器，可选 path 打开指定目录）、settings（设置）、control（控制面板）、taskmgr（任务管理器）、\n")
+         .append("  display、sound、bluetooth、wifi、network、proxy、apps、storage、power、update、about、datetime、language、\n")
+         .append("  privacy、personalize、themes、wallpaper、taskbar、startmenu、mouse、keyboard、\n")
+         .append("  devmgr、diskmgmt、services、regedit、notepad、calc、paint、terminal、snip。\n")
+         .append("  也可直接传入 ms-settings: URI（如 ms-settings:display）打开任意设置页。\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("当用户要求修改代码、新增功能、修复 Bug 或重构时，严格遵循以下流程：\n\n")
@@ -156,6 +162,12 @@ public class LangChainWorkflowService {
 
         p.append("示例15 - 关闭程序：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"win.close\",\"purpose\":\"关闭用户不再需要的记事本进程\",\"arguments\":{\"name\":\"notepad\"}}\n\n");
+
+        p.append("示例16 - 打开资源管理器到指定目录：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"sys.open\",\"purpose\":\"打开资源管理器到用户的项目目录\",\"arguments\":{\"target\":\"explorer\",\"path\":\"C:\\\\Users\\\\test\\\\project\"}}\n\n");
+
+        p.append("示例17 - 打开 Windows 设置：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"sys.open\",\"purpose\":\"打开 Windows 显示设置帮助用户调整分辨率\",\"arguments\":{\"target\":\"display\"}}\n\n");
 
         // 回答质量
         p.append("# 回答质量要求\n")
@@ -265,7 +277,7 @@ public class LangChainWorkflowService {
          .append("联网：webSearch、webPageRead\n")
          .append("文件：fileList、fileTree、fileExists、fileStat、fileMkdir、fileRead、fileReadLines、fileWrite、fileAppend、fileDelete、fileRename、fileCopy、fileReplace、fileGrep、fileSearch\n")
          .append("命令：cmdExec（Windows CMD，cmd.exe）、cmdPowershell（Windows PowerShell，powershell.exe）\n")
-         .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）\n")
+         .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）、sysOpen（打开 Windows 系统组件）\n")
          .append("窗口：winList（列出可见窗口）、winMinimize（最小化）、winMaximize（最大化）、winRestore（还原）、winClose（关闭/终止进程）\n")
          .append("任务：agentTodoWrite\n\n");
 

@@ -749,6 +749,19 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("sys.env", arguments);
         }
 
+        @Tool("打开 Windows 系统组件（资源管理器、设置、控制面板、任务管理器等），target 为预定义名称或 ms-settings: URI，explorer 可选 path 打开指定目录")
+        public Map<String, Object> sysOpen(@P("target") String target,
+                                            @P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (target != null && !target.isBlank()) {
+                arguments.put("target", AgentStringUtils.trimToEmpty(target));
+            }
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("sys.open", arguments);
+        }
+
         @Tool("获取本地目录树形结构，客户端执行")
         public Map<String, Object> fileTree(@P("path") String path,
                                              @P("maxDepth") Integer maxDepth,
