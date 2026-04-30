@@ -569,6 +569,7 @@ public class MihtnelisAgentStreamService {
         return safeToolName.startsWith("file.")
                 || safeToolName.startsWith("cmd.")
                 || safeToolName.startsWith("sys.")
+                || safeToolName.startsWith("win.")
                 || "web.search".equals(safeToolName);
     }
 
@@ -584,7 +585,11 @@ public class MihtnelisAgentStreamService {
         return tool.startsWith("file.delete")
                 || tool.startsWith("file.rename")
                 || tool.startsWith("cmd.exec")
-                || tool.startsWith("cmd.powershell");
+                || tool.startsWith("cmd.powershell")
+                || tool.startsWith("win.close")
+                || tool.startsWith("win.minimize")
+                || tool.startsWith("win.maximize")
+                || tool.startsWith("win.restore");
     }
 
     private String buildLocalToolAuthorizationMessage(String toolName, String purpose) {
@@ -602,6 +607,12 @@ public class MihtnelisAgentStreamService {
         }
         if (safeToolName.startsWith("cmd.powershell")) {
             return "Agent 请求执行 PowerShell 命令，是否允许执行？" + suffix;
+        }
+        if (safeToolName.startsWith("win.close")) {
+            return "Agent 请求关闭/终止程序进程，是否允许执行？" + suffix;
+        }
+        if (safeToolName.startsWith("win.minimize") || safeToolName.startsWith("win.maximize") || safeToolName.startsWith("win.restore")) {
+            return "Agent 请求操作窗口状态（最小化/最大化/还原），是否允许执行？" + suffix;
         }
         return "Agent 请求执行高风险本地操作，是否允许执行？" + suffix;
     }

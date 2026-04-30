@@ -646,7 +646,11 @@ public class MihtnelisAgentOrchestratorService {
         if (safeToolName.startsWith("file.delete")
                 || safeToolName.startsWith("file.rename")
                 || safeToolName.startsWith("cmd.exec")
-                || safeToolName.startsWith("cmd.powershell")) {
+                || safeToolName.startsWith("cmd.powershell")
+                || safeToolName.startsWith("win.close")
+                || safeToolName.startsWith("win.minimize")
+                || safeToolName.startsWith("win.maximize")
+                || safeToolName.startsWith("win.restore")) {
             return "high";
         }
         return "low";

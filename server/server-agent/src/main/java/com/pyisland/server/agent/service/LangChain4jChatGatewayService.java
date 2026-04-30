@@ -766,6 +766,57 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("file.tree", arguments);
         }
 
+        @Tool("列出当前所有可见窗口及其进程信息（基于 get-windows），可选 filter 过滤进程名或窗口标题")
+        public Map<String, Object> winList(@P("filter") String filter) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            return invoke("win.list", arguments);
+        }
+
+        @Tool("最小化指定窗口，高风险需用户授权。通过 pid、name 或 handle 定位目标窗口")
+        public Map<String, Object> winMinimize(@P("pid") Integer pid,
+                                                @P("name") String name,
+                                                @P("handle") Long handle) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (pid != null) arguments.put("pid", pid);
+            if (name != null && !name.isBlank()) arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            if (handle != null) arguments.put("handle", handle);
+            return invoke("win.minimize", arguments);
+        }
+
+        @Tool("最大化指定窗口，高风险需用户授权。通过 pid、name 或 handle 定位目标窗口")
+        public Map<String, Object> winMaximize(@P("pid") Integer pid,
+                                                @P("name") String name,
+                                                @P("handle") Long handle) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (pid != null) arguments.put("pid", pid);
+            if (name != null && !name.isBlank()) arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            if (handle != null) arguments.put("handle", handle);
+            return invoke("win.maximize", arguments);
+        }
+
+        @Tool("还原指定窗口（从最小化或最大化恢复），高风险需用户授权。通过 pid、name 或 handle 定位目标窗口")
+        public Map<String, Object> winRestore(@P("pid") Integer pid,
+                                               @P("name") String name,
+                                               @P("handle") Long handle) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (pid != null) arguments.put("pid", pid);
+            if (name != null && !name.isBlank()) arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            if (handle != null) arguments.put("handle", handle);
+            return invoke("win.restore", arguments);
+        }
+
+        @Tool("关闭/终止指定程序进程，高风险需用户授权。通过 pid 或 name 定位目标进程")
+        public Map<String, Object> winClose(@P("pid") Integer pid,
+                                             @P("name") String name) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (pid != null) arguments.put("pid", pid);
+            if (name != null && !name.isBlank()) arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            return invoke("win.close", arguments);
+        }
+
         @Tool("更新任务清单快照")
         public Map<String, Object> agentTodoWrite(@P("items") Object items) {
             Map<String, Object> arguments = new LinkedHashMap<>();

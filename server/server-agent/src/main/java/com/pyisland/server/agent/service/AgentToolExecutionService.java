@@ -208,6 +208,7 @@ public class AgentToolExecutionService {
         return safeToolName.startsWith("file.")
                 || safeToolName.startsWith("cmd.")
                 || safeToolName.startsWith("sys.")
+                || safeToolName.startsWith("win.")
                 || "web.search".equals(safeToolName);
     }
 

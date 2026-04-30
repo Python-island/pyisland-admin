@@ -255,7 +255,11 @@ public class AgentLocalToolRelayService {
         return tool.startsWith("file.delete")
                 || tool.startsWith("file.rename")
                 || tool.startsWith("cmd.exec")
-                || tool.startsWith("cmd.powershell");
+                || tool.startsWith("cmd.powershell")
+                || tool.startsWith("win.close")
+                || tool.startsWith("win.minimize")
+                || tool.startsWith("win.maximize")
+                || tool.startsWith("win.restore");
     }
 
     private record PendingLocalToolRequest(String requestId,

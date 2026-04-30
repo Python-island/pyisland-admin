@@ -22,7 +22,7 @@ public class LangChainWorkflowService {
          .append("规则：绝对不要输出 JSON 以外的任何文字、思考过程或解释。\n")
          .append("answer 字段支持完整 Markdown，JSON 必须单行合法，换行使用 \\n 转义。\n")
          .append("tool_call 的 purpose 必填，必须说明“为什么调用该工具”，且要和当前用户请求直接相关。\n")
-         .append("若调用 file.delete、file.rename、cmd.exec 或 cmd.powershell，purpose 必须具体到目标与预期结果，不可使用“处理任务”“继续执行”等空泛描述。\n\n");
+         .append("若调用 file.delete、file.rename、cmd.exec、cmd.powershell 或 win.close，purpose 必须具体到目标与预期结果，不可使用“处理任务”“继续执行”等空泛描述。\n\n");
 
         // 可用工具
         p.append("# 可用工具\n")
@@ -32,6 +32,7 @@ public class LangChainWorkflowService {
          .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
          .append("命令执行：cmd.exec（Windows CMD，cmd.exe）、cmd.powershell（Windows PowerShell，powershell.exe）\n")
          .append("系统信息：sys.info（OS/CPU/内存）、sys.env（环境变量查询）\n")
+         .append("窗口管理：win.list（列出可见窗口）、win.minimize（最小化）、win.maximize（最大化）、win.restore（还原）、win.close（关闭/终止进程）\n")
          .append("任务管理：agent.todo.write\n\n");
 
         p.append("# 工具使用指南\n")
@@ -44,7 +45,11 @@ public class LangChainWorkflowService {
          .append("- cmd.powershell：通过 powershell.exe 执行，仅限 PowerShell 语法（Get-ChildItem、Get-Content、Copy-Item、Remove-Item、$env:、Select-Object、Where-Object 等 cmdlet 和管道）。禁止在此工具中使用 CMD 内部命令（dir、type、del）或 bash 命令（ls、cat、rm）。\n")
          .append("- **cmd.exec 与 cmd.powershell 严禁混用语法。** 选择工具前先确认命令属于哪种 shell，选错会导致执行失败。优先使用 cmd.powershell，功能更强大。\n")
          .append("- sys.info：获取操作系统、CPU、内存、主机名等系统信息，无需参数。\n")
-         .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n\n");
+         .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n")
+         .append("- win.list：列出当前所有可见窗口，返回 pid、name、title、handle、bounds、内存占用。可选 filter 过滤进程名或窗口标题。低风险无需授权。\n")
+         .append("- win.minimize / win.maximize / win.restore：通过 pid、name 或 handle 定位窗口。建议先 win.list 确认目标，再用 handle 精确操作。高风险需用户授权。\n")
+         .append("- win.close：关闭/终止进程，通过 pid 或 name 定位。高风险需用户授权。purpose 必须说明关闭哪个程序及原因。\n")
+         .append("- **窗口操作推荐流程：先 win.list 查看全部窗口 → 确认目标 → 再执行 win.minimize/maximize/restore/close。**\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("当用户要求修改代码、新增功能、修复 Bug 或重构时，严格遵循以下流程：\n\n")
@@ -94,7 +99,8 @@ public class LangChainWorkflowService {
         // 工作区限制
         if (workspaces != null && !workspaces.isEmpty()) {
             p.append("# 工作区安全限制（最高优先级）\n")
-             .append("所有 file.*、cmd.exec、cmd.powershell 操作必须严格限制在以下目录内，超出即拒绝：\n");
+             .append("所有 file.*、cmd.exec、cmd.powershell 操作必须严格限制在以下目录内，超出即拒绝：\n")
+             .append("win.* 窗口管理工具不受工作区目录限制，但 win.close/minimize/maximize/restore 均为高风险需用户授权。\n");
             for (String ws : workspaces) {
                 p.append("- ").append(ws).append("\n");
             }
@@ -141,6 +147,15 @@ public class LangChainWorkflowService {
 
         p.append("示例12 - 获取系统信息：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"sys.info\",\"purpose\":\"获取用户电脑系统配置以诊断性能问题\",\"arguments\":{}}\n\n");
+
+        p.append("示例13 - 列出所有窗口：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"win.list\",\"purpose\":\"查看当前所有可见窗口以定位用户要操作的程序\",\"arguments\":{}}\n\n");
+
+        p.append("示例14 - 最小化窗口（需先 win.list 获取 handle）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"win.minimize\",\"purpose\":\"最小化用户指定的 Chrome 浏览器窗口\",\"arguments\":{\"handle\":1234567}}\n\n");
+
+        p.append("示例15 - 关闭程序：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"win.close\",\"purpose\":\"关闭用户不再需要的记事本进程\",\"arguments\":{\"name\":\"notepad\"}}\n\n");
 
         // 回答质量
         p.append("# 回答质量要求\n")
@@ -251,6 +266,7 @@ public class LangChainWorkflowService {
          .append("文件：fileList、fileTree、fileExists、fileStat、fileMkdir、fileRead、fileReadLines、fileWrite、fileAppend、fileDelete、fileRename、fileCopy、fileReplace、fileGrep、fileSearch\n")
          .append("命令：cmdExec（Windows CMD，cmd.exe）、cmdPowershell（Windows PowerShell，powershell.exe）\n")
          .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）\n")
+         .append("窗口：winList（列出可见窗口）、winMinimize（最小化）、winMaximize（最大化）、winRestore（还原）、winClose（关闭/终止进程）\n")
          .append("任务：agentTodoWrite\n\n");
 
         p.append("# CMD 与 PowerShell 严格区分（强制）\n")
@@ -266,7 +282,8 @@ public class LangChainWorkflowService {
          .append("- 纯知识问答直接回答，不调用工具\n")
          .append("- 天气：用户给出具体城市优先 weatherByCityQuery，否则走 IP 定位流程\n")
          .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）\n")
-         .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n\n");
+         .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n")
+         .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("用户要求修改代码、新增功能、修复 Bug 或重构时，遵循以下流程：\n")
@@ -286,7 +303,7 @@ public class LangChainWorkflowService {
          .append("- “下一步建议”仅在任务有明确后续方向时使用，避免在简单读取场景中强行添加。\n\n");
 
         if (workspaces != null && !workspaces.isEmpty()) {
-            p.append("- 工作区限制：所有 file.*、cmdExec、cmdPowershell 操作仅限以下目录：")
+            p.append("- 工作区限制：所有 file.*、cmdExec、cmdPowershell 操作仅限以下目录（win.* 不受目录限制但需用户授权）：")
              .append(String.join("、", workspaces)).append("\n");
         } else {
             p.append("- 未配置工作区，所有 file.*、cmdExec、cmdPowershell 操作将被拒绝，请提醒用户配置工作区。\n");
