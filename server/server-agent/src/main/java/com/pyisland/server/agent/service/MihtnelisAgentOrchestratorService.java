@@ -122,6 +122,10 @@ public class MihtnelisAgentOrchestratorService {
         String scratchpad = initialScratchpad == null ? "" : initialScratchpad;
         int effectiveStartTurn = Math.max(1, startTurn);
 
+        // 累积多轮 ReAct 迭代的真实 token 用量
+        AgentChatGatewayService.TokenUsageAccumulator usageAccumulator =
+                new AgentChatGatewayService.TokenUsageAccumulator();
+
         // 构建实时推理流监听器：将 reasoning_content 增量实时推送给客户端
         AgentChatGatewayService.ReasoningStreamListener reasoningListener =
                 (chatRequestOptions.thinkingEnabled() && toolExecutionObserver != null)
@@ -130,7 +134,7 @@ public class MihtnelisAgentOrchestratorService {
 
         for (int turn = effectiveStartTurn; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
-            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, reasoningListener);
+            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, reasoningListener, usageAccumulator);
             // 如果未使用流式推理（reasoningListener == null），仍通过旧路径推送整块思考内容
             if (reasoningListener == null) {
                 notifyThinking(executionContext, turn, llmOutput);
@@ -140,11 +144,13 @@ public class MihtnelisAgentOrchestratorService {
             if (!decision.toolCall()) {
                 String finalAnswer = AgentStringUtils.trimToDefault(decision.finalAnswer(), "");
                 if (!finalAnswer.isBlank()) {
-                    return AgentExecutionResult.done(provider, finalAnswer, proUser, traces);
+                    return AgentExecutionResult.done(provider, finalAnswer, proUser, traces,
+                            usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
                 }
                 String fallbackFromRaw = stripJsonEnvelopes(stripThinkBlocks(AgentStringUtils.trimToDefault(llmOutput, "")));
                 if (!fallbackFromRaw.isBlank()) {
-                    return AgentExecutionResult.done(provider, fallbackFromRaw, proUser, traces);
+                    return AgentExecutionResult.done(provider, fallbackFromRaw, proUser, traces,
+                            usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
                 }
                 break;
             }
@@ -185,7 +191,8 @@ public class MihtnelisAgentOrchestratorService {
         }
 
         String fallbackMessage = resolveFallbackMessage(provider, traces);
-        return AgentExecutionResult.done(provider, fallbackMessage, proUser, traces);
+        return AgentExecutionResult.done(provider, fallbackMessage, proUser, traces,
+                usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
     }
 
     private static final Pattern MARKDOWN_CODE_BLOCK_PATTERN = Pattern.compile("```(?:json)?\s*\n?(.*?)\n?\s*```", Pattern.DOTALL);
@@ -548,11 +555,24 @@ public class MihtnelisAgentOrchestratorService {
                                        PendingLocalTool pendingLocalTool,
                                        boolean pausedForLocalTool,
                                        String resumeScratchpad,
-                                       int resumeTurn) {
+                                       int resumeTurn,
+                                       int totalPromptTokens,
+                                       int totalCompletionTokens,
+                                       int totalReasoningTokens) {
         public static AgentExecutionResult done(String provider,
                                                 String answer,
                                                 boolean proUser,
                                                 List<ToolInvocationTrace> traces) {
+            return done(provider, answer, proUser, traces, 0, 0, 0);
+        }
+
+        public static AgentExecutionResult done(String provider,
+                                                String answer,
+                                                boolean proUser,
+                                                List<ToolInvocationTrace> traces,
+                                                int promptTokens,
+                                                int completionTokens,
+                                                int reasoningTokens) {
             return new AgentExecutionResult(
                     provider,
                     AgentStringUtils.trimToDefault(answer, ""),
@@ -563,7 +583,10 @@ public class MihtnelisAgentOrchestratorService {
                     null,
                     false,
                     "",
-                    0
+                    0,
+                    promptTokens,
+                    completionTokens,
+                    reasoningTokens
             );
         }
 
@@ -581,7 +604,8 @@ public class MihtnelisAgentOrchestratorService {
                     null,
                     false,
                     "",
-                    0
+                    0,
+                    0, 0, 0
             );
         }
 
@@ -601,7 +625,8 @@ public class MihtnelisAgentOrchestratorService {
                     pendingLocalTool,
                     true,
                     scratchpad == null ? "" : scratchpad,
-                    turn
+                    turn,
+                    0, 0, 0
             );
         }
     }

@@ -387,7 +387,7 @@ public class MihtnelisAgentStreamService {
                 visibleAnswer = stripThinkBlocks(rawAnswer);
             }
 
-            int billedTokenDelta = 0;
+            int streamedChunkTokens = 0;
             List<String> chunks = AgentStreamChunkUtils.splitForStreaming(visibleAnswer);
             for (String chunk : chunks) {
                 String safeChunk = chunk == null ? "" : chunk;
@@ -395,17 +395,24 @@ public class MihtnelisAgentStreamService {
                     continue;
                 }
                 sendEvent(emitter, "chunk", Map.of("text", safeChunk));
-                billedTokenDelta += estimateTokenDelta(safeChunk);
+                int chunkTokenEst = estimateTokenDelta(safeChunk);
+                streamedChunkTokens += chunkTokenEst;
                 sendEvent(emitter, "billing", Map.of(
-                        "tokenDelta", estimateTokenDelta(safeChunk),
-                        "billedTokenTotal", billedTokenDelta,
+                        "tokenDelta", chunkTokenEst,
+                        "billedTokenTotal", streamedChunkTokens,
                         "billingUnit", "1k_token"
                 ));
                 sleepSilently(170);
             }
 
-            int inputTokens = estimateTokenDelta(userPrompt) + estimateTokenDelta(context);
-            int outputTokens = billedTokenDelta;
+            // 优先使用 LLM API 返回的真实 token 用量；未获取到时退回字符估算
+            int apiPromptTokens = executionResult.totalPromptTokens();
+            int apiCompletionTokens = executionResult.totalCompletionTokens();
+            int inputTokens = apiPromptTokens > 0 ? apiPromptTokens
+                    : (estimateTokenDelta(userPrompt) + estimateTokenDelta(context));
+            int outputTokens = apiCompletionTokens > 0 ? apiCompletionTokens
+                    : streamedChunkTokens;
+            int reasoningTokens = executionResult.totalReasoningTokens();
             String billingModel = model != null && !model.isBlank() ? model : "deepseek-v4-flash";
             java.math.BigDecimal deductedFen = java.math.BigDecimal.ZERO;
             try {
@@ -416,12 +423,14 @@ public class MihtnelisAgentStreamService {
 
             Map<String, Object> finalPayload = new LinkedHashMap<>();
             finalPayload.put("done", true);
-            finalPayload.put("billedTokenTotal", billedTokenDelta);
+            finalPayload.put("billedTokenTotal", inputTokens + outputTokens);
             finalPayload.put("billedInputTokens", inputTokens);
             finalPayload.put("billedOutputTokens", outputTokens);
+            finalPayload.put("billedReasoningTokens", reasoningTokens);
             finalPayload.put("billedModel", billingModel);
             finalPayload.put("deductedFen", deductedFen);
             finalPayload.put("billingUnit", "1M_token");
+            finalPayload.put("tokenSource", apiPromptTokens > 0 ? "api" : "estimate");
             finalPayload.put("agent", "mihtnelis agent");
             finalPayload.put("provider", provider);
             finalPayload.put("username", Objects.requireNonNullElse(username, ""));

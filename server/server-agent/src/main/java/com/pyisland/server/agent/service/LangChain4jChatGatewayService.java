@@ -50,7 +50,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions) {
-        return chat(provider, systemPrompt, userPrompt, requestOptions, null);
+        return chat(provider, systemPrompt, userPrompt, requestOptions, null, null);
     }
 
     @Override
@@ -59,10 +59,20 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        String userPrompt,
                        ChatRequestOptions requestOptions,
                        ReasoningStreamListener reasoningListener) {
+        return chat(provider, systemPrompt, userPrompt, requestOptions, reasoningListener, null);
+    }
+
+    @Override
+    public String chat(String provider,
+                       String systemPrompt,
+                       String userPrompt,
+                       ChatRequestOptions requestOptions,
+                       ReasoningStreamListener reasoningListener,
+                       TokenUsageAccumulator usageAccumulator) {
         ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
         // thinking 开启时 LangChain4j 不支持 DeepSeek thinking API 参数，走原生 HTTP 调用
         if (safeRequestOptions.thinkingEnabled()) {
-            return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions, reasoningListener);
+            return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions, reasoningListener, usageAccumulator);
         }
         OpenAiChatModel modelClient = buildModelClient(requestOptions);
         String prompt = "System:\n"
@@ -183,7 +193,8 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                         String systemPrompt,
                                         String userPrompt,
                                         ChatRequestOptions requestOptions,
-                                        ReasoningStreamListener reasoningListener) {
+                                        ReasoningStreamListener reasoningListener,
+                                        TokenUsageAccumulator usageAccumulator) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
         if (cfg == null || !cfg.isEnabled()) {
             throw new IllegalStateException("DeepSeek provider is disabled");
@@ -206,6 +217,9 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             });
             payload.put("temperature", 0.2);
             payload.put("stream", useStream);
+            if (useStream) {
+                payload.put("stream_options", Map.of("include_usage", true));
+            }
             payload.put("thinking", Map.of("type", "enabled"));
             payload.put("reasoning_effort", effort);
             String requestBody = OBJECT_MAPPER.writeValueAsString(payload);
@@ -217,9 +231,9 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                     .build();
 
             if (useStream) {
-                return chatWithThinkingStream(request, reasoningListener);
+                return chatWithThinkingStream(request, reasoningListener, usageAccumulator);
             }
-            return chatWithThinkingBlocking(request);
+            return chatWithThinkingBlocking(request, usageAccumulator);
         } catch (Exception exception) {
             log.warn("mihtnelis deepseek thinking-http invoke failed, provider={}, baseUrl={}, model={}, stream={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider), baseUrl, model, useStream, exception.getMessage());
@@ -230,12 +244,14 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
     /**
      * 非流式 thinking HTTP 调用（兼容旧逻辑）。
      */
-    private String chatWithThinkingBlocking(HttpRequest request) throws Exception {
+    private String chatWithThinkingBlocking(HttpRequest request, TokenUsageAccumulator usageAccumulator) throws Exception {
         HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(response.body()));
         }
         JsonNode root = OBJECT_MAPPER.readTree(response.body());
+        // 提取真实 token 用量
+        populateUsageFromResponse(root, usageAccumulator);
         JsonNode messageNode = root.path("choices").isArray() && !root.path("choices").isEmpty()
                 ? root.path("choices").get(0).path("message")
                 : OBJECT_MAPPER.createObjectNode();
@@ -258,7 +274,8 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
      * SSE 格式：每行 "data: {...}" 包含 delta.reasoning_content 和 delta.content。
      */
     private String chatWithThinkingStream(HttpRequest request,
-                                           ReasoningStreamListener reasoningListener) throws Exception {
+                                           ReasoningStreamListener reasoningListener,
+                                           TokenUsageAccumulator usageAccumulator) throws Exception {
         HttpResponse<java.io.InputStream> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             String errorBody;
@@ -283,6 +300,8 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                 }
                 try {
                     JsonNode chunk = OBJECT_MAPPER.readTree(data);
+                    // 流式最后一个 chunk 包含 usage（需 stream_options.include_usage=true）
+                    populateUsageFromResponse(chunk, usageAccumulator);
                     JsonNode delta = chunk.path("choices").isArray() && !chunk.path("choices").isEmpty()
                             ? chunk.path("choices").get(0).path("delta")
                             : OBJECT_MAPPER.createObjectNode();
@@ -319,6 +338,27 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return "<think>" + reasoning + "</think>\n" + content;
         }
         return content;
+    }
+
+    /**
+     * 从 API 响应 JSON 中提取 usage 字段并累加到 accumulator。
+     * 非流式响应和流式最后一个 chunk 都包含 usage 节点。
+     */
+    private void populateUsageFromResponse(JsonNode root, TokenUsageAccumulator usageAccumulator) {
+        if (usageAccumulator == null || root == null) {
+            return;
+        }
+        JsonNode usage = root.path("usage");
+        if (usage.isMissingNode() || usage.isNull()) {
+            return;
+        }
+        int prompt = usage.path("prompt_tokens").asInt(0);
+        int completion = usage.path("completion_tokens").asInt(0);
+        // DeepSeek 在 completion_tokens_details 中提供 reasoning_tokens
+        int reasoning = usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0);
+        if (prompt > 0 || completion > 0) {
+            usageAccumulator.add(prompt, completion, reasoning);
+        }
     }
 
     private String resolveCompletionsUrl(String baseUrl) {

@@ -50,7 +50,7 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions) {
-        return chat(provider, systemPrompt, userPrompt, requestOptions, null);
+        return chat(provider, systemPrompt, userPrompt, requestOptions, null, null);
     }
 
     @Override
@@ -59,6 +59,16 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                        String userPrompt,
                        ChatRequestOptions requestOptions,
                        ReasoningStreamListener reasoningListener) {
+        return chat(provider, systemPrompt, userPrompt, requestOptions, reasoningListener, null);
+    }
+
+    @Override
+    public String chat(String provider,
+                       String systemPrompt,
+                       String userPrompt,
+                       ChatRequestOptions requestOptions,
+                       ReasoningStreamListener reasoningListener,
+                       TokenUsageAccumulator usageAccumulator) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
         if (cfg == null || !cfg.isEnabled()) {
             throw new IllegalStateException("DeepSeek provider is disabled");
@@ -81,7 +91,7 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
             String safeSystemPrompt = AgentStringUtils.trimToEmpty(systemPrompt);
             String safeUserPrompt = AgentStringUtils.trimToEmpty(userPrompt);
             ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
-            return invokeDeepSeek(baseUrl, apiKey, model, safeSystemPrompt, safeUserPrompt, safeRequestOptions, reasoningListener);
+            return invokeDeepSeek(baseUrl, apiKey, model, safeSystemPrompt, safeUserPrompt, safeRequestOptions, reasoningListener, usageAccumulator);
         } catch (Exception exception) {
             log.warn("mihtnelis deepseek invoke failed, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider),
@@ -118,7 +128,8 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                                   String systemPrompt,
                                   String userPrompt,
                                   ChatRequestOptions requestOptions,
-                                  ReasoningStreamListener reasoningListener) throws Exception {
+                                  ReasoningStreamListener reasoningListener,
+                                  TokenUsageAccumulator usageAccumulator) throws Exception {
         boolean thinkingEnabled = requestOptions != null && requestOptions.thinkingEnabled();
         boolean useStream = thinkingEnabled && reasoningListener != null;
         String effort = requestOptions == null
@@ -133,6 +144,9 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         });
         payload.put("temperature", 0.2);
         payload.put("stream", useStream);
+        if (useStream) {
+            payload.put("stream_options", Map.of("include_usage", true));
+        }
         if (thinkingEnabled) {
             payload.put("thinking", Map.of("type", "enabled"));
             payload.put("reasoning_effort", effort);
@@ -146,17 +160,18 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                 .build();
 
         if (useStream) {
-            return invokeDeepSeekStream(request, reasoningListener);
+            return invokeDeepSeekStream(request, reasoningListener, usageAccumulator);
         }
-        return invokeDeepSeekBlocking(request, thinkingEnabled);
+        return invokeDeepSeekBlocking(request, thinkingEnabled, usageAccumulator);
     }
 
-    private String invokeDeepSeekBlocking(HttpRequest request, boolean thinkingEnabled) throws Exception {
+    private String invokeDeepSeekBlocking(HttpRequest request, boolean thinkingEnabled, TokenUsageAccumulator usageAccumulator) throws Exception {
         HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(response.body()));
         }
         JsonNode root = OBJECT_MAPPER.readTree(response.body());
+        populateUsageFromResponse(root, usageAccumulator);
         JsonNode messageNode = root.path("choices").isArray() && root.path("choices").size() > 0
                 ? root.path("choices").get(0).path("message")
                 : OBJECT_MAPPER.createObjectNode();
@@ -175,7 +190,8 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
     }
 
     private String invokeDeepSeekStream(HttpRequest request,
-                                         ReasoningStreamListener reasoningListener) throws Exception {
+                                         ReasoningStreamListener reasoningListener,
+                                         TokenUsageAccumulator usageAccumulator) throws Exception {
         HttpResponse<java.io.InputStream> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             String errorBody;
@@ -200,6 +216,7 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                 }
                 try {
                     JsonNode chunk = OBJECT_MAPPER.readTree(data);
+                    populateUsageFromResponse(chunk, usageAccumulator);
                     JsonNode delta = chunk.path("choices").isArray() && !chunk.path("choices").isEmpty()
                             ? chunk.path("choices").get(0).path("delta")
                             : OBJECT_MAPPER.createObjectNode();
@@ -233,6 +250,22 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
             return "<think>" + reasoning + "</think>\n" + content;
         }
         return content;
+    }
+
+    private void populateUsageFromResponse(JsonNode root, TokenUsageAccumulator usageAccumulator) {
+        if (usageAccumulator == null || root == null) {
+            return;
+        }
+        JsonNode usage = root.path("usage");
+        if (usage.isMissingNode() || usage.isNull()) {
+            return;
+        }
+        int prompt = usage.path("prompt_tokens").asInt(0);
+        int completion = usage.path("completion_tokens").asInt(0);
+        int reasoning = usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0);
+        if (prompt > 0 || completion > 0) {
+            usageAccumulator.add(prompt, completion, reasoning);
+        }
     }
 
     private String resolveCompletionsUrl(String baseUrl) {
