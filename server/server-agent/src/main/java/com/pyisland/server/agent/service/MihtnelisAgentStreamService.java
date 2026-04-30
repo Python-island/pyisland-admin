@@ -136,6 +136,7 @@ public class MihtnelisAgentStreamService {
             AtomicInteger toolTurnCounter = new AtomicInteger(0);
             AtomicInteger thinkTurnCounter = new AtomicInteger(0);
             java.util.concurrent.atomic.AtomicBoolean contentStreamedFlag = new java.util.concurrent.atomic.AtomicBoolean(false);
+            java.util.concurrent.atomic.AtomicBoolean thinkingBlockDone = new java.util.concurrent.atomic.AtomicBoolean(false);
             Deque<Integer> pendingToolTurns = new ArrayDeque<>();
             AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver =
                     new AgentToolExecutionService.ToolExecutionObserver() {
@@ -208,11 +209,11 @@ public class MihtnelisAgentStreamService {
                             if (safeDelta.isEmpty() && !done) {
                                 return;
                             }
-                            // 流式推理增量：首次收到 delta 时递增 thinkTurn
-                            int currentIndex = thinkTurnCounter.get();
-                            if (!safeDelta.isEmpty() && currentIndex == 0) {
-                                currentIndex = thinkTurnCounter.incrementAndGet();
+                            // 新一轮非空 delta 到来时，如果上一个块已结束或首次，递增计数器创建新块
+                            if (!safeDelta.isEmpty() && (thinkTurnCounter.get() == 0 || thinkingBlockDone.compareAndSet(true, false))) {
+                                thinkTurnCounter.incrementAndGet();
                             }
+                            int currentIndex = thinkTurnCounter.get();
                             if (currentIndex == 0) {
                                 currentIndex = thinkTurnCounter.incrementAndGet();
                             }
@@ -221,6 +222,9 @@ public class MihtnelisAgentStreamService {
                                     "index", Math.max(0, currentIndex - 1),
                                     "done", done
                             ));
+                            if (done) {
+                                thinkingBlockDone.set(true);
+                            }
                         }
 
                         @Override
