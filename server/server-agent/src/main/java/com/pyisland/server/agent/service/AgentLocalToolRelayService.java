@@ -252,7 +252,10 @@ public class AgentLocalToolRelayService {
             return true;
         }
         String tool = AgentStringUtils.trimToEmpty(request.tool()).toLowerCase(Locale.ROOT);
-        return tool.startsWith("file.delete") || tool.startsWith("cmd.exec");
+        return tool.startsWith("file.delete")
+                || tool.startsWith("file.rename")
+                || tool.startsWith("cmd.exec")
+                || tool.startsWith("cmd.powershell");
     }
 
     private record PendingLocalToolRequest(String requestId,

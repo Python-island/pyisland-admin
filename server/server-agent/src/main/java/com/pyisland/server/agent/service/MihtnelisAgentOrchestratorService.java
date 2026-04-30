@@ -643,7 +643,10 @@ public class MihtnelisAgentOrchestratorService {
 
     private String resolveLocalToolRiskLevel(String toolName) {
         String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase(Locale.ROOT);
-        if (safeToolName.startsWith("file.delete") || safeToolName.startsWith("cmd.exec")) {
+        if (safeToolName.startsWith("file.delete")
+                || safeToolName.startsWith("file.rename")
+                || safeToolName.startsWith("cmd.exec")
+                || safeToolName.startsWith("cmd.powershell")) {
             return "high";
         }
         return "low";

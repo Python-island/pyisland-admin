@@ -568,6 +568,7 @@ public class MihtnelisAgentStreamService {
         String safeToolName = toolName == null ? "" : toolName.trim().toLowerCase();
         return safeToolName.startsWith("file.")
                 || safeToolName.startsWith("cmd.")
+                || safeToolName.startsWith("sys.")
                 || "web.search".equals(safeToolName);
     }
 
@@ -580,7 +581,10 @@ public class MihtnelisAgentStreamService {
             return true;
         }
         String tool = pendingLocalTool.tool() == null ? "" : pendingLocalTool.tool().trim().toLowerCase();
-        return tool.startsWith("file.delete") || tool.startsWith("cmd.exec");
+        return tool.startsWith("file.delete")
+                || tool.startsWith("file.rename")
+                || tool.startsWith("cmd.exec")
+                || tool.startsWith("cmd.powershell");
     }
 
     private String buildLocalToolAuthorizationMessage(String toolName, String purpose) {
@@ -590,8 +594,14 @@ public class MihtnelisAgentStreamService {
         if (safeToolName.startsWith("file.delete")) {
             return "Agent 请求删除本地文件/目录，是否允许执行？" + suffix;
         }
+        if (safeToolName.startsWith("file.rename")) {
+            return "Agent 请求重命名/移动本地文件，是否允许执行？" + suffix;
+        }
         if (safeToolName.startsWith("cmd.exec")) {
-            return "Agent 请求执行本地命令，是否允许执行？" + suffix;
+            return "Agent 请求执行本地命令（CMD），是否允许执行？" + suffix;
+        }
+        if (safeToolName.startsWith("cmd.powershell")) {
+            return "Agent 请求执行 PowerShell 命令，是否允许执行？" + suffix;
         }
         return "Agent 请求执行高风险本地操作，是否允许执行？" + suffix;
     }

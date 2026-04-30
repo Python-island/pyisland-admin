@@ -22,15 +22,27 @@ public class LangChainWorkflowService {
          .append("规则：绝对不要输出 JSON 以外的任何文字、思考过程或解释。\n")
          .append("answer 字段支持完整 Markdown，JSON 必须单行合法，换行使用 \\n 转义。\n")
          .append("tool_call 的 purpose 必填，必须说明“为什么调用该工具”，且要和当前用户请求直接相关。\n")
-         .append("若调用 file.delete 或 cmd.exec，purpose 必须具体到目标与预期结果，不可使用“处理任务”“继续执行”等空泛描述。\n\n");
+         .append("若调用 file.delete、file.rename、cmd.exec 或 cmd.powershell，purpose 必须具体到目标与预期结果，不可使用“处理任务”“继续执行”等空泛描述。\n\n");
 
         // 可用工具
         p.append("# 可用工具\n")
          .append("环境感知：user.ip.get、session.context.get、time.now\n")
          .append("天气：weather.by_city.query、weather.city.lookup、location.by_ip.resolve、weather.query、weather.quota.status\n")
          .append("联网：web.search、web.page.read\n")
-         .append("本地操作：file.list、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.delete、file.grep、file.search、cmd.exec\n")
+         .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
+         .append("命令执行：cmd.exec（CMD）、cmd.powershell（PowerShell，推荐 Windows 环境使用）\n")
+         .append("系统信息：sys.info（OS/CPU/内存）、sys.env（环境变量查询）\n")
          .append("任务管理：agent.todo.write\n\n");
+
+        p.append("# 工具使用指南\n")
+         .append("- file.tree：快速了解目录结构，优先于多次 file.list 嵌套调用。参数 maxDepth（1-6，默认3）、limit（最大500）。\n")
+         .append("- file.replace：修改文件内容时优先使用，比 file.read + file.write 更安全高效。参数 path、search（精确匹配）、replacement、replaceAll（默认true）。\n")
+         .append("- file.append：向文件末尾追加内容（如日志、配置行），无需读取整个文件。\n")
+         .append("- file.copy：复制文件或目录（目录自动递归），参数 source、destination。\n")
+         .append("- file.rename：重命名或移动文件/目录，高风险需用户授权。参数 oldPath、newPath。\n")
+         .append("- cmd.powershell：Windows 环境推荐使用 PowerShell 代替 cmd.exec，支持更丰富的命令和管道操作。高风险需用户授权。\n")
+         .append("- sys.info：获取操作系统、CPU、内存、主机名等系统信息，无需参数。\n")
+         .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n\n");
 
         if (!proUser) {
             p.append("# 权限限制\n非 Pro 用户严禁调用天气相关工具，请求时引导升级 Pro。\n\n");
@@ -48,7 +60,7 @@ public class LangChainWorkflowService {
         // 工作区限制
         if (workspaces != null && !workspaces.isEmpty()) {
             p.append("# 工作区安全限制（最高优先级）\n")
-             .append("所有 file.* 和 cmd.exec 操作必须严格限制在以下目录内，超出即拒绝：\n");
+             .append("所有 file.*、cmd.exec、cmd.powershell 操作必须严格限制在以下目录内，超出即拒绝：\n");
             for (String ws : workspaces) {
                 p.append("- ").append(ws).append("\n");
             }
@@ -83,6 +95,18 @@ public class LangChainWorkflowService {
 
         p.append("示例8 - 最终回答（有明确后续方向时可带下一步建议）：\n")
          .append("{\"type\":\"final\",\"answer\":\"已帮你找到所有 TODO 项，共 12 处。\\n\\n## 下一步建议\\n- 你可以让我帮你批量修改这些 TODO\\n- 或者让我分析某个具体文件的代码质量\\n- 需要我帮你生成修复建议吗？\"}\n\n");
+
+        p.append("示例9 - 查看目录结构：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"file.tree\",\"purpose\":\"了解项目目录结构以定位配置文件\",\"arguments\":{\"path\":\"<workspace_root>\",\"maxDepth\":3}}\n\n");
+
+        p.append("示例10 - 文件内容替换：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"file.replace\",\"purpose\":\"将配置文件中旧端口号替换为用户指定的新端口\",\"arguments\":{\"path\":\"<workspace_root>/config.yaml\",\"search\":\"port: 8080\",\"replacement\":\"port: 3000\",\"replaceAll\":true}}\n\n");
+
+        p.append("示例11 - PowerShell 命令：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"cmd.powershell\",\"purpose\":\"使用 PowerShell 查看用户指定目录下占用空间最大的文件\",\"arguments\":{\"command\":\"Get-ChildItem -Recurse -File | Sort-Object Length -Descending | Select-Object -First 10 FullName,@{N='SizeMB';E={[math]::Round($_.Length/1MB,2)}}\",\"cwd\":\"<workspace_root>\"}}\n\n");
+
+        p.append("示例12 - 获取系统信息：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"sys.info\",\"purpose\":\"获取用户电脑系统配置以诊断性能问题\",\"arguments\":{}}\n\n");
 
         // 回答质量
         p.append("# 回答质量要求\n")
@@ -190,7 +214,9 @@ public class LangChainWorkflowService {
          .append("环境：userIpGet、sessionContextGet、timeNow\n")
          .append("天气：weatherByCityQuery、weatherCityLookup、locationByIpResolve、weatherQuery、weatherQuotaStatus\n")
          .append("联网：webSearch、webPageRead\n")
-         .append("本地：fileList、fileRead、fileWrite、fileDelete、fileGrep、fileSearch、cmdExec\n")
+         .append("文件：fileList、fileTree、fileExists、fileStat、fileMkdir、fileRead、fileReadLines、fileWrite、fileAppend、fileDelete、fileRename、fileCopy、fileReplace、fileGrep、fileSearch\n")
+         .append("命令：cmdExec（CMD）、cmdPowershell（PowerShell，推荐 Windows 环境使用）\n")
+         .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）\n")
          .append("任务：agentTodoWrite\n\n");
 
         if (!proUser) {
@@ -210,10 +236,10 @@ public class LangChainWorkflowService {
          .append("- “下一步建议”仅在任务有明确后续方向时使用，避免在简单读取场景中强行添加。\n\n");
 
         if (workspaces != null && !workspaces.isEmpty()) {
-            p.append("- 工作区限制：所有文件和命令操作仅限以下目录：")
+            p.append("- 工作区限制：所有 file.*、cmdExec、cmdPowershell 操作仅限以下目录：")
              .append(String.join("、", workspaces)).append("\n");
         } else {
-            p.append("- 未配置工作区，所有 file.* 和 cmd.exec 操作将被拒绝，请提醒用户配置工作区。\n");
+            p.append("- 未配置工作区，所有 file.*、cmdExec、cmdPowershell 操作将被拒绝，请提醒用户配置工作区。\n");
         }
 
         p.append("- 工具失败时分析原因，尝试替代方案，全部失败则诚实告知并给出建议。\n\n");

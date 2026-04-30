@@ -654,6 +654,118 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("file.search", arguments);
         }
 
+        @Tool("重命名或移动本地文件/目录，客户端执行")
+        public Map<String, Object> fileRename(@P("oldPath") String oldPath,
+                                               @P("newPath") String newPath) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (oldPath != null && !oldPath.isBlank()) {
+                arguments.put("oldPath", AgentStringUtils.trimToEmpty(oldPath));
+            }
+            if (newPath != null && !newPath.isBlank()) {
+                arguments.put("newPath", AgentStringUtils.trimToEmpty(newPath));
+            }
+            return invoke("file.rename", arguments);
+        }
+
+        @Tool("复制本地文件或目录，客户端执行")
+        public Map<String, Object> fileCopy(@P("source") String source,
+                                             @P("destination") String destination) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (source != null && !source.isBlank()) {
+                arguments.put("source", AgentStringUtils.trimToEmpty(source));
+            }
+            if (destination != null && !destination.isBlank()) {
+                arguments.put("destination", AgentStringUtils.trimToEmpty(destination));
+            }
+            return invoke("file.copy", arguments);
+        }
+
+        @Tool("追加内容到本地文本文件末尾，客户端执行")
+        public Map<String, Object> fileAppend(@P("path") String path,
+                                               @P("content") String content) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            arguments.put("content", content == null ? "" : content);
+            return invoke("file.append", arguments);
+        }
+
+        @Tool("在本地文件中查找并替换文本，客户端执行")
+        public Map<String, Object> fileReplace(@P("path") String path,
+                                                @P("search") String search,
+                                                @P("replacement") String replacement,
+                                                @P("replaceAll") Boolean replaceAll) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (search != null && !search.isBlank()) {
+                arguments.put("search", search);
+            }
+            arguments.put("replacement", replacement == null ? "" : replacement);
+            if (replaceAll != null) {
+                arguments.put("replaceAll", replaceAll);
+            }
+            return invoke("file.replace", arguments);
+        }
+
+        @Tool("执行 PowerShell 命令（Windows），客户端执行")
+        public Map<String, Object> cmdPowershell(@P("command") String command,
+                                                  @P("cwd") String cwd,
+                                                  @P("timeoutMs") Integer timeoutMs) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (command != null && !command.isBlank()) {
+                arguments.put("command", AgentStringUtils.trimToEmpty(command));
+            }
+            if (cwd != null && !cwd.isBlank()) {
+                arguments.put("cwd", AgentStringUtils.trimToEmpty(cwd));
+            }
+            if (timeoutMs != null) {
+                arguments.put("timeoutMs", Math.max(1000, Math.min(60000, timeoutMs)));
+            }
+            return invoke("cmd.powershell", arguments);
+        }
+
+        @Tool("获取客户端系统信息（OS/CPU/内存/主机名），客户端执行")
+        public Map<String, Object> sysInfo() {
+            return invoke("sys.info", Map.of());
+        }
+
+        @Tool("查询客户端环境变量，客户端执行")
+        public Map<String, Object> sysEnv(@P("name") String name,
+                                           @P("filter") String filter,
+                                           @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(200, limit)));
+            }
+            return invoke("sys.env", arguments);
+        }
+
+        @Tool("获取本地目录树形结构，客户端执行")
+        public Map<String, Object> fileTree(@P("path") String path,
+                                             @P("maxDepth") Integer maxDepth,
+                                             @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (maxDepth != null) {
+                arguments.put("maxDepth", Math.max(1, Math.min(6, maxDepth)));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(500, limit)));
+            }
+            return invoke("file.tree", arguments);
+        }
+
         @Tool("更新任务清单快照")
         public Map<String, Object> agentTodoWrite(@P("items") Object items) {
             Map<String, Object> arguments = new LinkedHashMap<>();

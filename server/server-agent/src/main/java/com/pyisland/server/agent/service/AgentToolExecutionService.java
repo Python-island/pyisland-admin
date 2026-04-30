@@ -207,6 +207,7 @@ public class AgentToolExecutionService {
         String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase();
         return safeToolName.startsWith("file.")
                 || safeToolName.startsWith("cmd.")
+                || safeToolName.startsWith("sys.")
                 || "web.search".equals(safeToolName);
     }
 
