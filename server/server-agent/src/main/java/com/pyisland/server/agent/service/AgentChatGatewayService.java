@@ -9,6 +9,20 @@ public interface AgentChatGatewayService {
     }
 
     /**
+     * 实时推理内容监听器，用于流式输出 reasoning_content 块。
+     */
+    @FunctionalInterface
+    interface ReasoningStreamListener {
+        /**
+         * 收到一段推理内容增量。
+         *
+         * @param deltaText 增量文本。
+         * @param done      是否为最后一段。
+         */
+        void onReasoningDelta(String deltaText, boolean done);
+    }
+
+    /**
      * 调用模型完成单轮对话。
      *
      * @param provider     供应商。
@@ -17,6 +31,14 @@ public interface AgentChatGatewayService {
      * @return 模型输出。
      */
     String chat(String provider, String systemPrompt, String userPrompt, ChatRequestOptions requestOptions);
+
+    /**
+     * 调用模型完成单轮对话，支持实时推理内容回调。
+     */
+    default String chat(String provider, String systemPrompt, String userPrompt,
+                        ChatRequestOptions requestOptions, ReasoningStreamListener reasoningListener) {
+        return chat(provider, systemPrompt, userPrompt, requestOptions);
+    }
 
     default String chat(String provider, String systemPrompt, String userPrompt) {
         return chat(provider, systemPrompt, userPrompt, new ChatRequestOptions(false, "medium", null));

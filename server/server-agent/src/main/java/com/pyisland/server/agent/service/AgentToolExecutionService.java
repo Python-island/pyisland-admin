@@ -255,6 +255,15 @@ public class AgentToolExecutionService {
         }
 
         /**
+         * 实时推理内容增量回调（流式模式下使用）。
+         *
+         * @param deltaText 增量文本。
+         * @param done      是否为最后一段推理内容。
+         */
+        default void onThinkingDelta(String deltaText, boolean done) {
+        }
+
+        /**
          * agent.todo.write 触发的 TodoList 更新。
          * @param items 已归一化的 TodoList，每项包含 id/content/status。
          */

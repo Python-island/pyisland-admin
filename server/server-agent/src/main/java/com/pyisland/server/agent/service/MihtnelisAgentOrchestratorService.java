@@ -121,10 +121,20 @@ public class MihtnelisAgentOrchestratorService {
         String systemPrompt = workflowService.buildSystemPrompt(proUser, workspaces, skills);
         String scratchpad = initialScratchpad == null ? "" : initialScratchpad;
         int effectiveStartTurn = Math.max(1, startTurn);
+
+        // 构建实时推理流监听器：将 reasoning_content 增量实时推送给客户端
+        AgentChatGatewayService.ReasoningStreamListener reasoningListener =
+                (chatRequestOptions.thinkingEnabled() && toolExecutionObserver != null)
+                        ? (deltaText, done) -> toolExecutionObserver.onThinkingDelta(deltaText, done)
+                        : null;
+
         for (int turn = effectiveStartTurn; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
-            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions);
-            notifyThinking(executionContext, turn, llmOutput);
+            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, reasoningListener);
+            // 如果未使用流式推理（reasoningListener == null），仍通过旧路径推送整块思考内容
+            if (reasoningListener == null) {
+                notifyThinking(executionContext, turn, llmOutput);
+            }
             ReActDecision decision = parseDecision(llmOutput);
 
             if (!decision.toolCall()) {

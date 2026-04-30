@@ -50,6 +50,15 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions) {
+        return chat(provider, systemPrompt, userPrompt, requestOptions, null);
+    }
+
+    @Override
+    public String chat(String provider,
+                       String systemPrompt,
+                       String userPrompt,
+                       ChatRequestOptions requestOptions,
+                       ReasoningStreamListener reasoningListener) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
         if (cfg == null || !cfg.isEnabled()) {
             throw new IllegalStateException("DeepSeek provider is disabled");
@@ -72,7 +81,7 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
             String safeSystemPrompt = AgentStringUtils.trimToEmpty(systemPrompt);
             String safeUserPrompt = AgentStringUtils.trimToEmpty(userPrompt);
             ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
-            return invokeDeepSeek(baseUrl, apiKey, model, safeSystemPrompt, safeUserPrompt, safeRequestOptions);
+            return invokeDeepSeek(baseUrl, apiKey, model, safeSystemPrompt, safeUserPrompt, safeRequestOptions, reasoningListener);
         } catch (Exception exception) {
             log.warn("mihtnelis deepseek invoke failed, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider),
@@ -108,8 +117,10 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                                   String model,
                                   String systemPrompt,
                                   String userPrompt,
-                                  ChatRequestOptions requestOptions) throws Exception {
+                                  ChatRequestOptions requestOptions,
+                                  ReasoningStreamListener reasoningListener) throws Exception {
         boolean thinkingEnabled = requestOptions != null && requestOptions.thinkingEnabled();
+        boolean useStream = thinkingEnabled && reasoningListener != null;
         String effort = requestOptions == null
                 ? "medium"
                 : AgentStringUtils.trimToDefault(requestOptions.reasoningEffort(), "medium");
@@ -121,18 +132,26 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
                 Map.of("role", "user", "content", AgentStringUtils.trimToEmpty(userPrompt))
         });
         payload.put("temperature", 0.2);
-        payload.put("stream", false);
+        payload.put("stream", useStream);
         if (thinkingEnabled) {
             payload.put("thinking", Map.of("type", "enabled"));
             payload.put("reasoning_effort", effort);
         }
         String requestBody = OBJECT_MAPPER.writeValueAsString(payload);
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(120))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
                 .build();
+
+        if (useStream) {
+            return invokeDeepSeekStream(request, reasoningListener);
+        }
+        return invokeDeepSeekBlocking(request, thinkingEnabled);
+    }
+
+    private String invokeDeepSeekBlocking(HttpRequest request, boolean thinkingEnabled) throws Exception {
         HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(response.body()));
@@ -151,6 +170,67 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         }
         if (thinkingEnabled && !reasoningContent.isBlank()) {
             return "<think>" + reasoningContent + "</think>\n" + content;
+        }
+        return content;
+    }
+
+    private String invokeDeepSeekStream(HttpRequest request,
+                                         ReasoningStreamListener reasoningListener) throws Exception {
+        HttpResponse<java.io.InputStream> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            String errorBody;
+            try (java.io.InputStream is = response.body()) {
+                errorBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(errorBody));
+        }
+        StringBuilder reasoningAccum = new StringBuilder();
+        StringBuilder contentAccum = new StringBuilder();
+        boolean reasoningDone = false;
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data:")) {
+                    continue;
+                }
+                String data = line.substring(5).trim();
+                if ("[DONE]".equals(data)) {
+                    break;
+                }
+                try {
+                    JsonNode chunk = OBJECT_MAPPER.readTree(data);
+                    JsonNode delta = chunk.path("choices").isArray() && !chunk.path("choices").isEmpty()
+                            ? chunk.path("choices").get(0).path("delta")
+                            : OBJECT_MAPPER.createObjectNode();
+                    String reasoningDelta = delta.path("reasoning_content").asText("");
+                    if (!reasoningDelta.isEmpty()) {
+                        reasoningAccum.append(reasoningDelta);
+                        reasoningListener.onReasoningDelta(reasoningDelta, false);
+                    }
+                    String contentDelta = delta.path("content").asText("");
+                    if (!contentDelta.isEmpty()) {
+                        if (!reasoningDone && reasoningAccum.length() > 0) {
+                            reasoningDone = true;
+                            reasoningListener.onReasoningDelta("", true);
+                        }
+                        contentAccum.append(contentDelta);
+                    }
+                } catch (Exception parseEx) {
+                    log.debug("mihtnelis stream: failed to parse SSE chunk: {}", data);
+                }
+            }
+        }
+        if (!reasoningDone && reasoningAccum.length() > 0) {
+            reasoningListener.onReasoningDelta("", true);
+        }
+        String reasoning = reasoningAccum.toString().trim();
+        String content = contentAccum.toString().trim();
+        if (content.isBlank() && reasoning.isBlank()) {
+            throw new IllegalStateException("DeepSeek returned blank text");
+        }
+        if (!reasoning.isBlank()) {
+            return "<think>" + reasoning + "</think>\n" + content;
         }
         return content;
     }

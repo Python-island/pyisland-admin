@@ -202,6 +202,27 @@ public class MihtnelisAgentStreamService {
                         }
 
                         @Override
+                        public void onThinkingDelta(String deltaText, boolean done) {
+                            String safeDelta = deltaText == null ? "" : deltaText;
+                            if (safeDelta.isEmpty() && !done) {
+                                return;
+                            }
+                            // 流式推理增量：首次收到 delta 时递增 thinkTurn
+                            int currentIndex = thinkTurnCounter.get();
+                            if (!safeDelta.isEmpty() && currentIndex == 0) {
+                                currentIndex = thinkTurnCounter.incrementAndGet();
+                            }
+                            if (currentIndex == 0) {
+                                currentIndex = thinkTurnCounter.incrementAndGet();
+                            }
+                            sendEvent(emitter, "think", Map.of(
+                                    "text", safeDelta,
+                                    "index", Math.max(0, currentIndex - 1),
+                                    "done", done
+                            ));
+                        }
+
+                        @Override
                         public void onTodoUpdate(List<Map<String, Object>> items) {
                             if (items == null) {
                                 return;
@@ -215,26 +236,28 @@ public class MihtnelisAgentStreamService {
                         }
                     };
 
+            // 立即发送 meta 事件，让客户端获得即时反馈
+            Map<String, Object> metaPayload = new LinkedHashMap<>();
+            metaPayload.put("agent", "mihtnelis agent");
+            metaPayload.put("provider", provider);
+            metaPayload.put("sessionId", effectiveSessionId);
+            metaPayload.put("contextId", effectiveSessionId);
+            metaPayload.put("traceId", effectiveTraceId);
+            metaPayload.put("thinkingEnabled", thinkingEnabled);
+            metaPayload.put("reasoningEffort", reasoningEffort);
+            metaPayload.put("timestamp", LocalDateTime.now().toString());
+            sendEvent(emitter, "meta", metaPayload);
+            sendEvent(emitter, "status", Map.of(
+                    "phase", "orchestrating",
+                    "message", thinkingEnabled ? "正在深度思考中…" : "正在处理中…"
+            ));
+
             MihtnelisAgentOrchestratorService.AgentExecutionResult executionResult;
-            boolean metaSent = false;
             String accumulatedScratchpad = "";
             int nextStartTurn = 1;
             while (true) {
                 executionResult = runOrchestration(username, clientIp, effectiveRequest, toolExecutionObserver, accumulatedScratchpad, nextStartTurn);
                 provider = executionResult.provider();
-                if (!metaSent) {
-                    Map<String, Object> metaPayload = new LinkedHashMap<>();
-                    metaPayload.put("agent", "mihtnelis agent");
-                    metaPayload.put("provider", provider);
-                    metaPayload.put("sessionId", effectiveSessionId);
-                    metaPayload.put("contextId", effectiveSessionId);
-                    metaPayload.put("traceId", effectiveTraceId);
-                    metaPayload.put("thinkingEnabled", thinkingEnabled);
-                    metaPayload.put("reasoningEffort", reasoningEffort);
-                    metaPayload.put("timestamp", LocalDateTime.now().toString());
-                    sendEvent(emitter, "meta", metaPayload);
-                    metaSent = true;
-                }
 
                 if (executionResult.pausedForWebAccess() && executionResult.pendingWebAccess() != null) {
                     MihtnelisAgentOrchestratorService.PendingWebAccess pendingWebAccess = executionResult.pendingWebAccess();
@@ -333,30 +356,34 @@ public class MihtnelisAgentStreamService {
 
             String rawAnswer = unwrapFinalEnvelope(executionResult.answer());
             String visibleAnswer = rawAnswer;
-            if (thinkingEnabled && thinkTurnCounter.get() == 0) {
-                List<String> thinkBlocks = extractThinkBlocks(rawAnswer);
-                for (int thinkIndex = 0; thinkIndex < thinkBlocks.size(); thinkIndex++) {
-                    String think = thinkBlocks.get(thinkIndex);
-                    String safeThink = think == null ? "" : think.trim();
-                    if (safeThink.isBlank()) {
-                        continue;
-                    }
-                    List<String> thinkChunks = AgentStreamChunkUtils.splitForStreaming(safeThink);
-                    for (int chunkIndex = 0; chunkIndex < thinkChunks.size(); chunkIndex++) {
-                        String thinkChunk = thinkChunks.get(chunkIndex);
-                        String safeChunk = thinkChunk == null ? "" : thinkChunk;
-                        if (safeChunk.isBlank()) {
+            if (thinkingEnabled) {
+                // 仅当未通过流式 onThinkingDelta 推送过思考内容时，才从最终响应中提取并推送
+                if (thinkTurnCounter.get() == 0) {
+                    List<String> thinkBlocks = extractThinkBlocks(rawAnswer);
+                    for (int thinkIndex = 0; thinkIndex < thinkBlocks.size(); thinkIndex++) {
+                        String think = thinkBlocks.get(thinkIndex);
+                        String safeThink = think == null ? "" : think.trim();
+                        if (safeThink.isBlank()) {
                             continue;
                         }
-                        boolean done = chunkIndex == thinkChunks.size() - 1;
-                        sendEvent(emitter, "think", Map.of(
-                                "text", safeChunk,
-                                "index", thinkIndex,
-                                "done", done
-                        ));
-                        sleepSilently(90);
+                        List<String> thinkChunks = AgentStreamChunkUtils.splitForStreaming(safeThink);
+                        for (int chunkIndex = 0; chunkIndex < thinkChunks.size(); chunkIndex++) {
+                            String thinkChunk = thinkChunks.get(chunkIndex);
+                            String safeChunk = thinkChunk == null ? "" : thinkChunk;
+                            if (safeChunk.isBlank()) {
+                                continue;
+                            }
+                            boolean done = chunkIndex == thinkChunks.size() - 1;
+                            sendEvent(emitter, "think", Map.of(
+                                    "text", safeChunk,
+                                    "index", thinkIndex,
+                                    "done", done
+                            ));
+                            sleepSilently(90);
+                        }
                     }
                 }
+                // 无论是否流式推送，都需要从可见回答中移除 <think> 标签
                 visibleAnswer = stripThinkBlocks(rawAnswer);
             }
 
