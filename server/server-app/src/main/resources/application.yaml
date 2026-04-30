@@ -173,6 +173,10 @@ totp:
 issue-feedback:
   redis-database: ${REDIS_ISSUE_FEEDBACK_DATABASE}
 
+agent:
+  billing:
+    redis-database: ${REDIS_AGENT_BILLING_DATABASE:12}
+
 payment:
   redis-database: ${REDIS_PAYMENT_DATABASE:10}
   notify-max-retries: ${PAYMENT_NOTIFY_MAX_RETRIES:5}

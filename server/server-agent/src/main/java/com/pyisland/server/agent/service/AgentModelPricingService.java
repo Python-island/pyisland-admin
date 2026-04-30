@@ -2,7 +2,6 @@ package com.pyisland.server.agent.service;
 
 import com.pyisland.server.user.entity.AgentModelPricing;
 import com.pyisland.server.user.mapper.AgentModelPricingMapper;
-import com.pyisland.server.user.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,11 +20,12 @@ public class AgentModelPricingService {
     private static final Logger log = LoggerFactory.getLogger(AgentModelPricingService.class);
 
     private final AgentModelPricingMapper pricingMapper;
-    private final UserMapper userMapper;
+    private final AgentBalanceRedisService balanceRedisService;
 
-    public AgentModelPricingService(AgentModelPricingMapper pricingMapper, UserMapper userMapper) {
+    public AgentModelPricingService(AgentModelPricingMapper pricingMapper,
+                                    AgentBalanceRedisService balanceRedisService) {
         this.pricingMapper = pricingMapper;
-        this.userMapper = userMapper;
+        this.balanceRedisService = balanceRedisService;
     }
 
     /**
@@ -109,8 +109,8 @@ public class AgentModelPricingService {
         if (costFen.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        int rows = userMapper.deductBalance(username.trim(), costFen);
-        if (rows == 0) {
+        BigDecimal newBalance = balanceRedisService.deduct(username.trim(), costFen);
+        if (newBalance == null) {
             log.warn("agent billing: balance insufficient for user={}, model={}, costFen={}", username, modelName, costFen);
             return BigDecimal.valueOf(-1);
         }
