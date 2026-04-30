@@ -54,6 +54,7 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     ('app-users.delete',            1, '', 'DELETE /v1/app-users?username= - 删除用户'),
     ('app-users.profile.get',       1, '', 'GET /v1/app-users/profile - 获取用户资料'),
     ('app-users.profile.update',    1, '', 'PUT /v1/app-users/profile - 更新用户资料'),
+    ('app-users.balance.update',    1, '', 'PUT /v1/app-users/balance - 管理员设置用户余额'),
 
     -- --------------------------------------------------------
     --  统一用户管理（合表）  /v1/admin/users
@@ -61,14 +62,19 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     ('admin.users.list',            1, '', 'GET /v1/admin/users - 统一用户列表（可按 role 过滤）'),
     ('admin.users.role.update',     1, '', 'PUT /v1/admin/users/role - 更新用户角色（设为管理员/降为普通用户）'),
     ('admin.users.enabled.update', 1, '', 'PUT /v1/admin/users/enabled - 启用或禁用账号'),
+    ('admin.users.ban.update',      1, '', 'PUT /v1/admin/users/ban - 封禁或解封账号'),
 
     -- --------------------------------------------------------
     --  用户自助（用户侧）  /v1/user
     -- --------------------------------------------------------
     ('user.profile.get',            1, '', 'GET /v1/user/profile - 获取自己的资料'),
-    ('user.profile.update',         1, '', 'PUT /v1/user/profile - 修改自己的资料（头像/性别/生日/密码）'),
+    ('user.profile.update',         1, '', 'PUT /v1/user/profile - 修改自己的资料（头像/性别/生日）'),
+    ('user.profile.password.update', 1, '', 'POST /v1/user/profile/password - 修改密码'),
+    ('user.profile.totp-seed.get',  1, '', 'GET /v1/user/profile/password/totp-seed - 获取 TOTP Seed'),
+    ('user.profile.totp-seed.rotate', 1, '', 'POST /v1/user/profile/password/totp-seed/rotate - 轮换 TOTP Seed'),
     ('user.logout',                 1, '', 'POST /v1/user/logout - 退出登录'),
     ('user.unregister',             1, '', 'DELETE /v1/user/account - 注销账号（需密码二次确认）'),
+    ('user.update-source.get',      1, '', 'GET /v1/user/update-source - 获取更新源 URL'),
 
     -- --------------------------------------------------------
     --  文件上传  /v1/upload
@@ -125,9 +131,14 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     -- --------------------------------------------------------
     --  支付能力（用户侧）  /v1/user/payment
     -- --------------------------------------------------------
+    ('user.payment.channels.get',            1, '', 'GET /v1/user/payment/channels - 获取可用支付渠道'),
     ('user.payment.orders.pro-month.create', 1, '', 'POST /v1/user/payment/orders/pro-month - 创建 Pro 月付订单'),
+    ('user.payment.orders.agent-recharge.create', 1, '', 'POST /v1/user/payment/orders/agent-recharge - 创建余额充值订单'),
+    ('user.payment.agent.balance.get',       1, '', 'GET /v1/user/payment/agent/balance - 查询 Agent 对话余额'),
     ('user.payment.pricing.pro-month.get',   1, '', 'GET /v1/user/payment/pricing/pro-month - 获取 Pro 月付定价与权益'),
     ('user.payment.orders.detail.get',       1, '', 'GET /v1/user/payment/orders/{outTradeNo} - 获取订单详情'),
+    ('user.payment.orders.list',             1, '', 'GET /v1/user/payment/orders - 获取用户订单列表'),
+    ('user.payment.orders.close',            1, '', 'POST /v1/user/payment/orders/{outTradeNo}/close - 关闭订单'),
 
     -- --------------------------------------------------------
     --  支付回调（三方通知）  /v1/payment
@@ -140,4 +151,55 @@ INSERT IGNORE INTO service_status (api_name, status, message, remark) VALUES
     -- --------------------------------------------------------
     ('service-status.get',          1, '', 'GET /v1/service-status - 获取单个接口状态'),
     ('service-status.list',         1, '', 'GET /v1/service-status/list - 获取所有接口状态'),
-    ('service-status.update',       1, '', 'PUT /v1/service-status - 更新接口状态');
+    ('service-status.update',       1, '', 'PUT /v1/service-status - 更新接口状态'),
+
+    -- --------------------------------------------------------
+    --  Agent 管理（管理员侧）  /v1/admin/agent
+    -- --------------------------------------------------------
+    ('admin.agent.model-pricing.list',       1, '', 'GET /v1/admin/agent/model-pricing - 查询全部模型定价'),
+    ('admin.agent.model-pricing.upsert',     1, '', 'PUT /v1/admin/agent/model-pricing - 新增或更新模型定价'),
+    ('admin.agent.model-pricing.delete',     1, '', 'DELETE /v1/admin/agent/model-pricing - 删除模型定价'),
+    ('admin.agent.service-enabled.get',      1, '', 'GET /v1/admin/agent/service-enabled - 查询 Agent 服务开关状态'),
+    ('admin.agent.service-enabled.update',   1, '', 'PUT /v1/admin/agent/service-enabled - 设置 Agent 服务开关'),
+    ('admin.agent.billing-dlq.list',         1, '', 'GET /v1/admin/agent/billing-dlq - 查询计费 DLQ 异常记录'),
+    ('admin.agent.billing-dlq.resolve',      1, '', 'PUT /v1/admin/agent/billing-dlq/{id}/resolve - 处理 DLQ 记录'),
+    ('admin.agent.billing-dlq.pending-count', 1, '', 'GET /v1/admin/agent/billing-dlq/pending-count - 查询待处理 DLQ 数量'),
+
+    -- --------------------------------------------------------
+    --  Agent 对话（用户侧）  /v1/user/ai
+    -- --------------------------------------------------------
+    ('user.ai.agent.stream',                 1, '', 'POST /v1/user/ai/agent/stream - Agent 流式会话'),
+    ('user.ai.agent.web-access.resolve',     1, '', 'POST /v1/user/ai/agent/web-access/resolve - Agent 网页访问授权确认'),
+    ('user.ai.agent.local-tool.resolve',     1, '', 'POST /v1/user/ai/agent/local-tool/resolve - Agent 本地工具授权确认'),
+
+    -- --------------------------------------------------------
+    --  公告管理  /v1/announcement
+    -- --------------------------------------------------------
+    ('admin.announcement.get',      1, '', 'GET /v1/admin/announcement - 获取公告配置'),
+    ('admin.announcement.update',   1, '', 'PUT /v1/admin/announcement - 更新公告配置'),
+    ('announcement.current.get',    1, '', 'GET /v1/announcement/current - 获取当前公告'),
+
+    -- --------------------------------------------------------
+    --  问题反馈  /v1/user/feedback & /v1/admin/feedback
+    -- --------------------------------------------------------
+    ('user.feedback.submit',        1, '', 'POST /v1/user/feedback/submit - 提交问题反馈'),
+    ('user.feedback.mine',          1, '', 'GET /v1/user/feedback/mine - 获取我的反馈列表'),
+    ('admin.feedback.list',         1, '', 'GET /v1/admin/feedback - 管理端反馈列表'),
+    ('admin.feedback.resolve',      1, '', 'PUT /v1/admin/feedback/resolve - 处理反馈'),
+
+    -- --------------------------------------------------------
+    --  天气服务  /v1/user/weather & /v1/admin/weather
+    -- --------------------------------------------------------
+    ('user.weather.daily-3d',       1, '', 'GET /v1/user/weather/daily-3d - 获取 3 天天气预报'),
+    ('user.weather.alerts',         1, '', 'GET /v1/user/weather/alerts - 获取当前天气预警'),
+    ('admin.weather.quota',         1, '', 'GET /v1/admin/weather/quota - 查询天气 API 月度配额'),
+
+    -- --------------------------------------------------------
+    --  邮件 DLQ（管理员侧）  /v1/admin/email
+    -- --------------------------------------------------------
+    ('admin.email.notify-dlq',      1, '', 'GET /v1/admin/email/notify-dlq - 管理端邮件死信列表'),
+
+    -- --------------------------------------------------------
+    --  Agent 服务总开关（非 API 端点，用于管理员开关 Agent 服务）
+    -- --------------------------------------------------------
+    ('agent-service',               1, '', 'Agent 服务总开关 - 关闭后所有用户 Agent 对话请求将被拒绝');
