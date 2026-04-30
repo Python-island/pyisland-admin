@@ -70,8 +70,8 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        ChatStreamListener streamListener,
                        TokenUsageAccumulator usageAccumulator) {
         ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
-        // thinking 开启时 LangChain4j 不支持 DeepSeek thinking API 参数，走原生 HTTP 调用
-        if (safeRequestOptions.thinkingEnabled()) {
+        // thinking 开启 或 streamListener 非空时，走原生 HTTP 调用（支持流式推送）
+        if (safeRequestOptions.thinkingEnabled() || streamListener != null) {
             return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions, streamListener, usageAccumulator);
         }
         OpenAiChatModel modelClient = buildModelClient(requestOptions);
@@ -220,8 +220,10 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             if (useStream) {
                 payload.put("stream_options", Map.of("include_usage", true));
             }
-            payload.put("thinking", Map.of("type", "enabled"));
-            payload.put("reasoning_effort", effort);
+            if (requestOptions != null && requestOptions.thinkingEnabled()) {
+                payload.put("thinking", Map.of("type", "enabled"));
+                payload.put("reasoning_effort", effort);
+            }
             String requestBody = OBJECT_MAPPER.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(120))

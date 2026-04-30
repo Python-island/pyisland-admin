@@ -101,9 +101,10 @@ public class MihtnelisAgentOrchestratorService {
                 new AgentToolExecutionService.ExecutionContext(username, clientIp, toolExecutionObserver);
         List<ToolInvocationTrace> traces = new java.util.ArrayList<>();
 
-        // LangChain4j 的 AiServices 多轮对话不支持 DeepSeek reasoning_content 回传，
-        // 开启 thinking 时退回 ReAct 单轮模式以规避该限制。
-        if (chatGatewayService.supportsNativeToolCalling() && !chatRequestOptions.thinkingEnabled()) {
+        // LangChain4j 的 AiServices 多轮对话不支持流式推送，
+        // 仅在无流式观察者时走 native tool calling 快捷路径。
+        if (chatGatewayService.supportsNativeToolCalling() && !chatRequestOptions.thinkingEnabled()
+                && toolExecutionObserver == null) {
             String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(proUser, workspaces, skills);
             String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider);
             String answer = chatGatewayService.chatWithNativeTools(
@@ -128,7 +129,7 @@ public class MihtnelisAgentOrchestratorService {
 
         // 构建流式监听器：实时解析 JSON 信封，只提取 answer 值推送给客户端
         AgentChatGatewayService.ChatStreamListener streamListener =
-                (chatRequestOptions.thinkingEnabled() && toolExecutionObserver != null)
+                (toolExecutionObserver != null)
                         ? new AgentChatGatewayService.ChatStreamListener() {
                             private final StringBuilder cBuf = new StringBuilder();
                             private boolean answerMode = false;
