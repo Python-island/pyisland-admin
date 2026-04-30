@@ -173,6 +173,8 @@ public class MihtnelisAgentOrchestratorService {
     }
 
     private static final Pattern MARKDOWN_CODE_BLOCK_PATTERN = Pattern.compile("```(?:json)?\s*\n?(.*?)\n?\s*```", Pattern.DOTALL);
+    private static final Pattern FINAL_ANSWER_REGEX =
+            Pattern.compile("\\{\\s*\"type\"\\s*:\\s*\"final\"\\s*,\\s*\"answer\"\\s*:\\s*\"", Pattern.DOTALL);
 
     private ReActDecision parseDecision(String llmOutput) {
         String output = AgentStringUtils.trimToDefault(llmOutput, "");
@@ -226,6 +228,11 @@ public class MihtnelisAgentOrchestratorService {
                 // try next candidate
             }
         }
+        // 正则回退：当 Jackson 全部失败时，用正则直接提取 answer 字段
+        String regexAnswer = regexExtractFinalAnswer(normalizedOutput);
+        if (regexAnswer != null && !regexAnswer.isBlank()) {
+            return ReActDecision.finalAnswer(regexAnswer);
+        }
         // 最终 fallback：去除残留的 JSON 信封，只保留自然语言
         String cleaned = stripJsonEnvelopes(normalizedOutput);
         return ReActDecision.finalAnswer(cleaned);
@@ -265,9 +272,49 @@ public class MihtnelisAgentOrchestratorService {
                 String answer = AgentStringUtils.trimToDefault(AgentStringUtils.toStringValue(payload.get("answer")), "");
                 if (!answer.isBlank()) return answer;
             } catch (Exception ignored) { }
-            // JSON 解析失败时不移除花括号内容（可能是代码中的花括号），直接返回原文
+            // Jackson 失败 → 正则回退
+            String regexAnswer = regexExtractFinalAnswer(text);
+            if (regexAnswer != null && !regexAnswer.isBlank()) return regexAnswer;
         }
         return text;
+    }
+
+    /**
+     * 正则回退提取 {"type":"final","answer":"..."} 中的 answer 内容。
+     * 当 Jackson 因 answer 字段内含未转义的控制字符而解析失败时使用。
+     */
+    private String regexExtractFinalAnswer(String source) {
+        if (source == null || source.isBlank()) return null;
+        Matcher matcher = FINAL_ANSWER_REGEX.matcher(source);
+        if (!matcher.find()) return null;
+        int contentStart = matcher.end();
+        int closingQuote = -1;
+        for (int i = source.length() - 1; i > contentStart; i--) {
+            char c = source.charAt(i);
+            if (c == '}') continue;
+            if (c == '\n' || c == '\r' || c == ' ' || c == '\t') continue;
+            if (c == '"') {
+                int backslashCount = 0;
+                for (int j = i - 1; j >= contentStart; j--) {
+                    if (source.charAt(j) == '\\') backslashCount++;
+                    else break;
+                }
+                if (backslashCount % 2 == 0) {
+                    closingQuote = i;
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        if (closingQuote <= contentStart) return null;
+        String raw = source.substring(contentStart, closingQuote);
+        return raw.replace("\\n", "\n")
+                  .replace("\\r", "\r")
+                  .replace("\\t", "\t")
+                  .replace("\\\"", "\"")
+                  .replace("\\\\", "\\")
+                  .trim();
     }
 
     private String stripThinkBlocks(String text) {

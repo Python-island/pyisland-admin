@@ -593,6 +593,9 @@ public class MihtnelisAgentStreamService {
         return cleaned.trim();
     }
 
+    private static final Pattern FINAL_ANSWER_REGEX =
+            Pattern.compile("\\{\\s*\"type\"\\s*:\\s*\"final\"\\s*,\\s*\"answer\"\\s*:\\s*\"", Pattern.DOTALL);
+
     private String unwrapFinalEnvelope(String answer) {
         String source = answer == null ? "" : answer.trim();
         if (source.isBlank()) {
@@ -640,7 +643,57 @@ public class MihtnelisAgentStreamService {
                 } catch (Exception ignored) { }
             }
         }
+        // 正则回退：当 JSON 解析全部失败时（answer 内含未转义的控制字符），
+        // 通过匹配 {"type":"final","answer":"  开头，从右侧剥离末尾的 "} 来提取。
+        String regexExtracted = regexExtractFinalAnswer(source);
+        if (regexExtracted != null) {
+            return regexExtracted;
+        }
         return source;
+    }
+
+    /**
+     * 正则回退提取 final answer —— 当标准 JSON 解析失败时使用。
+     * 匹配 {"type":"final","answer":" 开头，然后取到最后的 "} 之间的内容。
+     */
+    private String regexExtractFinalAnswer(String source) {
+        Matcher matcher = FINAL_ANSWER_REGEX.matcher(source);
+        if (!matcher.find()) {
+            return null;
+        }
+        int contentStart = matcher.end();
+        // 从末尾向前找最后一个 "} 或 "\n} 作为结束标记
+        int closingQuote = -1;
+        for (int i = source.length() - 1; i > contentStart; i--) {
+            char c = source.charAt(i);
+            if (c == '}') continue;
+            if (c == '\n' || c == '\r' || c == ' ' || c == '\t') continue;
+            if (c == '"') {
+                // 确保不是转义的引号
+                int backslashCount = 0;
+                for (int j = i - 1; j >= contentStart; j--) {
+                    if (source.charAt(j) == '\\') backslashCount++;
+                    else break;
+                }
+                if (backslashCount % 2 == 0) {
+                    closingQuote = i;
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        if (closingQuote <= contentStart) {
+            return null;
+        }
+        String raw = source.substring(contentStart, closingQuote);
+        // 反转义基本 JSON 转义序列
+        return raw.replace("\\n", "\n")
+                  .replace("\\r", "\r")
+                  .replace("\\t", "\t")
+                  .replace("\\\"", "\"")
+                  .replace("\\\\", "\\")
+                  .trim();
     }
 
     private int estimateTokenDelta(String text) {
