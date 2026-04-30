@@ -1,5 +1,7 @@
 package com.pyisland.server.agent.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pyisland.server.agent.config.MihtnelisAgentProperties;
 import com.pyisland.server.agent.utils.AgentStringUtils;
 import dev.langchain4j.agent.tool.P;
@@ -14,6 +16,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +34,10 @@ import java.util.Map;
 public class LangChain4jChatGatewayService implements AgentChatGatewayService {
 
     private static final Logger log = LoggerFactory.getLogger(LangChain4jChatGatewayService.class);
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .build();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final MihtnelisAgentProperties properties;
 
@@ -38,12 +50,16 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions) {
-        OpenAiChatModel modelClient = buildModelClient(requestOptions);
         ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
+        // thinking 开启时 LangChain4j 不支持 DeepSeek thinking API 参数，走原生 HTTP 调用
+        if (safeRequestOptions.thinkingEnabled()) {
+            return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions);
+        }
+        OpenAiChatModel modelClient = buildModelClient(requestOptions);
         String prompt = "System:\n"
                 + AgentStringUtils.trimToEmpty(systemPrompt)
                 + "\n\nUser:\n"
-                + appendThinkingHint(userPrompt, safeRequestOptions);
+                + AgentStringUtils.trimToEmpty(userPrompt);
         try {
             String text = AgentStringUtils.trimToEmpty(modelClient.generate(prompt));
             if (text.isBlank()) {
@@ -76,7 +92,6 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                       AgentToolExecutionService.ExecutionContext context,
                                       ChatRequestOptions requestOptions) {
         OpenAiChatModel modelClient = buildModelClient(requestOptions);
-        ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
         NativeToolBridge toolBridge = new NativeToolBridge(toolExecutionService, proUser, context);
         NativeToolAssistant assistant = AiServices.builder(NativeToolAssistant.class)
                 .chatLanguageModel(modelClient)
@@ -85,7 +100,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         try {
             String result = AgentStringUtils.trimToEmpty(assistant.chat(
                     AgentStringUtils.trimToEmpty(systemPrompt),
-                    appendThinkingHint(userPrompt, safeRequestOptions)
+                    AgentStringUtils.trimToEmpty(userPrompt)
             ));
             if (result.isBlank()) {
                 throw new IllegalStateException("DeepSeek returned blank text");
@@ -148,13 +163,106 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort, requestOptions.model());
     }
 
-    private String appendThinkingHint(String userPrompt, ChatRequestOptions requestOptions) {
-        String safePrompt = AgentStringUtils.trimToEmpty(userPrompt);
-        String effort = requestOptions == null ? "medium" : requestOptions.reasoningEffort();
-        boolean thinkingEnabled = requestOptions != null && requestOptions.thinkingEnabled();
-        return safePrompt
-                + "\n\n[deepseek_options] thinking=" + thinkingEnabled
-                + ", reasoning_effort=" + AgentStringUtils.trimToDefault(effort, "medium");
+    /**
+     * thinking 开启时，绕过 LangChain4j，直接用原生 HTTP 调用 DeepSeek API，
+     * 以正确设置 thinking / reasoning_effort 参数并解析 reasoning_content。
+     */
+    private String chatWithThinkingHttp(String provider,
+                                        String systemPrompt,
+                                        String userPrompt,
+                                        ChatRequestOptions requestOptions) {
+        MihtnelisAgentProperties.Provider cfg = resolveProvider();
+        if (cfg == null || !cfg.isEnabled()) {
+            throw new IllegalStateException("DeepSeek provider is disabled");
+        }
+        String baseUrl = AgentStringUtils.trimTrailingSlash(cfg.getBaseUrl());
+        String apiKey = AgentStringUtils.trimToEmpty(cfg.getApiKey());
+        String clientModel = requestOptions == null ? "" : AgentStringUtils.trimToEmpty(requestOptions.model());
+        String model = clientModel.isBlank() ? AgentStringUtils.trimToEmpty(cfg.getModel()) : clientModel;
+        String effort = requestOptions == null
+                ? "medium"
+                : AgentStringUtils.trimToDefault(requestOptions.reasoningEffort(), "medium");
+        try {
+            String url = resolveCompletionsUrl(baseUrl);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("model", model);
+            payload.put("messages", new Object[]{
+                    Map.of("role", "system", "content", AgentStringUtils.trimToEmpty(systemPrompt)),
+                    Map.of("role", "user", "content", AgentStringUtils.trimToEmpty(userPrompt))
+            });
+            payload.put("temperature", 0.2);
+            payload.put("stream", false);
+            payload.put("thinking", Map.of("type", "enabled"));
+            payload.put("reasoning_effort", effort);
+            String requestBody = OBJECT_MAPPER.writeValueAsString(payload);
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(60))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+                    .build();
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(response.body()));
+            }
+            JsonNode root = OBJECT_MAPPER.readTree(response.body());
+            JsonNode messageNode = root.path("choices").isArray() && !root.path("choices").isEmpty()
+                    ? root.path("choices").get(0).path("message")
+                    : OBJECT_MAPPER.createObjectNode();
+            String content = extractNodeText(messageNode.path("content"));
+            String reasoningContent = extractNodeText(messageNode.path("reasoning_content"));
+            if (content.isBlank() && !reasoningContent.isBlank()) {
+                content = extractNodeText(root.path("content"));
+            }
+            if (content.isBlank() && reasoningContent.isBlank()) {
+                throw new IllegalStateException("DeepSeek returned blank text");
+            }
+            if (!reasoningContent.isBlank()) {
+                return "<think>" + reasoningContent + "</think>\n" + content;
+            }
+            return content;
+        } catch (Exception exception) {
+            log.warn("mihtnelis deepseek thinking-http invoke failed, provider={}, baseUrl={}, model={}, reason={}",
+                    AgentStringUtils.trimToEmpty(provider), baseUrl, model, exception.getMessage());
+            throw new IllegalStateException("DeepSeek invoke failed: " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
+        }
+    }
+
+    private String resolveCompletionsUrl(String baseUrl) {
+        String safeBaseUrl = AgentStringUtils.trimTrailingSlash(baseUrl);
+        if (safeBaseUrl.endsWith("/chat/completions") || safeBaseUrl.endsWith("/v1/chat/completions")) {
+            return safeBaseUrl;
+        }
+        if (safeBaseUrl.endsWith("/v1")) {
+            return safeBaseUrl + "/chat/completions";
+        }
+        return safeBaseUrl + "/v1/chat/completions";
+    }
+
+    private String extractNodeText(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return "";
+        }
+        if (node.isTextual()) {
+            return AgentStringUtils.trimToEmpty(node.asText());
+        }
+        if (node.isArray()) {
+            StringBuilder builder = new StringBuilder();
+            for (JsonNode child : node) {
+                String text = extractNodeText(child.path("text"));
+                if (text.isBlank()) {
+                    text = extractNodeText(child);
+                }
+                if (!text.isBlank()) {
+                    if (!builder.isEmpty()) {
+                        builder.append('\n');
+                    }
+                    builder.append(text);
+                }
+            }
+            return AgentStringUtils.trimToEmpty(builder.toString());
+        }
+        return "";
     }
 
     private interface NativeToolAssistant {

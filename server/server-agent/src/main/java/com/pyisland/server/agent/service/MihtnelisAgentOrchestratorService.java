@@ -101,7 +101,9 @@ public class MihtnelisAgentOrchestratorService {
                 new AgentToolExecutionService.ExecutionContext(username, clientIp, toolExecutionObserver);
         List<ToolInvocationTrace> traces = new java.util.ArrayList<>();
 
-        if (chatGatewayService.supportsNativeToolCalling()) {
+        // LangChain4j 的 AiServices 多轮对话不支持 DeepSeek reasoning_content 回传，
+        // 开启 thinking 时退回 ReAct 单轮模式以规避该限制。
+        if (chatGatewayService.supportsNativeToolCalling() && !chatRequestOptions.thinkingEnabled()) {
             String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(proUser, workspaces, skills);
             String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider);
             String answer = chatGatewayService.chatWithNativeTools(
