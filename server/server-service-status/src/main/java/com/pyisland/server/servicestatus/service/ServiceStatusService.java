@@ -31,7 +31,7 @@ public class ServiceStatusService {
      * @param apiName 接口名称。
      * @return 接口状态。
      */
-    @Cacheable(cacheNames = "service-status", key = "#apiName")
+    @Cacheable(cacheNames = "service-status", key = "#apiName", unless = "#result == null")
     public ServiceStatus getByApiName(String apiName) {
         return serviceStatusMapper.selectByApiName(apiName);
     }
