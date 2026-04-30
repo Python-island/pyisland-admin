@@ -49,6 +49,8 @@ export default function AppUserEdit() {
 
   const [email, setEmail] = useState("");
   const [createdAt, setCreatedAt] = useState("");
+  const [balanceYuan, setBalanceYuan] = useState("");
+  const [balanceSubmitting, setBalanceSubmitting] = useState(false);
   const [gender, setGender] = useState<Gender>("undisclosed");
   const [genderCustom, setGenderCustom] = useState("");
   const [birthday, setBirthday] = useState("");
@@ -91,6 +93,8 @@ export default function AppUserEdit() {
           setAvatarFile(null);
           setPassword("");
           setConfirmPwd("");
+          const fen = typeof res.data.balanceFen === "number" ? res.data.balanceFen : 0;
+          setBalanceYuan((fen / 100).toFixed(2));
         } else {
           showMsg(res.message || "获取用户信息失败", "err");
         }
@@ -340,6 +344,72 @@ export default function AppUserEdit() {
                 disabled={!password}
                 style={password ? inputStyle : readonlyStyle}
               />
+            </div>
+
+            <div
+              style={{
+                marginBottom: 24,
+                padding: 20,
+                backgroundColor: "var(--apple-surface-2)",
+                borderRadius: 10,
+              }}
+            >
+              <label style={labelStyle}>用户余额（元）</label>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={balanceYuan}
+                  onChange={(e) => setBalanceYuan(e.target.value)}
+                  placeholder="0.00"
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  disabled={balanceSubmitting}
+                  className={balanceSubmitting ? "" : "cursor-pointer"}
+                  onClick={async () => {
+                    const yuan = parseFloat(balanceYuan);
+                    if (isNaN(yuan) || yuan < 0) {
+                      showMsg("余额不能为负数", "err");
+                      return;
+                    }
+                    const fen = Math.round(yuan * 100);
+                    setBalanceSubmitting(true);
+                    try {
+                      const res = await appUsers.updateBalance(selected, fen);
+                      if (res.code === 200) {
+                        showMsg("余额已更新");
+                        setBalanceYuan((fen / 100).toFixed(2));
+                      } else {
+                        showMsg(res.message || "更新余额失败", "err");
+                      }
+                    } catch {
+                      showMsg("更新余额失败", "err");
+                    } finally {
+                      setBalanceSubmitting(false);
+                    }
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: balanceSubmitting ? "rgba(52,199,89,0.5)" : "#34c759",
+                    color: "#ffffff",
+                    borderRadius: 980,
+                    border: "none",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    whiteSpace: "nowrap",
+                    cursor: balanceSubmitting ? "not-allowed" : "pointer",
+                    transition: "background-color 0.15s",
+                  }}
+                >
+                  {balanceSubmitting ? "保存中..." : "保存余额"}
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 6 }}>
+                直接设置该用户的 Agent 对话余额，单位：元
+              </div>
             </div>
 
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 16 }}>

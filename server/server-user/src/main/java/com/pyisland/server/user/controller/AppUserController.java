@@ -242,6 +242,7 @@ public class AppUserController {
         data.put("gender", user.getGender() != null ? user.getGender() : GenderPolicy.DEFAULT);
         data.put("genderCustom", user.getGenderCustom());
         data.put("birthday", user.getBirthday() != null ? user.getBirthday().toString() : null);
+        data.put("balanceFen", user.getBalanceFen() != null ? user.getBalanceFen() : java.math.BigDecimal.ZERO);
         data.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
         return ResponseEntity.ok(Map.of(
                 "code", 200,
@@ -294,6 +295,53 @@ public class AppUserController {
                 "code", 200,
                 "message", "更新成功"
         ));
+    }
+
+    /**
+     * 管理员设置用户余额。
+     * @param request 设置余额请求。
+     * @return 更新结果。
+     */
+    @PutMapping("/balance")
+    public ResponseEntity<?> setBalance(@RequestBody SetBalanceRequest request) {
+        if (request.username() == null || request.username().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "用户名不能为空"
+            ));
+        }
+        User user = userService.getByUsername(request.username());
+        if (user == null || !isAppManagedRole(user.getRole())) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "code", 404,
+                    "message", "用户不存在"
+            ));
+        }
+        if (request.balanceFen() == null || request.balanceFen().compareTo(java.math.BigDecimal.ZERO) < 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "余额不能为负数"
+            ));
+        }
+        boolean ok = userService.setBalanceFen(request.username(), request.balanceFen());
+        if (!ok) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "code", 500,
+                    "message", "设置余额失败"
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "余额已更新"
+        ));
+    }
+
+    /**
+     * 设置余额请求体。
+     * @param username 用户名。
+     * @param balanceFen 新余额（分）。
+     */
+    public record SetBalanceRequest(String username, java.math.BigDecimal balanceFen) {
     }
 
     /**

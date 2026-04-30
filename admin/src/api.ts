@@ -159,6 +159,7 @@ export interface AppUserProfileData {
   gender?: Gender;
   genderCustom?: string | null;
   birthday?: string | null;
+  balanceFen?: number;
   createdAt: string;
 }
 
@@ -834,6 +835,13 @@ export const appUsers = {
         genderCustom: extras?.genderCustom,
         birthday: extras?.birthday,
       }),
+    });
+  },
+
+  updateBalance(username: string, balanceFen: number) {
+    return request<ApiResponse>("/v1/app-users/balance", {
+      method: "PUT",
+      body: JSON.stringify({ username, balanceFen }),
     });
   },
 };

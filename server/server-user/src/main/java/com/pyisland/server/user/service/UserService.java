@@ -337,6 +337,24 @@ public class UserService {
     }
 
     /**
+     * 直接设置用户余额（管理员操作）。
+     * @param username 用户名。
+     * @param balanceFen 新余额（分）。
+     * @return 是否成功。
+     */
+    @Transactional
+    public boolean setBalanceFen(String username, java.math.BigDecimal balanceFen) {
+        if (username == null || username.isBlank() || balanceFen == null || balanceFen.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            return false;
+        }
+        int rows = userMapper.setBalanceFen(username, balanceFen);
+        if (rows > 0) {
+            eventPublisher.publishEvent(new ProBalanceGrantEvent(this, username));
+        }
+        return rows > 0;
+    }
+
+    /**
      * 自动降级已过期 Pro 用户。
      * @param now 当前时间。
      * @return 降级数量。

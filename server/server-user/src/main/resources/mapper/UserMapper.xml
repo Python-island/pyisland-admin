@@ -186,6 +186,12 @@
         WHERE username = #{username}
     </update>
 
+    <update id="setBalanceFen">
+        UPDATE user_account
+        SET balance_fen = #{balanceFen}
+        WHERE username = #{username}
+    </update>
+
     <select id="selectUsersWithPositiveBalance" resultMap="UserResultMap">
         SELECT <include refid="baseColumns"/>
         FROM user_account
