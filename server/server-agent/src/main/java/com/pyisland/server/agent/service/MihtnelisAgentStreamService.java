@@ -85,10 +85,12 @@ public class MihtnelisAgentStreamService {
                     : request.provider().trim();
             boolean thinkingEnabled = resolveThinkingEnabled(request);
             String reasoningEffort = resolveReasoningEffort(request);
+            String model = request == null || request.model() == null ? null : request.model().trim();
             MihtnelisStreamRequest effectiveRequest = new MihtnelisStreamRequest(
                     normalizeSessionId(request),
                     userPrompt,
                     provider,
+                    model,
                     context,
                     request == null ? null : request.workspaces(),
                     request == null ? null : request.skills(),
@@ -733,6 +735,7 @@ public class MihtnelisAgentStreamService {
     public record MihtnelisStreamRequest(String sessionId,
                                          String message,
                                          String provider,
+                                         String model,
                                          String context,
                                          java.util.List<String> workspaces,
                                          java.util.List<SkillEntry> skills,

@@ -38,7 +38,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions) {
-        OpenAiChatModel modelClient = buildModelClient();
+        OpenAiChatModel modelClient = buildModelClient(requestOptions);
         ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
         String prompt = "System:\n"
                 + AgentStringUtils.trimToEmpty(systemPrompt)
@@ -75,7 +75,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                       boolean proUser,
                                       AgentToolExecutionService.ExecutionContext context,
                                       ChatRequestOptions requestOptions) {
-        OpenAiChatModel modelClient = buildModelClient();
+        OpenAiChatModel modelClient = buildModelClient(requestOptions);
         ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
         NativeToolBridge toolBridge = new NativeToolBridge(toolExecutionService, proUser, context);
         NativeToolAssistant assistant = AiServices.builder(NativeToolAssistant.class)
@@ -103,14 +103,15 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         }
     }
 
-    private OpenAiChatModel buildModelClient() {
+    private OpenAiChatModel buildModelClient(ChatRequestOptions requestOptions) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
         if (cfg == null || !cfg.isEnabled()) {
             throw new IllegalStateException("DeepSeek provider is disabled");
         }
         String baseUrl = AgentStringUtils.trimTrailingSlash(cfg.getBaseUrl());
         String apiKey = AgentStringUtils.trimToEmpty(cfg.getApiKey());
-        String model = AgentStringUtils.trimToEmpty(cfg.getModel());
+        String clientModel = requestOptions == null ? "" : AgentStringUtils.trimToEmpty(requestOptions.model());
+        String model = clientModel.isBlank() ? AgentStringUtils.trimToEmpty(cfg.getModel()) : clientModel;
         if (baseUrl.isBlank()) {
             throw new IllegalStateException("DeepSeek baseUrl is empty");
         }
@@ -138,13 +139,13 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
 
     private ChatRequestOptions normalizeRequestOptions(ChatRequestOptions requestOptions) {
         if (requestOptions == null) {
-            return new ChatRequestOptions(false, "medium");
+            return new ChatRequestOptions(false, "medium", null);
         }
         String effort = AgentStringUtils.trimToEmpty(requestOptions.reasoningEffort()).toLowerCase();
         if (!"low".equals(effort) && !"high".equals(effort)) {
             effort = "medium";
         }
-        return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort);
+        return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort, requestOptions.model());
     }
 
     private String appendThinkingHint(String userPrompt, ChatRequestOptions requestOptions) {

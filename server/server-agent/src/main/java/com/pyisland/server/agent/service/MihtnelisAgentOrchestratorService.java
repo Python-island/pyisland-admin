@@ -407,7 +407,8 @@ public class MihtnelisAgentOrchestratorService {
         String effectiveReasoningEffort = requestReasoningEffort.isBlank()
                 ? defaultReasoningEffort
                 : normalizeReasoningEffort(requestReasoningEffort);
-        return new AgentChatGatewayService.ChatRequestOptions(effectiveThinking, effectiveReasoningEffort);
+        String effectiveModel = request == null ? "" : AgentStringUtils.trimToEmpty(request.model());
+        return new AgentChatGatewayService.ChatRequestOptions(effectiveThinking, effectiveReasoningEffort, effectiveModel.isBlank() ? null : effectiveModel);
     }
 
     private String normalizeReasoningEffort(String value) {

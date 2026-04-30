@@ -56,7 +56,8 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
         }
         String baseUrl = AgentStringUtils.trimTrailingSlash(cfg.getBaseUrl());
         String apiKey = AgentStringUtils.trimToEmpty(cfg.getApiKey());
-        String model = AgentStringUtils.trimToEmpty(cfg.getModel());
+        String clientModel = requestOptions == null ? "" : AgentStringUtils.trimToEmpty(requestOptions.model());
+        String model = clientModel.isBlank() ? AgentStringUtils.trimToEmpty(cfg.getModel()) : clientModel;
         if (baseUrl.isBlank()) {
             throw new IllegalStateException("DeepSeek baseUrl is empty");
         }
@@ -93,13 +94,13 @@ public class SpringAiChatGatewayService implements AgentChatGatewayService {
 
     private ChatRequestOptions normalizeRequestOptions(ChatRequestOptions requestOptions) {
         if (requestOptions == null) {
-            return new ChatRequestOptions(false, "medium");
+            return new ChatRequestOptions(false, "medium", null);
         }
         String effort = AgentStringUtils.trimToEmpty(requestOptions.reasoningEffort()).toLowerCase();
         if (!"low".equals(effort) && !"high".equals(effort)) {
             effort = "medium";
         }
-        return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort);
+        return new ChatRequestOptions(requestOptions.thinkingEnabled(), effort, requestOptions.model());
     }
 
     private String invokeDeepSeek(String baseUrl,

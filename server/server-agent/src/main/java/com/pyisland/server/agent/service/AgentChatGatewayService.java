@@ -5,7 +5,7 @@ package com.pyisland.server.agent.service;
  */
 public interface AgentChatGatewayService {
 
-    record ChatRequestOptions(boolean thinkingEnabled, String reasoningEffort) {
+    record ChatRequestOptions(boolean thinkingEnabled, String reasoningEffort, String model) {
     }
 
     /**
@@ -19,7 +19,7 @@ public interface AgentChatGatewayService {
     String chat(String provider, String systemPrompt, String userPrompt, ChatRequestOptions requestOptions);
 
     default String chat(String provider, String systemPrompt, String userPrompt) {
-        return chat(provider, systemPrompt, userPrompt, new ChatRequestOptions(false, "medium"));
+        return chat(provider, systemPrompt, userPrompt, new ChatRequestOptions(false, "medium", null));
     }
 
     default boolean supportsNativeToolCalling() {
@@ -49,7 +49,7 @@ public interface AgentChatGatewayService {
                 toolExecutionService,
                 proUser,
                 context,
-                new ChatRequestOptions(false, "medium")
+                new ChatRequestOptions(false, "medium", null)
         );
     }
 }
