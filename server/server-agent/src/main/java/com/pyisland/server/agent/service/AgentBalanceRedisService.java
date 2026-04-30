@@ -30,13 +30,13 @@ public class AgentBalanceRedisService {
     private static final int SCALE = 8;
 
     /**
-     * Lua 脚本：原子扣减。
+     * Lua 脚本：原子扣减（cap-at-zero 语义）。
      * KEYS[1] = balance key
      * ARGV[1] = 扣减金额（字符串，8 位小数）
      * 返回值：
-     *   "-1"  → key 不存在（需要从 DB 初始化）
-     *   "-2"  → 余额不足
-     *   其他  → 扣减后的新余额
+     *   "-1"        → key 不存在（需要从 DB 初始化）
+     *   "-3"        → 余额已为 0，拒绝
+     *   "newBal|deducted" → 扣减成功，余额不足时扣到 0
      */
     private static final String DEDUCT_LUA =
             """
@@ -45,14 +45,16 @@ public class AgentBalanceRedisService {
                 return '-1'
             end
             local current = tonumber(bal)
-            local amount  = tonumber(ARGV[1])
-            if current < amount then
-                return '-2'
+            if current <= 0 then
+                return '-3'
             end
-            local newBal = current - amount
-            local formatted = string.format('%.8f', newBal)
-            redis.call('SET', KEYS[1], formatted)
-            return formatted
+            local amount  = tonumber(ARGV[1])
+            local deducted = math.min(current, amount)
+            local newBal = current - deducted
+            local fmtBal = string.format('%.8f', newBal)
+            local fmtDed = string.format('%.8f', deducted)
+            redis.call('SET', KEYS[1], fmtBal)
+            return fmtBal .. '|' .. fmtDed
             """;
 
     private static final DefaultRedisScript<String> DEDUCT_SCRIPT;
@@ -78,17 +80,29 @@ public class AgentBalanceRedisService {
     }
 
     /**
+     * 扣减结果。
+     *
+     * @param newBalance     扣减后余额。
+     * @param actualDeducted 实际扣减金额（余额不足时可能小于请求金额）。
+     * @param balanceZero    true 表示余额已为 0，本次未扣减。
+     */
+    public record DeductResult(BigDecimal newBalance, BigDecimal actualDeducted, boolean balanceZero) {
+    }
+
+    /**
      * 原子扣减余额（Redis Lua），成功后通过 RabbitMQ 异步落库。
+     * 余额不足时自动扣到 0（cap-at-zero），不会超扣也不会跳过。
+     * 余额已为 0 时拒绝扣减。
      *
      * @param username     用户名。
      * @param amountFen    扣减金额（分，8 位小数）。
      * @param modelName    模型名。
      * @param inputTokens  输入 token 数。
      * @param outputTokens 输出 token 数。
-     * @return 扣减后的新余额；null 表示余额不足。
+     * @return 扣减结果。
      */
-    public BigDecimal deduct(String username, BigDecimal amountFen,
-                             String modelName, int inputTokens, int outputTokens) {
+    public DeductResult deduct(String username, BigDecimal amountFen,
+                               String modelName, int inputTokens, int outputTokens) {
         String key = KEY_PREFIX + username;
         String amountStr = amountFen.setScale(SCALE, RoundingMode.HALF_UP).toPlainString();
 
@@ -100,22 +114,39 @@ public class AgentBalanceRedisService {
                 result = redisTemplate.execute(DEDUCT_SCRIPT, List.of(key), amountStr);
             } else {
                 log.warn("agent billing redis: user not found in DB, username={}", username);
-                return null;
+                return new DeductResult(BigDecimal.ZERO, BigDecimal.ZERO, true);
             }
         }
 
-        if ("-2".equals(result)) {
-            log.warn("agent billing redis: balance insufficient, username={}, amount={}", username, amountStr);
-            return null;
+        if ("-3".equals(result)) {
+            log.warn("agent billing redis: balance is zero, username={}", username);
+            return new DeductResult(BigDecimal.ZERO, BigDecimal.ZERO, true);
         }
 
-        BigDecimal newBalance = new BigDecimal(result).setScale(SCALE, RoundingMode.HALF_UP);
-        log.info("agent billing redis: deducted {} fen from user={}, newBalance={}", amountStr, username, newBalance.toPlainString());
+        // 解析 "newBal|deducted" 格式
+        String[] parts = result != null ? result.split("\\|") : new String[0];
+        if (parts.length < 2) {
+            log.warn("agent billing redis: unexpected result format, username={}, result={}", username, result);
+            return new DeductResult(BigDecimal.ZERO, BigDecimal.ZERO, true);
+        }
+        BigDecimal newBalance = new BigDecimal(parts[0]).setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal actualDeducted = new BigDecimal(parts[1]).setScale(SCALE, RoundingMode.HALF_UP);
 
-        // 通过 RabbitMQ 异步落库
-        publishDeductMessage(username, amountStr, modelName, inputTokens, outputTokens);
+        log.info("agent billing redis: deducted {} fen (requested {}) from user={}, newBalance={}",
+                actualDeducted.toPlainString(), amountStr, username, newBalance.toPlainString());
 
-        return newBalance;
+        // 通过 RabbitMQ 异步落库（使用实际扣减金额）
+        publishDeductMessage(username, actualDeducted.toPlainString(), modelName, inputTokens, outputTokens);
+
+        return new DeductResult(newBalance, actualDeducted, false);
+    }
+
+    /**
+     * 检查用户余额是否为 0（用于请求前预检）。
+     */
+    public boolean isBalanceZero(String username) {
+        BigDecimal balance = getBalance(username);
+        return balance.compareTo(BigDecimal.ZERO) <= 0;
     }
 
     /**

@@ -175,9 +175,9 @@
 
     <update id="deductBalance">
         UPDATE user_account
-        SET balance_fen = balance_fen - #{amountFen}
+        SET balance_fen = GREATEST(balance_fen - #{amountFen}, 0)
         WHERE username = #{username}
-          AND balance_fen >= #{amountFen}
+          AND balance_fen > 0
     </update>
 
     <select id="selectUsersWithPositiveBalance" resultMap="UserResultMap">

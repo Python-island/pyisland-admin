@@ -47,6 +47,7 @@ public class MihtnelisAgentStreamService {
     private final AgentWebAuthorizationService webAuthorizationService;
     private final AgentLocalToolRelayService localToolRelayService;
     private final AgentModelPricingService modelPricingService;
+    private final AgentBalanceRedisService balanceRedisService;
 
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "mihtnelis-stream");
@@ -58,12 +59,14 @@ public class MihtnelisAgentStreamService {
                                        MihtnelisAgentOrchestratorService orchestratorService,
                                        AgentWebAuthorizationService webAuthorizationService,
                                        AgentLocalToolRelayService localToolRelayService,
-                                       AgentModelPricingService modelPricingService) {
+                                       AgentModelPricingService modelPricingService,
+                                       AgentBalanceRedisService balanceRedisService) {
         this.properties = properties;
         this.orchestratorService = orchestratorService;
         this.webAuthorizationService = webAuthorizationService;
         this.localToolRelayService = localToolRelayService;
         this.modelPricingService = modelPricingService;
+        this.balanceRedisService = balanceRedisService;
     }
 
     /**
@@ -259,6 +262,16 @@ public class MihtnelisAgentStreamService {
                             ));
                         }
                     };
+
+            // 余额预检：余额为 0 直接拒绝
+            if (balanceRedisService.isBalanceZero(username)) {
+                sendEvent(emitter, "error", Map.of(
+                        "code", "BALANCE_ZERO",
+                        "message", "余额不足，请充值后再使用 AI 助手"
+                ));
+                emitter.complete();
+                return;
+            }
 
             // 立即发送 meta 事件，让客户端获得即时反馈
             Map<String, Object> metaPayload = new LinkedHashMap<>();

@@ -135,14 +135,15 @@ public class AgentModelPricingService {
         if (costFen.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        BigDecimal newBalance = balanceRedisService.deduct(username.trim(), costFen, modelName.trim(), inputTokens, outputTokens);
-        if (newBalance == null) {
-            log.warn("agent billing: balance insufficient for user={}, model={}, costFen={}", username, modelName, costFen);
+        AgentBalanceRedisService.DeductResult deductResult = balanceRedisService.deduct(username.trim(), costFen, modelName.trim(), inputTokens, outputTokens);
+        if (deductResult.balanceZero()) {
+            log.warn("agent billing: balance is zero for user={}, model={}, costFen={}", username, modelName, costFen);
             return BigDecimal.valueOf(-1);
         }
-        log.info("agent billing: deducted {} fen from user={}, model={}, inputTokens={}, outputTokens={}",
-                costFen.toPlainString(), username, modelName, inputTokens, outputTokens);
-        return costFen;
+        BigDecimal actualDeducted = deductResult.actualDeducted();
+        log.info("agent billing: deducted {} fen (requested {}) from user={}, model={}, inputTokens={}, outputTokens={}",
+                actualDeducted.toPlainString(), costFen.toPlainString(), username, modelName, inputTokens, outputTokens);
+        return actualDeducted;
     }
 
     /**
