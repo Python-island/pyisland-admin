@@ -1,6 +1,8 @@
 package com.pyisland.server.agent.controller;
 
 import com.pyisland.server.agent.service.AgentModelPricingService;
+import com.pyisland.server.servicestatus.entity.ServiceStatus;
+import com.pyisland.server.servicestatus.service.ServiceStatusService;
 import com.pyisland.server.user.entity.AgentBillingDlqLog;
 import com.pyisland.server.user.entity.AgentModelPricing;
 import com.pyisland.server.user.mapper.AgentBillingDlqLogMapper;
@@ -22,13 +24,19 @@ import java.util.Map;
 @PreAuthorize("hasRole('ADMIN')")
 public class AgentAdminController {
 
+    /** service_status 表中 Agent 服务开关对应的 apiName 常量。 */
+    public static final String AGENT_SERVICE_API_NAME = "agent-service";
+
     private final AgentModelPricingService pricingService;
     private final AgentBillingDlqLogMapper dlqLogMapper;
+    private final ServiceStatusService serviceStatusService;
 
     public AgentAdminController(AgentModelPricingService pricingService,
-                                AgentBillingDlqLogMapper dlqLogMapper) {
+                                AgentBillingDlqLogMapper dlqLogMapper,
+                                ServiceStatusService serviceStatusService) {
         this.pricingService = pricingService;
         this.dlqLogMapper = dlqLogMapper;
+        this.serviceStatusService = serviceStatusService;
     }
 
     /**
@@ -72,6 +80,39 @@ public class AgentAdminController {
         }
         return ResponseEntity.ok(Map.of("code", 200, "message", "删除成功"));
     }
+
+    // ========== Agent 服务开关 ==========
+
+    /**
+     * 查询 Agent 服务是否开启。
+     */
+    @GetMapping("/service-enabled")
+    public ResponseEntity<?> getServiceEnabled() {
+        ServiceStatus ss = serviceStatusService.getByApiName(AGENT_SERVICE_API_NAME);
+        boolean enabled = ss == null || Boolean.TRUE.equals(ss.getStatus());
+        String message = ss != null ? ss.getMessage() : null;
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "ok",
+                "data", Map.of("enabled", enabled, "statusMessage", message != null ? message : "")
+        ));
+    }
+
+    /**
+     * 设置 Agent 服务开关。
+     */
+    @PutMapping("/service-enabled")
+    public ResponseEntity<?> setServiceEnabled(@RequestBody ServiceEnabledRequest request) {
+        boolean enabled = request == null || request.enabled() == null || request.enabled();
+        String msg = request != null && request.message() != null ? request.message().trim() : "";
+        serviceStatusService.updateStatus(AGENT_SERVICE_API_NAME, enabled, msg, "");
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", enabled ? "Agent 服务已开启" : "Agent 服务已关闭"
+        ));
+    }
+
+    private record ServiceEnabledRequest(Boolean enabled, String message) {}
 
     // ========== DLQ 异常记录 ==========
 

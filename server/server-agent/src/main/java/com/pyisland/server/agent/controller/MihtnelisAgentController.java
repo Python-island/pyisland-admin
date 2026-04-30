@@ -3,6 +3,8 @@ package com.pyisland.server.agent.controller;
 import com.pyisland.server.agent.service.AgentWebAuthorizationService;
 import com.pyisland.server.agent.service.AgentLocalToolRelayService;
 import com.pyisland.server.agent.service.MihtnelisAgentStreamService;
+import com.pyisland.server.servicestatus.entity.ServiceStatus;
+import com.pyisland.server.servicestatus.service.ServiceStatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,13 +30,16 @@ public class MihtnelisAgentController {
     private final MihtnelisAgentStreamService streamService;
     private final AgentWebAuthorizationService webAuthorizationService;
     private final AgentLocalToolRelayService localToolRelayService;
+    private final ServiceStatusService serviceStatusService;
 
     public MihtnelisAgentController(MihtnelisAgentStreamService streamService,
                                     AgentWebAuthorizationService webAuthorizationService,
-                                    AgentLocalToolRelayService localToolRelayService) {
+                                    AgentLocalToolRelayService localToolRelayService,
+                                    ServiceStatusService serviceStatusService) {
         this.streamService = streamService;
         this.webAuthorizationService = webAuthorizationService;
         this.localToolRelayService = localToolRelayService;
+        this.serviceStatusService = serviceStatusService;
     }
 
     /**
@@ -50,6 +55,13 @@ public class MihtnelisAgentController {
     public Object stream(Authentication authentication,
                          HttpServletRequest httpRequest,
                          @RequestBody MihtnelisAgentStreamService.MihtnelisStreamRequest request) {
+        ServiceStatus agentStatus = serviceStatusService.getByApiName(AgentAdminController.AGENT_SERVICE_API_NAME);
+        if (agentStatus != null && Boolean.FALSE.equals(agentStatus.getStatus())) {
+            String reason = agentStatus.getMessage() != null && !agentStatus.getMessage().isBlank()
+                    ? agentStatus.getMessage()
+                    : "Agent 服务已暂停，请稍后再试";
+            return deniedEmitter("SERVICE_UNAVAILABLE", reason);
+        }
         String caller = caller(authentication);
         if (caller == null) {
             return deniedEmitter("UNAUTHORIZED", "未登录");

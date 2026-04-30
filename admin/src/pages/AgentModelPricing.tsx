@@ -44,6 +44,12 @@ export default function AgentModelPricing() {
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"ok" | "err">("ok");
 
+  // Agent 服务开关
+  const [serviceEnabled, setServiceEnabled] = useState(true);
+  const [serviceMsg, setServiceMsg] = useState("");
+  const [serviceToggling, setServiceToggling] = useState(false);
+  const [serviceLoading, setServiceLoading] = useState(true);
+
   // form
   const [modelName, setModelName] = useState("");
   const [inputPrice, setInputPrice] = useState(0);
@@ -72,9 +78,56 @@ export default function AgentModelPricing() {
     }
   };
 
+  const fetchServiceEnabled = async () => {
+    setServiceLoading(true);
+    try {
+      const res = await agentAdmin.getServiceEnabled();
+      if (res.code === 200 && res.data) {
+        setServiceEnabled(res.data.enabled);
+        setServiceMsg(res.data.statusMessage || "");
+      }
+    } catch { /* ignore */ }
+    finally { setServiceLoading(false); }
+  };
+
   useEffect(() => {
     fetchList();
+    fetchServiceEnabled();
   }, []);
+
+  const handleToggleService = async () => {
+    setServiceToggling(true);
+    try {
+      const next = !serviceEnabled;
+      const res = await agentAdmin.setServiceEnabled(next, serviceMsg);
+      if (res.code === 200) {
+        setServiceEnabled(next);
+        showMsg(res.message || (next ? "Agent 服务已开启" : "Agent 服务已关闭"));
+      } else {
+        showMsg(res.message || "操作失败", "err");
+      }
+    } catch {
+      showMsg("操作失败", "err");
+    } finally {
+      setServiceToggling(false);
+    }
+  };
+
+  const handleSaveServiceMsg = async () => {
+    setServiceToggling(true);
+    try {
+      const res = await agentAdmin.setServiceEnabled(serviceEnabled, serviceMsg);
+      if (res.code === 200) {
+        showMsg("状态说明已保存");
+      } else {
+        showMsg(res.message || "保存失败", "err");
+      }
+    } catch {
+      showMsg("保存失败", "err");
+    } finally {
+      setServiceToggling(false);
+    }
+  };
 
   const resetForm = () => {
     setModelName("");
@@ -170,6 +223,88 @@ export default function AgentModelPricing() {
       </p>
 
       <MessageDialog visible={!!msg} type={msgType} message={msg} onClose={() => setMsg("")} />
+
+      {/* Agent 服务开关 */}
+      <div style={{ ...cardStyle, marginBottom: 24 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 21,
+              fontWeight: 600,
+              lineHeight: 1.19,
+              letterSpacing: "0.231px",
+              color: "#ffffff",
+            }}
+          >
+            Agent 服务开关
+          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "2px 12px",
+                borderRadius: 980,
+                fontSize: 13,
+                fontWeight: 500,
+                backgroundColor: serviceEnabled ? "rgba(48,209,88,0.16)" : "rgba(255,69,58,0.16)",
+                color: serviceEnabled ? "#30d158" : "#ff453a",
+              }}
+            >
+              {serviceLoading ? "加载中..." : serviceEnabled ? "已开启" : "已关闭"}
+            </span>
+            <button
+              onClick={handleToggleService}
+              disabled={serviceToggling || serviceLoading}
+              className="cursor-pointer"
+              style={{
+                padding: "8px 16px",
+                backgroundColor: serviceEnabled ? "#ff453a" : "#30d158",
+                color: "#fff",
+                borderRadius: 980,
+                border: "none",
+                fontSize: 14,
+                fontWeight: 500,
+                opacity: serviceToggling || serviceLoading ? 0.6 : 1,
+                cursor: serviceToggling || serviceLoading ? "not-allowed" : "pointer",
+                transition: "background-color 0.15s",
+              }}
+            >
+              {serviceToggling ? "操作中..." : serviceEnabled ? "关闭服务" : "开启服务"}
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <input
+            type="text"
+            value={serviceMsg}
+            onChange={(e) => setServiceMsg(e.target.value)}
+            placeholder="状态说明（可选，关闭时将展示给用户）"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button
+            onClick={handleSaveServiceMsg}
+            disabled={serviceToggling}
+            className="cursor-pointer"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "var(--apple-surface-2)",
+              color: "rgba(255,255,255,0.8)",
+              borderRadius: 980,
+              border: "none",
+              fontSize: 14,
+              whiteSpace: "nowrap",
+              opacity: serviceToggling ? 0.6 : 1,
+              cursor: serviceToggling ? "not-allowed" : "pointer",
+            }}
+          >
+            保存说明
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
+          关闭后所有用户的 Agent 对话请求将被拒绝，状态说明内容会展示给用户。
+        </div>
+      </div>
 
       {/* 表单 */}
       <div style={{ ...cardStyle, marginBottom: 24 }}>

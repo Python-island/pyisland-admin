@@ -947,4 +947,15 @@ export const agentAdmin = {
       { method: "DELETE" }
     );
   },
+  getServiceEnabled() {
+    return request<ApiResponse<{ enabled: boolean; statusMessage: string }>>(
+      "/v1/admin/agent/service-enabled"
+    );
+  },
+  setServiceEnabled(enabled: boolean, message?: string) {
+    return request<ApiResponse>("/v1/admin/agent/service-enabled", {
+      method: "PUT",
+      body: JSON.stringify({ enabled, message: message ?? "" }),
+    });
+  },
 };
