@@ -30,7 +30,7 @@ public class LangChainWorkflowService {
          .append("天气：weather.by_city.query、weather.city.lookup、location.by_ip.resolve、weather.query、weather.quota.status\n")
          .append("联网：web.search、web.page.read\n")
          .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
-         .append("命令执行：cmd.exec（CMD）、cmd.powershell（PowerShell，推荐 Windows 环境使用）\n")
+         .append("命令执行：cmd.exec（Windows CMD，cmd.exe）、cmd.powershell（Windows PowerShell，powershell.exe）\n")
          .append("系统信息：sys.info（OS/CPU/内存）、sys.env（环境变量查询）\n")
          .append("任务管理：agent.todo.write\n\n");
 
@@ -40,7 +40,9 @@ public class LangChainWorkflowService {
          .append("- file.append：向文件末尾追加内容（如日志、配置行），无需读取整个文件。\n")
          .append("- file.copy：复制文件或目录（目录自动递归），参数 source、destination。\n")
          .append("- file.rename：重命名或移动文件/目录，高风险需用户授权。参数 oldPath、newPath。\n")
-         .append("- cmd.powershell：Windows 环境推荐使用 PowerShell 代替 cmd.exec，支持更丰富的命令和管道操作。高风险需用户授权。\n")
+         .append("- cmd.exec：通过 cmd.exe /c 执行，仅限 CMD 语法（dir、type、copy、del、set、echo、&&、||）。禁止在此工具中使用 PowerShell cmdlet 或 bash 命令。\n")
+         .append("- cmd.powershell：通过 powershell.exe 执行，仅限 PowerShell 语法（Get-ChildItem、Get-Content、Copy-Item、Remove-Item、$env:、Select-Object、Where-Object 等 cmdlet 和管道）。禁止在此工具中使用 CMD 内部命令（dir、type、del）或 bash 命令（ls、cat、rm）。\n")
+         .append("- **cmd.exec 与 cmd.powershell 严禁混用语法。** 选择工具前先确认命令属于哪种 shell，选错会导致执行失败。优先使用 cmd.powershell，功能更强大。\n")
          .append("- sys.info：获取操作系统、CPU、内存、主机名等系统信息，无需参数。\n")
          .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n\n");
 
@@ -84,8 +86,8 @@ public class LangChainWorkflowService {
         p.append("示例4 - 本地文件搜索：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"file.grep\",\"purpose\":\"在工作区定位 FIXME 以便后续修复\",\"arguments\":{\"path\":\"<workspace_root>\",\"pattern\":\"FIXME\",\"limit\":30}}\n\n");
 
-        p.append("示例5 - 高风险命令（需要明确用途）：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"cmd.exec\",\"purpose\":\"执行 gradle test 复现并定位用户反馈的构建失败\",\"arguments\":{\"command\":\"./gradlew test\",\"cwd\":\"<workspace_root>\"}}\n\n");
+        p.append("示例5 - CMD 命令（cmd.exec，CMD 语法）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"cmd.exec\",\"purpose\":\"使用 CMD 列出工作区根目录文件\",\"arguments\":{\"command\":\"dir /b\",\"cwd\":\"<workspace_root>\"}}\n\n");
 
         p.append("示例6 - 危险操作拒绝：\n")
          .append("{\"type\":\"final\",\"answer\":\"抱歉，出于安全考虑，我只能在你设置的工作区目录内执行文件操作。请确认路径是否在工作区范围内，或前往设置调整工作区。\"}\n\n");
@@ -215,9 +217,14 @@ public class LangChainWorkflowService {
          .append("天气：weatherByCityQuery、weatherCityLookup、locationByIpResolve、weatherQuery、weatherQuotaStatus\n")
          .append("联网：webSearch、webPageRead\n")
          .append("文件：fileList、fileTree、fileExists、fileStat、fileMkdir、fileRead、fileReadLines、fileWrite、fileAppend、fileDelete、fileRename、fileCopy、fileReplace、fileGrep、fileSearch\n")
-         .append("命令：cmdExec（CMD）、cmdPowershell（PowerShell，推荐 Windows 环境使用）\n")
+         .append("命令：cmdExec（Windows CMD，cmd.exe）、cmdPowershell（Windows PowerShell，powershell.exe）\n")
          .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）\n")
          .append("任务：agentTodoWrite\n\n");
+
+        p.append("# CMD 与 PowerShell 严格区分（强制）\n")
+         .append("- cmdExec 通过 cmd.exe /c 执行，仅限 CMD 语法（dir、type、copy、del、set、echo、&&、||）。禁止使用 PowerShell cmdlet 或 bash 命令。\n")
+         .append("- cmdPowershell 通过 powershell.exe 执行，仅限 PowerShell 语法（Get-ChildItem、Get-Content、Copy-Item、Remove-Item、$env:、Select-Object、Where-Object 等 cmdlet 和管道）。禁止使用 CMD 内部命令（dir、type、del）或 bash 命令（ls、cat、rm）。\n")
+         .append("- **两者严禁混用语法，选错 shell 会导致执行失败。优先使用 cmdPowershell，功能更强大。**\n\n");
 
         if (!proUser) {
             p.append("# 权限限制\n非 Pro 用户禁止调用天气相关工具，请求时引导升级 Pro。\n\n");

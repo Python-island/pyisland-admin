@@ -603,7 +603,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("file.delete", arguments);
         }
 
-        @Tool("执行本地命令行，客户端执行")
+        @Tool("通过 Windows CMD (cmd.exe) 执行命令，仅限 CMD 语法（dir/type/copy/del/set/echo），禁止使用 PowerShell cmdlet 或 bash 命令")
         public Map<String, Object> cmdExec(@P("command") String command,
                                            @P("cwd") String cwd,
                                            @P("timeoutMs") Integer timeoutMs) {
@@ -710,7 +710,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("file.replace", arguments);
         }
 
-        @Tool("执行 PowerShell 命令（Windows），客户端执行")
+        @Tool("通过 Windows PowerShell (powershell.exe) 执行命令，仅限 PowerShell 语法（Get-ChildItem/Get-Content/Copy-Item 等 cmdlet），禁止使用 CMD 内部命令或 bash 命令")
         public Map<String, Object> cmdPowershell(@P("command") String command,
                                                   @P("cwd") String cwd,
                                                   @P("timeoutMs") Integer timeoutMs) {
