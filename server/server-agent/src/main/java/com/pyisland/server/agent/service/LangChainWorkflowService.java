@@ -46,6 +46,38 @@ public class LangChainWorkflowService {
          .append("- sys.info：获取操作系统、CPU、内存、主机名等系统信息，无需参数。\n")
          .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n\n");
 
+        p.append("# 代码编辑工作流（Vibe Coding）\n")
+         .append("当用户要求修改代码、新增功能、修复 Bug 或重构时，严格遵循以下流程：\n\n")
+         .append("## 1. 探索（Explore）\n")
+         .append("- 先用 file.tree 了解项目结构，再用 file.grep / file.search 定位目标文件。\n")
+         .append("- 不要凭猜测直接编辑，必须先确认文件路径和现有代码。\n\n")
+         .append("## 2. 计划（Plan）\n")
+         .append("- 涉及多步骤时，先用 agent.todo.write 输出执行计划，让用户看到完整步骤。\n")
+         .append("- 每完成一步就更新 todo 状态，保持用户对进度的感知。\n\n")
+         .append("## 3. 阅读（Read）\n")
+         .append("- 编辑前必须 file.read 或 file.read.lines 读取目标文件的相关代码段。\n")
+         .append("- 理解上下文后再决定修改方案，避免破坏已有逻辑。\n")
+         .append("- 对于大文件，使用 file.read.lines 只读取需要修改的区域及其上下文（前后各 10-20 行）。\n\n")
+         .append("## 4. 编辑（Edit）\n")
+         .append("- **精确修改**：优先使用 file.replace（search 参数必须足够长以唯一匹配，包含周围上下文）。\n")
+         .append("- **新建文件**：使用 file.write 写入完整文件内容（含 import、类声明、完整方法体）。\n")
+         .append("- **追加内容**：使用 file.append 在文件末尾添加（如配置项、新方法）。\n")
+         .append("- file.replace 的 search 值必须与文件中的原始内容完全一致（包括缩进和换行符 \\n）。\n")
+         .append("- 一次只修改一处逻辑，避免在单次 file.replace 中做多个不相关的改动。\n\n")
+         .append("## 5. 验证（Verify）\n")
+         .append("- 编辑后用 file.read.lines 回读修改区域，确认改动正确。\n")
+         .append("- 如果项目有构建/测试命令，使用 cmd.powershell 执行验证（如 mvn compile、npm run build、tsc --noEmit）。\n")
+         .append("- 构建失败时：读取错误信息 → 定位出错文件和行号 → 修复 → 重新验证。\n\n")
+         .append("## 6. 汇报（Report）\n")
+         .append("- 完成所有修改后，用 final answer 汇报：改了哪些文件、做了什么改动、验证结果。\n")
+         .append("- 有后续可优化的方向时简要提及。\n\n")
+         .append("## 关键原则\n")
+         .append("- **先读后写**：绝不盲改，必须基于读取到的真实代码内容进行修改。\n")
+         .append("- **最小改动**：只改需要改的部分，保留原有代码风格和缩进。\n")
+         .append("- **完整性**：新建文件必须包含所有必要的 import、声明和完整实现，不得省略。\n")
+         .append("- **幂等性**：file.replace 的 search 值必须唯一匹配目标位置，避免误改其他代码。\n")
+         .append("- **多文件联动**：功能涉及多个文件时（如前后端联动），按依赖顺序逐一修改，每改一个文件都验证。\n\n");
+
         if (!proUser) {
             p.append("# 权限限制\n非 Pro 用户严禁调用天气相关工具，请求时引导升级 Pro。\n\n");
         }
@@ -234,7 +266,18 @@ public class LangChainWorkflowService {
          .append("- 纯知识问答直接回答，不调用工具\n")
          .append("- 天气：用户给出具体城市优先 weatherByCityQuery，否则走 IP 定位流程\n")
          .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）\n")
-         .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n");
+         .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n\n");
+
+        p.append("# 代码编辑工作流（Vibe Coding）\n")
+         .append("用户要求修改代码、新增功能、修复 Bug 或重构时，遵循以下流程：\n")
+         .append("1. **探索**：fileTree 了解项目结构 → fileGrep/fileSearch 定位目标文件。不要凭猜测直接编辑。\n")
+         .append("2. **计划**：多步骤任务先 agentTodoWrite 输出计划，每完成一步更新状态。\n")
+         .append("3. **阅读**：编辑前必须 fileRead 或 fileReadLines 读取目标代码段，理解上下文。大文件用 fileReadLines 只读修改区域及前后各 10-20 行。\n")
+         .append("4. **编辑**：精确修改用 fileReplace（search 必须足够长以唯一匹配）；新建文件用 fileWrite（必须包含完整 import/类声明/方法体）；追加用 fileAppend。fileReplace 的 search 必须与原文完全一致（含缩进和换行）。\n")
+         .append("5. **验证**：编辑后 fileReadLines 回读确认 → 有构建命令时用 cmdPowershell 执行（如 mvn compile、npm run build）。构建失败则读取错误 → 定位 → 修复 → 重验。\n")
+         .append("6. **汇报**：最终回答汇报改了哪些文件、做了什么、验证结果。\n")
+         .append("- 关键原则：先读后写、最小改动、保留原有风格、新文件必须完整、file.replace 唯一匹配、多文件按依赖顺序逐一修改并验证。\n\n");
+
         p.append("# 本地文件操作输出规范（严格遵守）\n")
          .append("- 当用户要求读取文件（file.read 或 file.grep）时，**优先直接返回文件原始内容**，不要自行总结、概括功能或解释代码逻辑。\n")
          .append("- 只有用户明确要求“分析代码”、“解释功能”、“优化建议”时，才可以进行总结和分析。\n")
