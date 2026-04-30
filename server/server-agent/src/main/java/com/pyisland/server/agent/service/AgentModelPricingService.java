@@ -1,13 +1,18 @@
 package com.pyisland.server.agent.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pyisland.server.user.entity.AgentModelPricing;
 import com.pyisland.server.user.mapper.AgentModelPricingMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -18,14 +23,24 @@ import java.util.List;
 public class AgentModelPricingService {
 
     private static final Logger log = LoggerFactory.getLogger(AgentModelPricingService.class);
+    private static final String CACHE_KEY_PREFIX = "agent:pricing:";
+    private static final Duration CACHE_TTL = Duration.ofMinutes(30);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    static {
+        OBJECT_MAPPER.findAndRegisterModules();
+    }
 
     private final AgentModelPricingMapper pricingMapper;
     private final AgentBalanceRedisService balanceRedisService;
+    private final StringRedisTemplate pricingRedisTemplate;
 
     public AgentModelPricingService(AgentModelPricingMapper pricingMapper,
-                                    AgentBalanceRedisService balanceRedisService) {
+                                    AgentBalanceRedisService balanceRedisService,
+                                    @Qualifier("agentPricingRedisTemplate") StringRedisTemplate pricingRedisTemplate) {
         this.pricingMapper = pricingMapper;
         this.balanceRedisService = balanceRedisService;
+        this.pricingRedisTemplate = pricingRedisTemplate;
     }
 
     /**
@@ -42,7 +57,7 @@ public class AgentModelPricingService {
         if (modelName == null || modelName.isBlank()) {
             return null;
         }
-        return pricingMapper.selectByModelName(modelName.trim());
+        return getCachedPricing(modelName.trim());
     }
 
     /**
@@ -54,16 +69,22 @@ public class AgentModelPricingService {
         }
         String name = modelName.trim();
         AgentModelPricing existing = pricingMapper.selectByModelName(name);
+        boolean ok;
         if (existing != null) {
-            return pricingMapper.updateByModelName(name, inputPriceFenPerMillion, outputPriceFenPerMillion, enabled, LocalDateTime.now()) > 0;
+            ok = pricingMapper.updateByModelName(name, inputPriceFenPerMillion, outputPriceFenPerMillion, enabled, LocalDateTime.now()) > 0;
+        } else {
+            AgentModelPricing pricing = new AgentModelPricing();
+            pricing.setModelName(name);
+            pricing.setInputPriceFenPerMillion(inputPriceFenPerMillion);
+            pricing.setOutputPriceFenPerMillion(outputPriceFenPerMillion);
+            pricing.setEnabled(enabled);
+            pricing.setUpdatedAt(LocalDateTime.now());
+            ok = pricingMapper.insert(pricing) > 0;
         }
-        AgentModelPricing pricing = new AgentModelPricing();
-        pricing.setModelName(name);
-        pricing.setInputPriceFenPerMillion(inputPriceFenPerMillion);
-        pricing.setOutputPriceFenPerMillion(outputPriceFenPerMillion);
-        pricing.setEnabled(enabled);
-        pricing.setUpdatedAt(LocalDateTime.now());
-        return pricingMapper.insert(pricing) > 0;
+        if (ok) {
+            evictCache(name);
+        }
+        return ok;
     }
 
     /**
@@ -73,7 +94,12 @@ public class AgentModelPricingService {
         if (modelName == null || modelName.isBlank()) {
             return false;
         }
-        return pricingMapper.deleteByModelName(modelName.trim()) > 0;
+        String name = modelName.trim();
+        boolean ok = pricingMapper.deleteByModelName(name) > 0;
+        if (ok) {
+            evictCache(name);
+        }
+        return ok;
     }
 
     private static final BigDecimal ONE_MILLION = BigDecimal.valueOf(1_000_000L);
@@ -92,7 +118,7 @@ public class AgentModelPricingService {
         if (username == null || username.isBlank() || modelName == null || modelName.isBlank()) {
             return BigDecimal.ZERO;
         }
-        AgentModelPricing pricing = pricingMapper.selectByModelName(modelName.trim());
+        AgentModelPricing pricing = getCachedPricing(modelName.trim());
         if (pricing == null || !Boolean.TRUE.equals(pricing.getEnabled())) {
             return BigDecimal.ZERO;
         }
@@ -117,5 +143,38 @@ public class AgentModelPricingService {
         log.info("agent billing: deducted {} fen from user={}, model={}, inputTokens={}, outputTokens={}",
                 costFen.toPlainString(), username, modelName, inputTokens, outputTokens);
         return costFen;
+    }
+
+    /**
+     * 从 Redis 缓存获取定价，未命中则从 DB 加载并写入缓存。
+     */
+    private AgentModelPricing getCachedPricing(String modelName) {
+        String key = CACHE_KEY_PREFIX + modelName;
+        try {
+            String json = pricingRedisTemplate.opsForValue().get(key);
+            if (json != null) {
+                return OBJECT_MAPPER.readValue(json, AgentModelPricing.class);
+            }
+        } catch (Exception e) {
+            log.warn("agent pricing cache: read failed, key={}, err={}", key, e.getMessage());
+        }
+        AgentModelPricing pricing = pricingMapper.selectByModelName(modelName);
+        if (pricing != null) {
+            try {
+                String json = OBJECT_MAPPER.writeValueAsString(pricing);
+                pricingRedisTemplate.opsForValue().set(key, json, CACHE_TTL);
+            } catch (JsonProcessingException e) {
+                log.warn("agent pricing cache: write failed, key={}, err={}", key, e.getMessage());
+            }
+        }
+        return pricing;
+    }
+
+    private void evictCache(String modelName) {
+        try {
+            pricingRedisTemplate.delete(CACHE_KEY_PREFIX + modelName);
+        } catch (Exception e) {
+            log.warn("agent pricing cache: evict failed, model={}, err={}", modelName, e.getMessage());
+        }
     }
 }

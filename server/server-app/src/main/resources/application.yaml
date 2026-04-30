@@ -176,6 +176,8 @@ issue-feedback:
 agent:
   billing:
     redis-database: ${REDIS_AGENT_BILLING_DATABASE}
+  pricing:
+    redis-database: ${REDIS_AGENT_PRICING_DATABASE}
 
 payment:
   redis-database: ${REDIS_PAYMENT_DATABASE:10}
