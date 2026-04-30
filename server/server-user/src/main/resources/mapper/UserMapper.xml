@@ -18,12 +18,13 @@
         <result property="sessionToken" column="session_token"/>
         <result property="totpSecretCiphertext" column="totp_secret_ciphertext"/>
         <result property="totpSecretUpdatedAt" column="totp_secret_updated_at"/>
+        <result property="balanceFen" column="balance_fen"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <sql id="baseColumns">
         id, username, email, password, role, pro_expire_at, avatar, gender, gender_custom,
-        birthday, enabled, session_token, totp_secret_ciphertext, totp_secret_updated_at, created_at
+        birthday, enabled, session_token, totp_secret_ciphertext, totp_secret_updated_at, balance_fen, created_at
     </sql>
 
     <select id="selectByUsername" resultMap="UserResultMap">

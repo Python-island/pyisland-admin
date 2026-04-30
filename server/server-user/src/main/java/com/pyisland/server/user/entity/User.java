@@ -29,6 +29,7 @@ public class User {
     private String sessionToken;
     private String totpSecretCiphertext;
     private LocalDateTime totpSecretUpdatedAt;
+    private Long balanceFen;
     private LocalDateTime createdAt;
 
     /**
@@ -253,6 +254,22 @@ public class User {
      */
     public void setTotpSecretUpdatedAt(LocalDateTime totpSecretUpdatedAt) {
         this.totpSecretUpdatedAt = totpSecretUpdatedAt;
+    }
+
+    /**
+     * 获取余额（分）。
+     * @return 余额，单位：分。
+     */
+    public Long getBalanceFen() {
+        return balanceFen;
+    }
+
+    /**
+     * 设置余额（分）。
+     * @param balanceFen 余额，单位：分。
+     */
+    public void setBalanceFen(Long balanceFen) {
+        this.balanceFen = balanceFen;
     }
 
     /**

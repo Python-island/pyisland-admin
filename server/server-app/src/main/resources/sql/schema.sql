@@ -586,6 +586,22 @@ PREPARE user_account_pro_expire_at_idx_stmt FROM @user_account_pro_expire_at_idx
 EXECUTE user_account_pro_expire_at_idx_stmt;
 DEALLOCATE PREPARE user_account_pro_expire_at_idx_stmt;
 
+SET @user_account_balance_fen_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'user_account'
+      AND COLUMN_NAME = 'balance_fen'
+);
+SET @user_account_balance_fen_sql := IF(
+    @user_account_balance_fen_exists = 0,
+    'ALTER TABLE user_account ADD COLUMN balance_fen BIGINT NOT NULL DEFAULT 0 AFTER totp_secret_updated_at',
+    'SELECT 1'
+);
+PREPARE user_account_balance_fen_stmt FROM @user_account_balance_fen_sql;
+EXECUTE user_account_balance_fen_stmt;
+DEALLOCATE PREPARE user_account_balance_fen_stmt;
+
 CREATE TABLE IF NOT EXISTS payment_order (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     out_trade_no     VARCHAR(64) NOT NULL,
