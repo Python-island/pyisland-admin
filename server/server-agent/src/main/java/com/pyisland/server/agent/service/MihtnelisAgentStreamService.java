@@ -380,7 +380,7 @@ public class MihtnelisAgentStreamService {
             int inputTokens = estimateTokenDelta(userPrompt) + estimateTokenDelta(context);
             int outputTokens = billedTokenDelta;
             String billingModel = model != null && !model.isBlank() ? model : "deepseek-v4-flash";
-            long deductedFen = 0;
+            java.math.BigDecimal deductedFen = java.math.BigDecimal.ZERO;
             try {
                 deductedFen = modelPricingService.deductForUsage(username, billingModel, inputTokens, outputTokens);
             } catch (Exception billingEx) {

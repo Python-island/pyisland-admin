@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -74,42 +76,46 @@ public class AgentModelPricingService {
         return pricingMapper.deleteByModelName(modelName.trim()) > 0;
     }
 
+    private static final BigDecimal ONE_MILLION = BigDecimal.valueOf(1_000_000L);
+    private static final int SCALE = 8;
+
     /**
-     * 根据 token 用量扣费。
+     * 根据 token 用量扣费，精度 8 位小数。
      *
      * @param username    用户名。
      * @param modelName   模型名。
      * @param inputTokens  输入 token 数。
      * @param outputTokens 输出 token 数。
-     * @return 扣费金额（分），0 表示免费或未配置定价，-1 表示余额不足。
+     * @return 扣费金额（分，8位小数），BigDecimal.ZERO 表示免费或未配置定价，负数表示余额不足。
      */
-    public long deductForUsage(String username, String modelName, int inputTokens, int outputTokens) {
+    public BigDecimal deductForUsage(String username, String modelName, int inputTokens, int outputTokens) {
         if (username == null || username.isBlank() || modelName == null || modelName.isBlank()) {
-            return 0;
+            return BigDecimal.ZERO;
         }
         AgentModelPricing pricing = pricingMapper.selectByModelName(modelName.trim());
         if (pricing == null || !Boolean.TRUE.equals(pricing.getEnabled())) {
-            return 0;
+            return BigDecimal.ZERO;
         }
         long inputFen = pricing.getInputPriceFenPerMillion() == null ? 0 : pricing.getInputPriceFenPerMillion();
         long outputFen = pricing.getOutputPriceFenPerMillion() == null ? 0 : pricing.getOutputPriceFenPerMillion();
-        // 计算费用：(tokens / 1_000_000) * priceFenPerMillion，向上取整到分
-        long costFen = ceilDiv((long) inputTokens * inputFen, 1_000_000L)
-                     + ceilDiv((long) outputTokens * outputFen, 1_000_000L);
-        if (costFen <= 0) {
-            return 0;
+        // costFen = (inputTokens * inputPriceFen / 1_000_000) + (outputTokens * outputPriceFen / 1_000_000)
+        BigDecimal inputCost = BigDecimal.valueOf(inputTokens)
+                .multiply(BigDecimal.valueOf(inputFen))
+                .divide(ONE_MILLION, SCALE, RoundingMode.HALF_UP);
+        BigDecimal outputCost = BigDecimal.valueOf(outputTokens)
+                .multiply(BigDecimal.valueOf(outputFen))
+                .divide(ONE_MILLION, SCALE, RoundingMode.HALF_UP);
+        BigDecimal costFen = inputCost.add(outputCost);
+        if (costFen.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
         }
         int rows = userMapper.deductBalance(username.trim(), costFen);
         if (rows == 0) {
             log.warn("agent billing: balance insufficient for user={}, model={}, costFen={}", username, modelName, costFen);
-            return -1;
+            return BigDecimal.valueOf(-1);
         }
-        log.info("agent billing: deducted {}fen from user={}, model={}, inputTokens={}, outputTokens={}",
-                costFen, username, modelName, inputTokens, outputTokens);
+        log.info("agent billing: deducted {} fen from user={}, model={}, inputTokens={}, outputTokens={}",
+                costFen.toPlainString(), username, modelName, inputTokens, outputTokens);
         return costFen;
-    }
-
-    private static long ceilDiv(long a, long b) {
-        return (a + b - 1) / b;
     }
 }

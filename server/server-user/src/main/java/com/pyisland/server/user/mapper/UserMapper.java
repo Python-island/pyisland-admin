@@ -203,11 +203,11 @@ public interface UserMapper {
                                                      @Param("role") String role);
 
     /**
-     * 原子扣减余额（仅当余额足够时扣减）。
+     * 原子扣减余额（仅当余额足够时扣减），精度 8 位小数。
      * @param username 用户名。
-     * @param amountFen 扣减金额（分）。
+     * @param amountFen 扣减金额（分），支持小数。
      * @return 影响行数（0 表示余额不足或用户不存在）。
      */
     int deductBalance(@Param("username") String username,
-                      @Param("amountFen") long amountFen);
+                      @Param("amountFen") java.math.BigDecimal amountFen);
 }

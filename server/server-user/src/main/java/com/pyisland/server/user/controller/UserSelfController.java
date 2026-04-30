@@ -114,7 +114,7 @@ public class UserSelfController {
         data.put("gender", user.getGender() != null ? user.getGender() : GenderPolicy.DEFAULT);
         data.put("genderCustom", user.getGenderCustom());
         data.put("birthday", user.getBirthday() != null ? user.getBirthday().toString() : null);
-        data.put("balanceFen", user.getBalanceFen() != null ? user.getBalanceFen() : 0L);
+        data.put("balanceFen", user.getBalanceFen() != null ? user.getBalanceFen() : java.math.BigDecimal.ZERO);
         data.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
         return ResponseEntity.ok(Map.of(
                 "code", 200,

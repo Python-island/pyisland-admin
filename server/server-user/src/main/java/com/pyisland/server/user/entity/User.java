@@ -1,5 +1,6 @@
 package com.pyisland.server.user.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -29,7 +30,7 @@ public class User {
     private String sessionToken;
     private String totpSecretCiphertext;
     private LocalDateTime totpSecretUpdatedAt;
-    private Long balanceFen;
+    private BigDecimal balanceFen;
     private LocalDateTime createdAt;
 
     /**
@@ -257,18 +258,18 @@ public class User {
     }
 
     /**
-     * 获取余额（分）。
+     * 获取余额（分），精度 8 位小数。
      * @return 余额，单位：分。
      */
-    public Long getBalanceFen() {
+    public BigDecimal getBalanceFen() {
         return balanceFen;
     }
 
     /**
-     * 设置余额（分）。
+     * 设置余额（分），精度 8 位小数。
      * @param balanceFen 余额，单位：分。
      */
-    public void setBalanceFen(Long balanceFen) {
+    public void setBalanceFen(BigDecimal balanceFen) {
         this.balanceFen = balanceFen;
     }
 

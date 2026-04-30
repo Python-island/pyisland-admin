@@ -595,12 +595,14 @@ SET @user_account_balance_fen_exists := (
 );
 SET @user_account_balance_fen_sql := IF(
     @user_account_balance_fen_exists = 0,
-    'ALTER TABLE user_account ADD COLUMN balance_fen BIGINT NOT NULL DEFAULT 0 AFTER totp_secret_updated_at',
+    'ALTER TABLE user_account ADD COLUMN balance_fen DECIMAL(20,8) NOT NULL DEFAULT 0 AFTER totp_secret_updated_at',
     'SELECT 1'
 );
 PREPARE user_account_balance_fen_stmt FROM @user_account_balance_fen_sql;
 EXECUTE user_account_balance_fen_stmt;
 DEALLOCATE PREPARE user_account_balance_fen_stmt;
+
+ALTER TABLE user_account MODIFY COLUMN balance_fen DECIMAL(20,8) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS payment_order (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
