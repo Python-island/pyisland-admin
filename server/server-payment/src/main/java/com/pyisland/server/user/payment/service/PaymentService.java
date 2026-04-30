@@ -758,6 +758,7 @@ public class PaymentService {
         data.put("payUrl", order.getWxCodeUrl());
         data.put("expireAt", order.getExpireAt() != null ? order.getExpireAt().toString() : null);
         data.put("paidAt", order.getPaidAt() != null ? order.getPaidAt().toString() : null);
+        data.put("createdAt", order.getCreatedAt() != null ? order.getCreatedAt().toString() : null);
         data.put("proExpireAt", user != null && user.getProExpireAt() != null ? user.getProExpireAt().toString() : null);
         return data;
     }
