@@ -75,6 +75,67 @@ public class UserPaymentController {
         }
     }
 
+    @PostMapping("/orders/agent-recharge")
+    public ResponseEntity<?> createAgentRechargeOrder(Authentication authentication,
+                                                       @RequestParam(value = "channel", required = false) String channel,
+                                                       @RequestParam("amountFen") Integer amountFen,
+                                                       @RequestParam("email") String email) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "email 不能为空"));
+        }
+        if (amountFen == null || amountFen < 1 || amountFen > 100000) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "充值金额不合法"));
+        }
+        PaymentChannel paymentChannel;
+        if (channel == null || channel.isBlank()) {
+            paymentChannel = PaymentChannel.WECHAT;
+        } else {
+            try {
+                paymentChannel = PaymentChannel.valueOf(channel.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "code", 400,
+                        "message", "不支持的支付通道，仅支持 WECHAT 或 ALIPAY"
+                ));
+            }
+        }
+        try {
+            PaymentOrder order = paymentService.createAgentRechargeOrder(caller, paymentChannel, amountFen, email);
+            User user = userService.getByUsername(caller);
+            return ResponseEntity.ok(Map.of(
+                    "code", 200,
+                    "message", "success",
+                    "data", paymentService.toOrderPayload(order, user)
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "code", 500,
+                    "message", "创建充值订单失败: " + ex.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/agent/balance")
+    public ResponseEntity<?> getAgentBalance(Authentication authentication) {
+        String caller = caller(authentication);
+        if (caller == null) {
+            return ResponseEntity.status(401).body(Map.of("code", 401, "message", "未登录"));
+        }
+        String balanceYuan = userService.getAgentBalanceYuan(caller);
+        if (balanceYuan == null) {
+            return ResponseEntity.status(404).body(Map.of("code", 404, "message", "用户不存在"));
+        }
+        return ResponseEntity.ok(Map.of(
+                "code", 200,
+                "message", "success",
+                "data", Map.of("balanceYuan", balanceYuan)
+        ));
+    }
+
     @GetMapping("/pricing/pro-month")
     public ResponseEntity<?> getProMonthPricing(Authentication authentication) {
         String caller = caller(authentication);

@@ -45,6 +45,7 @@ public class PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     public static final String PRODUCT_PRO_MONTH = "PRO_MONTH";
+    public static final String PRODUCT_AGENT_RECHARGE = "AGENT_RECHARGE";
     public static final String PRODUCT_TEST_PAY = "TEST_PAY";
     public static final int DEFAULT_PRO_MONTH_AMOUNT_FEN = 1500;
     private static final String REDIS_PRO_MONTH_AMOUNT_FEN_KEY = "payment:pricing:pro-month:amount-fen";
@@ -174,6 +175,64 @@ public class PaymentService {
             order.setUsername(username);
             order.setProductCode(PRODUCT_PRO_MONTH);
             order.setAmountFen(proAmountFen);
+            order.setCurrency("CNY");
+            order.setStatus(PaymentOrder.STATUS_PAYING);
+            order.setWxPrepayId(prepayId);
+            order.setWxCodeUrl(codeUrl);
+            order.setExpireAt(now.plusMinutes(orderExpireMinutes));
+            order.setCreatedAt(now);
+            order.setUpdatedAt(now);
+            paymentOrderMapper.insert(order);
+            saveOrderChannel(outTradeNo, actualChannel);
+            bindUserActiveOrder(username, outTradeNo, orderExpireMinutes);
+            bindOrderReceiptEmail(outTradeNo, receiptEmail, orderExpireMinutes);
+            return order;
+        } finally {
+            String currentValue = paymentRedisTemplate.opsForValue().get(lockKey);
+            if (lockValue.equals(currentValue)) {
+                paymentRedisTemplate.delete(lockKey);
+            }
+        }
+    }
+
+    @Transactional
+    public PaymentOrder createAgentRechargeOrder(String username, PaymentChannel channel, int amountFen, String receiptEmail) throws Exception {
+        if (amountFen < 1 || amountFen > 100000) {
+            throw new IllegalArgumentException("充值金额不合法");
+        }
+        PaymentChannel actualChannel = channel == null ? PaymentChannel.WECHAT : channel;
+        String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
+        String lockKey = "payment:lock:create:agent-recharge:"
+                + (normalizedUsername.isBlank() ? "unknown" : normalizedUsername);
+        String lockValue = UUID.randomUUID().toString();
+        Boolean locked = paymentRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, 15, TimeUnit.SECONDS);
+        if (!Boolean.TRUE.equals(locked)) {
+            throw new IllegalStateException("订单创建过于频繁，请稍后重试");
+        }
+        try {
+            ensureUserHasNoActiveOrder(username);
+            int orderExpireMinutes = Math.max(5, getOrderExpireMinutes(actualChannel));
+            String outTradeNo = buildOutTradeNo(username, actualChannel);
+            String prepayId = null;
+            String codeUrl;
+            String subject = "eIsland Agent 余额充值 ¥" + String.format("%.2f", amountFen / 100.0);
+            if (actualChannel == PaymentChannel.ALIPAY) {
+                AlipaySdkClient.PlaceOrderResult result = alipaySdkClient.createPageOrder(
+                        outTradeNo, subject, amountFen, orderExpireMinutes);
+                prepayId = result.tradeNo();
+                codeUrl = result.payUrl();
+            } else {
+                WechatPayClient.PlaceOrderResult result = wechatPayClient.createNativeOrder(
+                        outTradeNo, subject, amountFen);
+                prepayId = result.prepayId();
+                codeUrl = result.codeUrl();
+            }
+            LocalDateTime now = LocalDateTime.now();
+            PaymentOrder order = new PaymentOrder();
+            order.setOutTradeNo(outTradeNo);
+            order.setUsername(username);
+            order.setProductCode(PRODUCT_AGENT_RECHARGE);
+            order.setAmountFen(amountFen);
             order.setCurrency("CNY");
             order.setStatus(PaymentOrder.STATUS_PAYING);
             order.setWxPrepayId(prepayId);
@@ -471,6 +530,13 @@ public class PaymentService {
 
         if (PRODUCT_PRO_MONTH.equals(order.getProductCode())) {
             userService.grantProOneMonth(order.getUsername());
+        } else if (PRODUCT_AGENT_RECHARGE.equals(order.getProductCode())) {
+            java.math.BigDecimal amountFen = order.getAmountFen() != null
+                    ? new java.math.BigDecimal(order.getAmountFen())
+                    : java.math.BigDecimal.ZERO;
+            if (amountFen.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                userService.addAgentBalance(order.getUsername(), amountFen);
+            }
         }
         trySendPaymentReceipt(actualChannel, order, tx);
         releaseUserActiveOrder(order.getUsername(), normalizedOutTradeNo);

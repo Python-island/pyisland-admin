@@ -309,6 +309,34 @@ public class UserService {
     }
 
     /**
+     * 为用户充值 Agent 余额（充值场景）。
+     * @param username 用户名。
+     * @param amountFen 充值金额（分）。
+     */
+    @Transactional
+    public void addAgentBalance(String username, java.math.BigDecimal amountFen) {
+        if (username == null || username.isBlank() || amountFen == null || amountFen.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        userMapper.addBalance(username, amountFen);
+        eventPublisher.publishEvent(new ProBalanceGrantEvent(this, username));
+    }
+
+    /**
+     * 查询用户 Agent 余额（元）。
+     * @param username 用户名。
+     * @return 余额（元字符串），用户不存在返回 null。
+     */
+    public String getAgentBalanceYuan(String username) {
+        User user = userMapper.selectByUsername(username);
+        if (user == null) {
+            return null;
+        }
+        java.math.BigDecimal balanceFen = user.getBalanceFen() != null ? user.getBalanceFen() : java.math.BigDecimal.ZERO;
+        return balanceFen.divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP).toPlainString();
+    }
+
+    /**
      * 自动降级已过期 Pro 用户。
      * @param now 当前时间。
      * @return 降级数量。
