@@ -103,6 +103,13 @@ public class LangChainWorkflowService {
 
         p.append("# 错误处理\n工具失败时尝试替代方案，全部失败后诚实告知用户并提供建议。\n");
 
+        p.append("\n# 用户附件\n")
+         .append("用户可能在消息中附带文本文件，格式为 <attachment name=\"文件名\">文件内容</attachment>。\n")
+         .append("- 附件内容是用户显式提供的参考资料，与用户问题直接相关。\n")
+         .append("- 优先基于附件内容回答，不要忽略附件。\n")
+         .append("- 如果用户问题是关于附件内容的分析、修改或总结，围绕附件内容展开。\n")
+         .append("- 不需要使用 file.read 重新读取已在附件中提供的文件。\n");
+
         appendSkills(p, skills);
 
         return p.toString();
@@ -116,12 +123,20 @@ public class LangChainWorkflowService {
         String safeContext = context == null ? "" : context.trim();
         String safeProvider = provider == null ? "auto" : provider.trim();
 
-        if (safeContext.isBlank()) {
-            return "provider=" + safeProvider + "\n\n" + safePrompt;
+        String attachmentBlock = extractAttachmentBlock(safePrompt);
+        String questionOnly = stripAttachmentTags(safePrompt);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("provider=").append(safeProvider).append("\n\n");
+
+        if (!safeContext.isBlank()) {
+            sb.append("对话上下文:\n").append(safeContext).append("\n\n");
         }
-        return "provider=" + safeProvider
-                + "\n\n对话上下文:\n" + safeContext
-                + "\n\n用户问题:\n" + safePrompt;
+        if (!attachmentBlock.isBlank()) {
+            sb.append("用户附件:\n").append(attachmentBlock).append("\n\n");
+        }
+        sb.append("用户问题:\n").append(questionOnly);
+        return sb.toString();
     }
 
     /**
@@ -133,14 +148,20 @@ public class LangChainWorkflowService {
         String safeProvider = provider == null ? "auto" : provider.trim();
         String safeScratchpad = scratchpad == null ? "" : scratchpad.trim();
 
+        String attachmentBlock = extractAttachmentBlock(safePrompt);
+        String questionOnly = stripAttachmentTags(safePrompt);
+
         StringBuilder pb = new StringBuilder();
         pb.append("provider=").append(safeProvider).append("\n\n");
 
         if (!safeContext.isBlank()) {
             pb.append("对话上下文:\n").append(safeContext).append("\n\n");
         }
+        if (!attachmentBlock.isBlank()) {
+            pb.append("用户附件:\n").append(attachmentBlock).append("\n\n");
+        }
 
-        pb.append("用户问题:\n").append(safePrompt);
+        pb.append("用户问题:\n").append(questionOnly);
 
         if (!safeScratchpad.isBlank()) {
             pb.append("\n\n--- 历史观察结果 ---\n")
@@ -197,6 +218,13 @@ public class LangChainWorkflowService {
 
         p.append("- 工具失败时分析原因，尝试替代方案，全部失败则诚实告知并给出建议。\n\n");
 
+        p.append("# 用户附件\n")
+         .append("用户可能在消息中附带文本文件，格式为 <attachment name=\"文件名\">文件内容</attachment>。\n")
+         .append("- 附件内容是用户显式提供的参考资料，与用户问题直接相关。\n")
+         .append("- 优先基于附件内容回答，不要忽略附件。\n")
+         .append("- 如果用户问题是关于附件内容的分析、修改或总结，围绕附件内容展开。\n")
+         .append("- 不需要使用 file.read 重新读取已在附件中提供的文件。\n\n");
+
         p.append("# 回答要求\n")
          .append("使用中文为主 + Markdown 排版，准确简洁，不暴露工具名称和内部格式。\n")
          .append("- 当用户明确要求代码时，必须返回完整可运行代码，并使用带语言标识的 Markdown 代码块。\n")
@@ -206,6 +234,32 @@ public class LangChainWorkflowService {
         appendSkills(p, skills);
 
         return p.toString();
+    }
+
+    private static final java.util.regex.Pattern ATTACHMENT_PATTERN =
+            java.util.regex.Pattern.compile("<attachment name=\"[^\"]*\">\\n[\\s\\S]*?\\n</attachment>",
+                    java.util.regex.Pattern.DOTALL);
+
+    /**
+     * 提取用户消息中的所有 attachment 块（保留原始 XML 标签）。
+     */
+    String extractAttachmentBlock(String message) {
+        if (message == null || message.isBlank()) return "";
+        java.util.regex.Matcher matcher = ATTACHMENT_PATTERN.matcher(message);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            if (sb.length() > 0) sb.append("\n\n");
+            sb.append(matcher.group());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 从用户消息中移除所有 attachment 块，仅保留纯文本问题。
+     */
+    String stripAttachmentTags(String message) {
+        if (message == null || message.isBlank()) return "";
+        return ATTACHMENT_PATTERN.matcher(message).replaceAll("").trim();
     }
 
     private void appendSkills(StringBuilder p, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {

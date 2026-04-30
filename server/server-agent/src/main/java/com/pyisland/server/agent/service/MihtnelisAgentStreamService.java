@@ -38,6 +38,8 @@ public class MihtnelisAgentStreamService {
     private static final long LOCAL_TOOL_WAIT_TIMEOUT_SECONDS = 120L;
     private static final int MAX_CONTEXT_CHARS = 1_000_000;
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>(.*?)</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern ATTACHMENT_TAG_PATTERN = Pattern.compile("<attachment name=\"[^\"]*\">\\n[\\s\\S]*?\\n</attachment>", Pattern.DOTALL);
+    private static final int MAX_TOTAL_MESSAGE_CHARS = 600_000;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final MihtnelisAgentProperties properties;
@@ -105,8 +107,18 @@ public class MihtnelisAgentStreamService {
                 return;
             }
 
+            if (userPrompt.length() > MAX_TOTAL_MESSAGE_CHARS) {
+                sendEvent(emitter, "error", Map.of(
+                        "code", "INPUT_TOO_LONG",
+                        "message", "message 过长（含附件）",
+                        "maxInputChars", MAX_TOTAL_MESSAGE_CHARS
+                ));
+                emitter.complete();
+                return;
+            }
+            String questionOnly = ATTACHMENT_TAG_PATTERN.matcher(userPrompt).replaceAll("").trim();
             int maxInputChars = Math.max(16, properties.getMaxInputChars());
-            if (userPrompt.length() > maxInputChars) {
+            if (questionOnly.length() > maxInputChars) {
                 sendEvent(emitter, "error", Map.of(
                         "code", "INPUT_TOO_LONG",
                         "message", "message 过长",
