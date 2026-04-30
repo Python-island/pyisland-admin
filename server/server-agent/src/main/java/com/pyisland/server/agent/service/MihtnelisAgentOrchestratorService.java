@@ -86,6 +86,10 @@ public class MihtnelisAgentOrchestratorService {
         }
         User user = username == null || username.isBlank() ? null : userService.getByUsername(username);
         boolean proUser = isProUser(user);
+        String requestedModel = request == null ? "" : AgentStringUtils.trimToEmpty(request.model());
+        if (!proUser && "deepseek-v4-pro".equalsIgnoreCase(requestedModel)) {
+            throw new IllegalStateException("deepseek-v4-pro 仅 Pro 用户可用");
+        }
         String userPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.message(), "");
         String contextPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.context(), "");
         MihtnelisAgentProperties.Provider providerConfig = resolveProviderConfig(provider);
@@ -409,9 +413,6 @@ public class MihtnelisAgentOrchestratorService {
                 ? defaultReasoningEffort
                 : normalizeReasoningEffort(requestReasoningEffort);
         String effectiveModel = request == null ? "" : AgentStringUtils.trimToEmpty(request.model());
-        if (!proUser && "deepseek-v4-pro".equalsIgnoreCase(effectiveModel)) {
-            effectiveModel = "deepseek-v4-flash";
-        }
         return new AgentChatGatewayService.ChatRequestOptions(effectiveThinking, effectiveReasoningEffort, effectiveModel.isBlank() ? null : effectiveModel);
     }
 
