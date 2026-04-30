@@ -54,6 +54,12 @@ const navItems = [
     ],
   },
   {
+    label: "Agent 管理",
+    children: [
+      { label: "模型定价", path: "/agent/model-pricing" },
+    ],
+  },
+  {
     label: "内容管理",
     children: [
       { label: "壁纸审核", path: "/wallpapers/review" },
@@ -102,7 +108,7 @@ const subLinkActive: React.CSSProperties = {
 export default function Layout() {
   const navigate = useNavigate();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["版本管理", "管理员管理", "用户管理", "接口管理", "支付管理", "内容管理"])
+    new Set(["版本管理", "管理员管理", "用户管理", "接口管理", "支付管理", "Agent 管理", "内容管理"])
   );
   const [avatar, setAvatar] = useState<string | null>(null);
 

@@ -33,6 +33,7 @@ import PaymentPricing from "./pages/PaymentPricing";
 import PaymentOrders from "./pages/PaymentOrders";
 import PaymentDlq from "./pages/PaymentDlq";
 import EmailDlq from "./pages/EmailDlq";
+import AgentModelPricing from "./pages/AgentModelPricing";
 
 /**
  * 鉴权路由包装器。
@@ -78,6 +79,7 @@ export default function App() {
           <Route path="/payment/orders" element={<PaymentOrders />} />
           <Route path="/payment/dlq" element={<PaymentDlq />} />
           <Route path="/email/dlq" element={<EmailDlq />} />
+          <Route path="/agent/model-pricing" element={<AgentModelPricing />} />
           <Route path="/wallpapers/review" element={<WallpaperReview />} />
           <Route path="/wallpapers/reports" element={<WallpaperReportManage />} />
           <Route path="/wallpapers/ratings" element={<WallpaperRatingManage />} />

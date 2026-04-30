@@ -908,3 +908,35 @@ export const userAccounts = {
     });
   },
 };
+
+export interface AgentModelPricingItem {
+  id: number;
+  modelName: string;
+  inputPriceFenPerMillion: number;
+  outputPriceFenPerMillion: number;
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export const agentAdmin = {
+  listModelPricing() {
+    return request<ApiResponse<AgentModelPricingItem[]>>("/v1/admin/agent/model-pricing");
+  },
+  upsertModelPricing(payload: {
+    modelName: string;
+    inputPriceFenPerMillion: number;
+    outputPriceFenPerMillion: number;
+    enabled: boolean;
+  }) {
+    return request<ApiResponse>("/v1/admin/agent/model-pricing", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteModelPricing(modelName: string) {
+    return request<ApiResponse>(
+      `/v1/admin/agent/model-pricing?modelName=${encodeURIComponent(modelName)}`,
+      { method: "DELETE" }
+    );
+  },
+};

@@ -46,6 +46,7 @@ public class MihtnelisAgentStreamService {
     private final MihtnelisAgentOrchestratorService orchestratorService;
     private final AgentWebAuthorizationService webAuthorizationService;
     private final AgentLocalToolRelayService localToolRelayService;
+    private final AgentModelPricingService modelPricingService;
 
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "mihtnelis-stream");
@@ -56,11 +57,13 @@ public class MihtnelisAgentStreamService {
     public MihtnelisAgentStreamService(MihtnelisAgentProperties properties,
                                        MihtnelisAgentOrchestratorService orchestratorService,
                                        AgentWebAuthorizationService webAuthorizationService,
-                                       AgentLocalToolRelayService localToolRelayService) {
+                                       AgentLocalToolRelayService localToolRelayService,
+                                       AgentModelPricingService modelPricingService) {
         this.properties = properties;
         this.orchestratorService = orchestratorService;
         this.webAuthorizationService = webAuthorizationService;
         this.localToolRelayService = localToolRelayService;
+        this.modelPricingService = modelPricingService;
     }
 
     /**
@@ -374,10 +377,24 @@ public class MihtnelisAgentStreamService {
                 sleepSilently(170);
             }
 
+            int inputTokens = estimateTokenDelta(userPrompt) + estimateTokenDelta(context);
+            int outputTokens = billedTokenDelta;
+            String billingModel = model != null && !model.isBlank() ? model : "deepseek-v4-flash";
+            long deductedFen = 0;
+            try {
+                deductedFen = modelPricingService.deductForUsage(username, billingModel, inputTokens, outputTokens);
+            } catch (Exception billingEx) {
+                // 扣费失败不阻断流式响应
+            }
+
             Map<String, Object> finalPayload = new LinkedHashMap<>();
             finalPayload.put("done", true);
             finalPayload.put("billedTokenTotal", billedTokenDelta);
-            finalPayload.put("billingUnit", "1k_token");
+            finalPayload.put("billedInputTokens", inputTokens);
+            finalPayload.put("billedOutputTokens", outputTokens);
+            finalPayload.put("billedModel", billingModel);
+            finalPayload.put("deductedFen", deductedFen);
+            finalPayload.put("billingUnit", "1M_token");
             finalPayload.put("agent", "mihtnelis agent");
             finalPayload.put("provider", provider);
             finalPayload.put("username", Objects.requireNonNullElse(username, ""));

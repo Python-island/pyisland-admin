@@ -769,3 +769,17 @@ CREATE TABLE IF NOT EXISTS object_replication_checkpoint (
     updated_at      DATETIME NOT NULL,
     KEY idx_object_replication_checkpoint_status_updated (status, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ========================================================================
+-- 2026-04 Agent 模型定价：按量计费配置
+-- ========================================================================
+
+CREATE TABLE IF NOT EXISTS agent_model_pricing (
+    id                            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    model_name                    VARCHAR(100) NOT NULL,
+    input_price_fen_per_million   BIGINT NOT NULL DEFAULT 0,
+    output_price_fen_per_million  BIGINT NOT NULL DEFAULT 0,
+    enabled                       TINYINT(1) NOT NULL DEFAULT 1,
+    updated_at                    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_agent_model_pricing_model_name (model_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
