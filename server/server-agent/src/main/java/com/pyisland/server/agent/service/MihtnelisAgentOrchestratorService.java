@@ -89,7 +89,7 @@ public class MihtnelisAgentOrchestratorService {
         String userPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.message(), "");
         String contextPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.context(), "");
         MihtnelisAgentProperties.Provider providerConfig = resolveProviderConfig(provider);
-        AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig);
+        AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig, proUser);
 
         java.util.List<String> workspaces = request == null ? null : request.workspaces();
         java.util.List<MihtnelisAgentStreamService.SkillEntry> skills = request == null ? null : request.skills();
@@ -398,7 +398,8 @@ public class MihtnelisAgentOrchestratorService {
 
     private AgentChatGatewayService.ChatRequestOptions resolveChatRequestOptions(
             MihtnelisAgentStreamService.MihtnelisStreamRequest request,
-            MihtnelisAgentProperties.Provider providerConfig) {
+            MihtnelisAgentProperties.Provider providerConfig,
+            boolean proUser) {
         boolean defaultThinking = providerConfig != null && providerConfig.isThinking();
         String defaultReasoningEffort = normalizeReasoningEffort(providerConfig == null ? "" : providerConfig.getReasoningEffort());
         Boolean requestThinking = request == null ? null : request.thinking();
@@ -408,6 +409,9 @@ public class MihtnelisAgentOrchestratorService {
                 ? defaultReasoningEffort
                 : normalizeReasoningEffort(requestReasoningEffort);
         String effectiveModel = request == null ? "" : AgentStringUtils.trimToEmpty(request.model());
+        if (!proUser && "deepseek-v4-pro".equalsIgnoreCase(effectiveModel)) {
+            effectiveModel = "deepseek-v4-flash";
+        }
         return new AgentChatGatewayService.ChatRequestOptions(effectiveThinking, effectiveReasoningEffort, effectiveModel.isBlank() ? null : effectiveModel);
     }
 
