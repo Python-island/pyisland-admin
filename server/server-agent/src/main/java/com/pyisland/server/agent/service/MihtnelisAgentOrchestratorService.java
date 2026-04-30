@@ -126,17 +126,105 @@ public class MihtnelisAgentOrchestratorService {
         AgentChatGatewayService.TokenUsageAccumulator usageAccumulator =
                 new AgentChatGatewayService.TokenUsageAccumulator();
 
-        // 构建流式监听器：将 reasoning / content 增量实时推送给客户端
+        // 构建流式监听器：实时解析 JSON 信封，只提取 answer 值推送给客户端
         AgentChatGatewayService.ChatStreamListener streamListener =
                 (chatRequestOptions.thinkingEnabled() && toolExecutionObserver != null)
                         ? new AgentChatGatewayService.ChatStreamListener() {
+                            private final StringBuilder cBuf = new StringBuilder();
+                            private boolean answerMode = false;
+                            private boolean suppressed = false;
+                            private int fwdPos = 0;
+                            private static final int TRAIL = 2; // 保留尾部 "} 不推送
+
                             @Override
                             public void onReasoningDelta(String deltaText, boolean done) {
                                 toolExecutionObserver.onThinkingDelta(deltaText, done);
                             }
+
                             @Override
                             public void onContentDelta(String deltaText, boolean done) {
-                                toolExecutionObserver.onContentDelta(deltaText, done);
+                                if (deltaText != null && !deltaText.isEmpty()) {
+                                    cBuf.append(deltaText);
+                                }
+                                if (suppressed) {
+                                    if (done) resetState();
+                                    return;
+                                }
+                                if (!answerMode) {
+                                    String buf = cBuf.toString();
+                                    int idx = buf.indexOf("\"answer\":\"");
+                                    if (idx < 0) idx = buf.indexOf("\"answer\": \"");
+                                    if (idx >= 0) {
+                                        answerMode = true;
+                                        int q = buf.indexOf('"', idx + "\"answer\":".length());
+                                        fwdPos = (q >= 0) ? q + 1 : buf.length();
+                                        flushContent(done);
+                                    } else if (buf.contains("\"tool_call\"") || buf.length() > 80) {
+                                        suppressed = true;
+                                        if (done) resetState();
+                                    }
+                                } else {
+                                    flushContent(done);
+                                }
+                            }
+
+                            private void flushContent(boolean done) {
+                                String buf = cBuf.toString();
+                                int end;
+                                if (done) {
+                                    end = buf.length();
+                                    if (end >= 2 && buf.charAt(end - 1) == '}' && buf.charAt(end - 2) == '"') {
+                                        end -= 2;
+                                    }
+                                } else {
+                                    end = buf.length() - TRAIL;
+                                }
+                                // 不拆分转义序列：尾部是 \ 时后退一位
+                                if (!done && end > fwdPos && buf.charAt(end - 1) == '\\') {
+                                    end--;
+                                }
+                                if (end > fwdPos) {
+                                    String raw = buf.substring(fwdPos, end);
+                                    fwdPos = end;
+                                    String text = unescapeJsonValue(raw);
+                                    if (!text.isEmpty()) {
+                                        toolExecutionObserver.onContentDelta(text, false);
+                                    }
+                                }
+                                if (done) {
+                                    toolExecutionObserver.onContentDelta("", true);
+                                    resetState();
+                                }
+                            }
+
+                            private void resetState() {
+                                cBuf.setLength(0);
+                                answerMode = false;
+                                suppressed = false;
+                                fwdPos = 0;
+                            }
+
+                            private String unescapeJsonValue(String s) {
+                                if (s == null || s.isEmpty() || !s.contains("\\")) return s;
+                                StringBuilder sb = new StringBuilder(s.length());
+                                for (int i = 0; i < s.length(); i++) {
+                                    char c = s.charAt(i);
+                                    if (c == '\\' && i + 1 < s.length()) {
+                                        char n = s.charAt(i + 1);
+                                        switch (n) {
+                                            case 'n': sb.append('\n'); i++; break;
+                                            case 't': sb.append('\t'); i++; break;
+                                            case 'r': sb.append('\r'); i++; break;
+                                            case '"': sb.append('"'); i++; break;
+                                            case '\\': sb.append('\\'); i++; break;
+                                            case '/': sb.append('/'); i++; break;
+                                            default: sb.append(c); break;
+                                        }
+                                    } else {
+                                        sb.append(c);
+                                    }
+                                }
+                                return sb.toString();
                             }
                         }
                         : null;
