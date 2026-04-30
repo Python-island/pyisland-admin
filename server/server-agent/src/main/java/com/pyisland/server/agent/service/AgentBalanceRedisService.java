@@ -1,13 +1,15 @@
 package com.pyisland.server.agent.service;
 
+import com.pyisland.server.agent.config.AgentBillingMqConfig;
+import com.pyisland.server.agent.mq.AgentBillingDeductMessage;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -17,7 +19,7 @@ import java.util.List;
 /**
  * Agent 计费 Redis 余额服务。
  * <p>
- * 使用 Redis DB12 + Lua 脚本实现原子扣减，异步同步到数据库。
+ * 使用 Redis DB12 + Lua 脚本实现原子扣减，通过 RabbitMQ 异步落库。
  * Redis key 格式：agent:balance:{username}，值为字符串形式的分（8 位小数）。
  */
 @Service
@@ -63,23 +65,30 @@ public class AgentBalanceRedisService {
 
     private final StringRedisTemplate redisTemplate;
     private final UserMapper userMapper;
+    private final RabbitTemplate rabbitTemplate;
 
     public AgentBalanceRedisService(
             @Qualifier("agentBillingRedisTemplate") StringRedisTemplate redisTemplate,
-            UserMapper userMapper
+            UserMapper userMapper,
+            RabbitTemplate rabbitTemplate
     ) {
         this.redisTemplate = redisTemplate;
         this.userMapper = userMapper;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     /**
-     * 原子扣减余额（Redis Lua）。
+     * 原子扣减余额（Redis Lua），成功后通过 RabbitMQ 异步落库。
      *
-     * @param username  用户名。
-     * @param amountFen 扣减金额（分，8 位小数）。
+     * @param username     用户名。
+     * @param amountFen    扣减金额（分，8 位小数）。
+     * @param modelName    模型名。
+     * @param inputTokens  输入 token 数。
+     * @param outputTokens 输出 token 数。
      * @return 扣减后的新余额；null 表示余额不足。
      */
-    public BigDecimal deduct(String username, BigDecimal amountFen) {
+    public BigDecimal deduct(String username, BigDecimal amountFen,
+                             String modelName, int inputTokens, int outputTokens) {
         String key = KEY_PREFIX + username;
         String amountStr = amountFen.setScale(SCALE, RoundingMode.HALF_UP).toPlainString();
 
@@ -103,8 +112,8 @@ public class AgentBalanceRedisService {
         BigDecimal newBalance = new BigDecimal(result).setScale(SCALE, RoundingMode.HALF_UP);
         log.info("agent billing redis: deducted {} fen from user={}, newBalance={}", amountStr, username, newBalance.toPlainString());
 
-        // 异步同步到数据库
-        syncToDbAsync(username, amountFen);
+        // 通过 RabbitMQ 异步落库
+        publishDeductMessage(username, amountStr, modelName, inputTokens, outputTokens);
 
         return newBalance;
     }
@@ -141,23 +150,21 @@ public class AgentBalanceRedisService {
         return val != null ? new BigDecimal(val).setScale(SCALE, RoundingMode.HALF_UP) : BigDecimal.ZERO;
     }
 
-    /**
-     * 异步同步扣减到数据库。
-     */
-    @Async
-    public void syncToDbAsync(String username, BigDecimal amountFen) {
+    private void publishDeductMessage(String username, String amountFen,
+                                      String modelName, int inputTokens, int outputTokens) {
         try {
-            int rows = userMapper.deductBalance(username, amountFen);
-            if (rows == 0) {
-                log.warn("agent billing db-sync: DB deduct failed (balance insufficient or user missing), username={}, amount={}",
-                        username, amountFen.toPlainString());
-            } else {
-                log.info("agent billing db-sync: synced deduction to DB, username={}, amount={}",
-                        username, amountFen.toPlainString());
-            }
+            AgentBillingDeductMessage message = new AgentBillingDeductMessage(
+                    username, amountFen, modelName, inputTokens, outputTokens);
+            rabbitTemplate.convertAndSend(
+                    AgentBillingMqConfig.EXCHANGE,
+                    AgentBillingMqConfig.ROUTING_KEY,
+                    message
+            );
+            log.info("agent billing mq: published deduct message, username={}, amount={}, model={}",
+                    username, amountFen, modelName);
         } catch (Exception e) {
-            log.error("agent billing db-sync: failed to sync deduction to DB, username={}, amount={}, error={}",
-                    username, amountFen.toPlainString(), e.getMessage(), e);
+            log.error("agent billing mq: failed to publish deduct message, username={}, amount={}, err={}",
+                    username, amountFen, e.getMessage(), e);
         }
     }
 }
