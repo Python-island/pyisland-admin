@@ -135,6 +135,7 @@ public class MihtnelisAgentStreamService {
 
             AtomicInteger toolTurnCounter = new AtomicInteger(0);
             AtomicInteger thinkTurnCounter = new AtomicInteger(0);
+            java.util.concurrent.atomic.AtomicBoolean contentStreamedFlag = new java.util.concurrent.atomic.AtomicBoolean(false);
             Deque<Integer> pendingToolTurns = new ArrayDeque<>();
             AgentToolExecutionService.ToolExecutionObserver toolExecutionObserver =
                     new AgentToolExecutionService.ToolExecutionObserver() {
@@ -220,6 +221,25 @@ public class MihtnelisAgentStreamService {
                                     "index", Math.max(0, currentIndex - 1),
                                     "done", done
                             ));
+                        }
+
+                        @Override
+                        public void onContentDelta(String deltaText, boolean done) {
+                            String safeDelta = deltaText == null ? "" : deltaText;
+                            if (safeDelta.isEmpty() && !done) {
+                                return;
+                            }
+                            if (!safeDelta.isEmpty()) {
+                                contentStreamedFlag.set(true);
+                                sendEvent(emitter, "chunk", Map.of("text", safeDelta));
+                            }
+                        }
+
+                        @Override
+                        public void onContentReset() {
+                            if (contentStreamedFlag.getAndSet(false)) {
+                                sendEvent(emitter, "chunk_reset", Map.of());
+                            }
                         }
 
                         @Override
@@ -388,21 +408,24 @@ public class MihtnelisAgentStreamService {
             }
 
             int streamedChunkTokens = 0;
-            List<String> chunks = AgentStreamChunkUtils.splitForStreaming(visibleAnswer);
-            for (String chunk : chunks) {
-                String safeChunk = chunk == null ? "" : chunk;
-                if (safeChunk.isBlank()) {
-                    continue;
+            // 如果 content 已通过 onContentDelta 实时推送，跳过重复的分块发送
+            if (!contentStreamedFlag.get()) {
+                List<String> chunks = AgentStreamChunkUtils.splitForStreaming(visibleAnswer);
+                for (String chunk : chunks) {
+                    String safeChunk = chunk == null ? "" : chunk;
+                    if (safeChunk.isBlank()) {
+                        continue;
+                    }
+                    sendEvent(emitter, "chunk", Map.of("text", safeChunk));
+                    int chunkTokenEst = estimateTokenDelta(safeChunk);
+                    streamedChunkTokens += chunkTokenEst;
+                    sendEvent(emitter, "billing", Map.of(
+                            "tokenDelta", chunkTokenEst,
+                            "billedTokenTotal", streamedChunkTokens,
+                            "billingUnit", "1k_token"
+                    ));
+                    sleepSilently(170);
                 }
-                sendEvent(emitter, "chunk", Map.of("text", safeChunk));
-                int chunkTokenEst = estimateTokenDelta(safeChunk);
-                streamedChunkTokens += chunkTokenEst;
-                sendEvent(emitter, "billing", Map.of(
-                        "tokenDelta", chunkTokenEst,
-                        "billedTokenTotal", streamedChunkTokens,
-                        "billingUnit", "1k_token"
-                ));
-                sleepSilently(170);
             }
 
             // 优先使用 LLM API 返回的真实 token 用量；未获取到时退回字符估算

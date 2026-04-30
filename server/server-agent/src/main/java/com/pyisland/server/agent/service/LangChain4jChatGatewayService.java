@@ -58,8 +58,8 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions,
-                       ReasoningStreamListener reasoningListener) {
-        return chat(provider, systemPrompt, userPrompt, requestOptions, reasoningListener, null);
+                       ChatStreamListener streamListener) {
+        return chat(provider, systemPrompt, userPrompt, requestOptions, streamListener, null);
     }
 
     @Override
@@ -67,12 +67,12 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                        String systemPrompt,
                        String userPrompt,
                        ChatRequestOptions requestOptions,
-                       ReasoningStreamListener reasoningListener,
+                       ChatStreamListener streamListener,
                        TokenUsageAccumulator usageAccumulator) {
         ChatRequestOptions safeRequestOptions = normalizeRequestOptions(requestOptions);
         // thinking 开启时 LangChain4j 不支持 DeepSeek thinking API 参数，走原生 HTTP 调用
         if (safeRequestOptions.thinkingEnabled()) {
-            return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions, reasoningListener, usageAccumulator);
+            return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions, streamListener, usageAccumulator);
         }
         OpenAiChatModel modelClient = buildModelClient(requestOptions);
         String prompt = "System:\n"
@@ -193,7 +193,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                         String systemPrompt,
                                         String userPrompt,
                                         ChatRequestOptions requestOptions,
-                                        ReasoningStreamListener reasoningListener,
+                                        ChatStreamListener streamListener,
                                         TokenUsageAccumulator usageAccumulator) {
         MihtnelisAgentProperties.Provider cfg = resolveProvider();
         if (cfg == null || !cfg.isEnabled()) {
@@ -206,7 +206,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         String effort = requestOptions == null
                 ? "medium"
                 : AgentStringUtils.trimToDefault(requestOptions.reasoningEffort(), "medium");
-        boolean useStream = reasoningListener != null;
+        boolean useStream = streamListener != null;
         try {
             String url = resolveCompletionsUrl(baseUrl);
             Map<String, Object> payload = new LinkedHashMap<>();
@@ -231,7 +231,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                     .build();
 
             if (useStream) {
-                return chatWithThinkingStream(request, reasoningListener, usageAccumulator);
+                return chatWithThinkingStream(request, streamListener, usageAccumulator);
             }
             return chatWithThinkingBlocking(request, usageAccumulator);
         } catch (Exception exception) {
@@ -274,7 +274,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
      * SSE 格式：每行 "data: {...}" 包含 delta.reasoning_content 和 delta.content。
      */
     private String chatWithThinkingStream(HttpRequest request,
-                                           ReasoningStreamListener reasoningListener,
+                                           ChatStreamListener streamListener,
                                            TokenUsageAccumulator usageAccumulator) throws Exception {
         HttpResponse<java.io.InputStream> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
@@ -309,16 +309,17 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                     String reasoningDelta = delta.path("reasoning_content").asText("");
                     if (!reasoningDelta.isEmpty()) {
                         reasoningAccum.append(reasoningDelta);
-                        reasoningListener.onReasoningDelta(reasoningDelta, false);
+                        streamListener.onReasoningDelta(reasoningDelta, false);
                     }
                     // content 增量（reasoning 结束后开始出现）
                     String contentDelta = delta.path("content").asText("");
                     if (!contentDelta.isEmpty()) {
                         if (!reasoningDone && reasoningAccum.length() > 0) {
                             reasoningDone = true;
-                            reasoningListener.onReasoningDelta("", true);
+                            streamListener.onReasoningDelta("", true);
                         }
                         contentAccum.append(contentDelta);
+                        streamListener.onContentDelta(contentDelta, false);
                     }
                 } catch (Exception parseEx) {
                     log.debug("mihtnelis stream: failed to parse SSE chunk: {}", data);
@@ -327,7 +328,11 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         }
         // 如果从未收到 content 但 reasoning 已结束
         if (!reasoningDone && reasoningAccum.length() > 0) {
-            reasoningListener.onReasoningDelta("", true);
+            streamListener.onReasoningDelta("", true);
+        }
+        // 通知 content 流结束
+        if (contentAccum.length() > 0) {
+            streamListener.onContentDelta("", true);
         }
         String reasoning = reasoningAccum.toString().trim();
         String content = contentAccum.toString().trim();

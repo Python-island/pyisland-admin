@@ -264,6 +264,21 @@ public class AgentToolExecutionService {
         }
 
         /**
+         * 实时正文内容增量回调（流式模式下使用）。
+         *
+         * @param deltaText 增量文本。
+         * @param done      是否为最后一段正文内容。
+         */
+        default void onContentDelta(String deltaText, boolean done) {
+        }
+
+        /**
+         * 通知前端清除已流式推送的正文内容（例如：content 实际是 tool call JSON 时需要回退）。
+         */
+        default void onContentReset() {
+        }
+
+        /**
          * agent.todo.write 触发的 TodoList 更新。
          * @param items 已归一化的 TodoList，每项包含 id/content/status。
          */

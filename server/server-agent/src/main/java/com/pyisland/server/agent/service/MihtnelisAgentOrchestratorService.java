@@ -126,17 +126,26 @@ public class MihtnelisAgentOrchestratorService {
         AgentChatGatewayService.TokenUsageAccumulator usageAccumulator =
                 new AgentChatGatewayService.TokenUsageAccumulator();
 
-        // 构建实时推理流监听器：将 reasoning_content 增量实时推送给客户端
-        AgentChatGatewayService.ReasoningStreamListener reasoningListener =
+        // 构建流式监听器：将 reasoning / content 增量实时推送给客户端
+        AgentChatGatewayService.ChatStreamListener streamListener =
                 (chatRequestOptions.thinkingEnabled() && toolExecutionObserver != null)
-                        ? (deltaText, done) -> toolExecutionObserver.onThinkingDelta(deltaText, done)
+                        ? new AgentChatGatewayService.ChatStreamListener() {
+                            @Override
+                            public void onReasoningDelta(String deltaText, boolean done) {
+                                toolExecutionObserver.onThinkingDelta(deltaText, done);
+                            }
+                            @Override
+                            public void onContentDelta(String deltaText, boolean done) {
+                                toolExecutionObserver.onContentDelta(deltaText, done);
+                            }
+                        }
                         : null;
 
         for (int turn = effectiveStartTurn; turn <= MAX_REACT_TURNS; turn++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
-            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, reasoningListener, usageAccumulator);
-            // 如果未使用流式推理（reasoningListener == null），仍通过旧路径推送整块思考内容
-            if (reasoningListener == null) {
+            String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, streamListener, usageAccumulator);
+            // 如果未使用流式监听器，仍通过旧路径推送整块思考内容
+            if (streamListener == null) {
                 notifyThinking(executionContext, turn, llmOutput);
             }
             ReActDecision decision = parseDecision(llmOutput);
@@ -153,6 +162,11 @@ public class MihtnelisAgentOrchestratorService {
                             usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
                 }
                 break;
+            }
+
+            // content 实际是 tool call JSON，通知前端清除已流式推送的正文
+            if (toolExecutionObserver != null) {
+                toolExecutionObserver.onContentReset();
             }
 
             AgentToolExecutionService.ToolResult toolResult = toolExecutionService.execute(

@@ -11,17 +11,13 @@ public interface AgentChatGatewayService {
     }
 
     /**
-     * 实时推理内容监听器，用于流式输出 reasoning_content 块。
+     * 流式内容监听器，实时接收 reasoning_content 和 content 增量。
      */
-    @FunctionalInterface
-    interface ReasoningStreamListener {
-        /**
-         * 收到一段推理内容增量。
-         *
-         * @param deltaText 增量文本。
-         * @param done      是否为最后一段。
-         */
-        void onReasoningDelta(String deltaText, boolean done);
+    interface ChatStreamListener {
+        /** 收到一段推理内容增量。 */
+        default void onReasoningDelta(String deltaText, boolean done) {}
+        /** 收到一段正文内容增量。 */
+        default void onContentDelta(String deltaText, boolean done) {}
     }
 
     /**
@@ -63,17 +59,17 @@ public interface AgentChatGatewayService {
      * 调用模型完成单轮对话，支持实时推理内容回调。
      */
     default String chat(String provider, String systemPrompt, String userPrompt,
-                        ChatRequestOptions requestOptions, ReasoningStreamListener reasoningListener) {
+                        ChatRequestOptions requestOptions, ChatStreamListener streamListener) {
         return chat(provider, systemPrompt, userPrompt, requestOptions);
     }
 
     /**
-     * 调用模型完成单轮对话，支持实时推理回调 + token 用量累积。
+     * 调用模型完成单轮对话，支持实时推理/正文回调 + token 用量累积。
      */
     default String chat(String provider, String systemPrompt, String userPrompt,
-                        ChatRequestOptions requestOptions, ReasoningStreamListener reasoningListener,
+                        ChatRequestOptions requestOptions, ChatStreamListener streamListener,
                         TokenUsageAccumulator usageAccumulator) {
-        return chat(provider, systemPrompt, userPrompt, requestOptions, reasoningListener);
+        return chat(provider, systemPrompt, userPrompt, requestOptions, streamListener);
     }
 
     default String chat(String provider, String systemPrompt, String userPrompt) {
