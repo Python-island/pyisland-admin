@@ -785,3 +785,21 @@ CREATE TABLE IF NOT EXISTS agent_model_pricing (
     updated_at                    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_agent_model_pricing_model_name (model_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS agent_billing_dlq_log (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username       VARCHAR(100) NOT NULL,
+    amount_fen     VARCHAR(40) NOT NULL,
+    model_name     VARCHAR(100),
+    input_tokens   INT NOT NULL DEFAULT 0,
+    output_tokens  INT NOT NULL DEFAULT 0,
+    retry_count    INT NOT NULL DEFAULT 0,
+    last_error     VARCHAR(500),
+    status         VARCHAR(20) NOT NULL DEFAULT 'pending',
+    resolved_by    VARCHAR(100),
+    resolved_at    DATETIME,
+    created_at     DATETIME NOT NULL,
+    KEY idx_agent_billing_dlq_username (username),
+    KEY idx_agent_billing_dlq_status (status),
+    KEY idx_agent_billing_dlq_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

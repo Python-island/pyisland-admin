@@ -131,8 +131,14 @@ public class AgentBalanceRedisService {
         }
         BigDecimal balance = user.getBalanceFen() != null ? user.getBalanceFen() : BigDecimal.ZERO;
         String key = KEY_PREFIX + username;
-        redisTemplate.opsForValue().set(key, balance.setScale(SCALE, RoundingMode.HALF_UP).toPlainString());
-        log.info("agent billing redis: initialized balance for user={}, balance={}", username, balance.toPlainString());
+        String balanceStr = balance.setScale(SCALE, RoundingMode.HALF_UP).toPlainString();
+        // 使用 SETNX 避免覆盖并发扣减后的余额
+        Boolean set = redisTemplate.opsForValue().setIfAbsent(key, balanceStr);
+        if (Boolean.TRUE.equals(set)) {
+            log.info("agent billing redis: initialized balance for user={}, balance={}", username, balanceStr);
+        } else {
+            log.debug("agent billing redis: key already exists, skip init for user={}", username);
+        }
         return true;
     }
 

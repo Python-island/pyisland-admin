@@ -1,11 +1,16 @@
 package com.pyisland.server.agent.controller;
 
 import com.pyisland.server.agent.service.AgentModelPricingService;
+import com.pyisland.server.user.entity.AgentBillingDlqLog;
 import com.pyisland.server.user.entity.AgentModelPricing;
+import com.pyisland.server.user.mapper.AgentBillingDlqLogMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -18,9 +23,12 @@ import java.util.Map;
 public class AgentAdminController {
 
     private final AgentModelPricingService pricingService;
+    private final AgentBillingDlqLogMapper dlqLogMapper;
 
-    public AgentAdminController(AgentModelPricingService pricingService) {
+    public AgentAdminController(AgentModelPricingService pricingService,
+                                AgentBillingDlqLogMapper dlqLogMapper) {
         this.pricingService = pricingService;
+        this.dlqLogMapper = dlqLogMapper;
     }
 
     /**
@@ -65,10 +73,66 @@ public class AgentAdminController {
         return ResponseEntity.ok(Map.of("code", 200, "message", "删除成功"));
     }
 
+    // ========== DLQ 异常记录 ==========
+
+    /**
+     * 查询 DLQ 异常记录。
+     */
+    @GetMapping("/billing-dlq")
+    public ResponseEntity<?> listBillingDlq(@RequestParam(required = false) String status) {
+        List<AgentBillingDlqLog> list;
+        if (status != null && !status.isBlank()) {
+            list = dlqLogMapper.selectByStatus(status.trim());
+        } else {
+            list = dlqLogMapper.selectAll();
+        }
+        int pendingCount = dlqLogMapper.countPending();
+        return ResponseEntity.ok(Map.of("code", 200, "message", "ok", "data", list, "pendingCount", pendingCount));
+    }
+
+    /**
+     * 处理 DLQ 记录（标记为 resolved / ignored）。
+     */
+    @PutMapping("/billing-dlq/{id}/resolve")
+    public ResponseEntity<?> resolveBillingDlq(@PathVariable Long id,
+                                               @RequestBody DlqResolveRequest request) {
+        if (id == null) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "ID 不能为空"));
+        }
+        String resolveStatus = request == null || request.status() == null ? "resolved" : request.status().trim();
+        if (!"resolved".equals(resolveStatus) && !"ignored".equals(resolveStatus)) {
+            resolveStatus = "resolved";
+        }
+        String adminName = resolveAdminUsername();
+        int rows = dlqLogMapper.updateStatus(id, resolveStatus, adminName, LocalDateTime.now());
+        if (rows == 0) {
+            return ResponseEntity.ok(Map.of("code", 404, "message", "未找到该记录"));
+        }
+        return ResponseEntity.ok(Map.of("code", 200, "message", "处理成功"));
+    }
+
+    /**
+     * 查询待处理 DLQ 数量。
+     */
+    @GetMapping("/billing-dlq/pending-count")
+    public ResponseEntity<?> billingDlqPendingCount() {
+        int count = dlqLogMapper.countPending();
+        return ResponseEntity.ok(Map.of("code", 200, "message", "ok", "data", count));
+    }
+
+    private String resolveAdminUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : "system";
+    }
+
     private record ModelPricingRequest(
             String modelName,
             Long inputPriceFenPerMillion,
             Long outputPriceFenPerMillion,
             Boolean enabled
+    ) {}
+
+    private record DlqResolveRequest(
+            String status
     ) {}
 }

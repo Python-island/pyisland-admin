@@ -180,4 +180,10 @@
           AND balance_fen >= #{amountFen}
     </update>
 
+    <select id="selectUsersWithPositiveBalance" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM user_account
+        WHERE balance_fen > 0
+    </select>
+
 </mapper>

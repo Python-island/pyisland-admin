@@ -210,4 +210,10 @@ public interface UserMapper {
      */
     int deductBalance(@Param("username") String username,
                       @Param("amountFen") java.math.BigDecimal amountFen);
+
+    /**
+     * 查询所有余额大于 0 的用户（用于对账）。
+     * @return 用户列表。
+     */
+    List<User> selectUsersWithPositiveBalance();
 }

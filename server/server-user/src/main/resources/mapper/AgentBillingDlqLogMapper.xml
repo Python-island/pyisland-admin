@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.mapper.AgentBillingDlqLogMapper">
+
+    <resultMap id="DlqLogResultMap" type="com.pyisland.server.user.entity.AgentBillingDlqLog">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="amountFen" column="amount_fen"/>
+        <result property="modelName" column="model_name"/>
+        <result property="inputTokens" column="input_tokens"/>
+        <result property="outputTokens" column="output_tokens"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="lastError" column="last_error"/>
+        <result property="status" column="status"/>
+        <result property="resolvedBy" column="resolved_by"/>
+        <result property="resolvedAt" column="resolved_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="baseColumns">
+        id, username, amount_fen, model_name, input_tokens, output_tokens,
+        retry_count, last_error, status, resolved_by, resolved_at, created_at
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO agent_billing_dlq_log
+            (username, amount_fen, model_name, input_tokens, output_tokens,
+             retry_count, last_error, status, created_at)
+        VALUES
+            (#{username}, #{amountFen}, #{modelName}, #{inputTokens}, #{outputTokens},
+             #{retryCount}, #{lastError}, #{status}, #{createdAt})
+    </insert>
+
+    <select id="selectAll" resultMap="DlqLogResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM agent_billing_dlq_log
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByStatus" resultMap="DlqLogResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM agent_billing_dlq_log
+        WHERE status = #{status}
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE agent_billing_dlq_log
+        SET status = #{status},
+            resolved_by = #{resolvedBy},
+            resolved_at = #{resolvedAt}
+        WHERE id = #{id}
+    </update>
+
+    <select id="countPending" resultType="int">
+        SELECT COUNT(*)
+        FROM agent_billing_dlq_log
+        WHERE status = 'pending'
+    </select>
+
+</mapper>
