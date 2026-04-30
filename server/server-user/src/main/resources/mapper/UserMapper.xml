@@ -180,6 +180,12 @@
           AND balance_fen > 0
     </update>
 
+    <update id="addBalance">
+        UPDATE user_account
+        SET balance_fen = balance_fen + #{amountFen}
+        WHERE username = #{username}
+    </update>
+
     <select id="selectUsersWithPositiveBalance" resultMap="UserResultMap">
         SELECT <include refid="baseColumns"/>
         FROM user_account

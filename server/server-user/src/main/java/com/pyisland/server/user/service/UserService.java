@@ -4,11 +4,14 @@ import com.pyisland.server.user.entity.UserDailyActiveStat;
 import com.pyisland.server.user.entity.User;
 import com.pyisland.server.user.mapper.UserMapper;
 import com.pyisland.server.user.policy.PasswordHashService;
+import com.pyisland.server.user.event.ProBalanceGrantEvent;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,18 +23,24 @@ import java.util.Locale;
 @Service
 public class UserService {
 
+    private static final BigDecimal PRO_AGENT_BONUS_FEN = new BigDecimal("1000");
+
     private final UserMapper userMapper;
     private final PasswordHashService passwordHashService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 构造用户服务。
      * @param userMapper 用户数据访问。
      * @param passwordHashService 密码哈希服务。
+     * @param eventPublisher 事件发布器。
      */
     public UserService(UserMapper userMapper,
-                       PasswordHashService passwordHashService) {
+                       PasswordHashService passwordHashService,
+                       ApplicationEventPublisher eventPublisher) {
         this.userMapper = userMapper;
         this.passwordHashService = passwordHashService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -293,6 +302,9 @@ public class UserService {
         if (!User.ROLE_ADMIN.equals(user.getRole())) {
             userMapper.updateRole(username, User.ROLE_PRO);
         }
+        // Pro 开通自动发放 Agent 额度（10 元 = 1000 分）
+        userMapper.addBalance(username, PRO_AGENT_BONUS_FEN);
+        eventPublisher.publishEvent(new ProBalanceGrantEvent(this, username));
         return nextExpireAt;
     }
 

@@ -212,6 +212,15 @@ public interface UserMapper {
                       @Param("amountFen") java.math.BigDecimal amountFen);
 
     /**
+     * 增加用户余额。
+     * @param username 用户名。
+     * @param amountFen 增加金额（分），支持小数。
+     * @return 影响行数。
+     */
+    int addBalance(@Param("username") String username,
+                   @Param("amountFen") java.math.BigDecimal amountFen);
+
+    /**
      * 查询所有余额大于 0 的用户（用于对账）。
      * @return 用户列表。
      */

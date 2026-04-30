@@ -150,6 +150,25 @@ public class AgentBalanceRedisService {
     }
 
     /**
+     * 清除 Redis 中的余额缓存，下次访问时从 DB 重新加载。
+     */
+    public void evictBalance(String username) {
+        String key = KEY_PREFIX + username;
+        redisTemplate.delete(key);
+        log.info("agent billing redis: evicted balance cache for user={}", username);
+    }
+
+    /**
+     * 监听 Pro 开通余额发放事件，清除 Redis 缓存使新余额生效。
+     */
+    @org.springframework.context.event.EventListener
+    public void onProBalanceGrant(com.pyisland.server.user.event.ProBalanceGrantEvent event) {
+        if (event.getUsername() != null && !event.getUsername().isBlank()) {
+            evictBalance(event.getUsername());
+        }
+    }
+
+    /**
      * 从数据库加载余额到 Redis。
      *
      * @param username 用户名。
