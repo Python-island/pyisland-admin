@@ -68,4 +68,11 @@
         WHERE certify_id = #{certifyId}
     </update>
 
+    <update id="updateMaterialUrl">
+        UPDATE identity_verification
+        SET material_info_url = #{materialInfoUrl},
+            updated_at = #{updatedAt}
+        WHERE certify_id = #{certifyId}
+    </update>
+
 </mapper>

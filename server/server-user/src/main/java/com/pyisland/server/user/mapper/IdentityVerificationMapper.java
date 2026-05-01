@@ -62,4 +62,15 @@ public interface IdentityVerificationMapper {
                      @Param("status") String status,
                      @Param("materialInfoUrl") String materialInfoUrl,
                      @Param("updatedAt") LocalDateTime updatedAt);
+
+    /**
+     * 仅更新素材存储 URL（异步上传完成后回写）。
+     * @param certifyId certify_id。
+     * @param materialInfoUrl 人脸素材存储 URL。
+     * @param updatedAt 更新时间。
+     * @return 影响行数。
+     */
+    int updateMaterialUrl(@Param("certifyId") String certifyId,
+                          @Param("materialInfoUrl") String materialInfoUrl,
+                          @Param("updatedAt") LocalDateTime updatedAt);
 }

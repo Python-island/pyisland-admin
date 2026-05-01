@@ -1,13 +1,12 @@
 package com.pyisland.server.user.service;
 
-import com.pyisland.server.upload.service.ObjectStorageClient;
-import com.pyisland.server.upload.service.ObjectStorageRouter;
-import com.pyisland.server.upload.service.StorageProvider;
-import com.pyisland.server.upload.service.StorageUploadResult;
+import com.pyisland.server.user.config.IdentityMaterialMqConfig;
 import com.pyisland.server.user.entity.IdentityVerification;
 import com.pyisland.server.user.mapper.IdentityVerificationMapper;
+import com.pyisland.server.user.mq.IdentityMaterialMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -40,7 +39,6 @@ public class IdentityVerificationService {
     private static final Logger log = LoggerFactory.getLogger(IdentityVerificationService.class);
     private static final int AES_GCM_IV_LENGTH = 12;
     private static final int AES_GCM_TAG_BITS = 128;
-    private static final String MATERIAL_FOLDER = "identity-material";
     private static final DateTimeFormatter ORDER_NO_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final String REDIS_RATE_PREFIX = "identity:rate:";
     private static final String REDIS_VERIFIED_PREFIX = "identity:verified:";
@@ -50,26 +48,23 @@ public class IdentityVerificationService {
 
     private final AlipayIdentityClient alipayIdentityClient;
     private final IdentityVerificationMapper verificationMapper;
-    private final ObjectStorageRouter objectStorageRouter;
+    private final RabbitTemplate rabbitTemplate;
     private final StringRedisTemplate redisTemplate;
     private final SecretKeySpec aesKeySpec;
-    private final StorageProvider materialStorageProvider;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public IdentityVerificationService(
             AlipayIdentityClient alipayIdentityClient,
             IdentityVerificationMapper verificationMapper,
-            ObjectStorageRouter objectStorageRouter,
+            RabbitTemplate rabbitTemplate,
             @Qualifier("identityRedisTemplate") StringRedisTemplate redisTemplate,
-            @Value("${IDENTITY_AES_KEY_BASE64:}") String aesKeyBase64,
-            @Value("${IDENTITY_MATERIAL_STORAGE_PROVIDER:COS}") String storageProviderName
+            @Value("${IDENTITY_AES_KEY_BASE64:}") String aesKeyBase64
     ) {
         this.alipayIdentityClient = alipayIdentityClient;
         this.verificationMapper = verificationMapper;
-        this.objectStorageRouter = objectStorageRouter;
+        this.rabbitTemplate = rabbitTemplate;
         this.redisTemplate = redisTemplate;
         this.aesKeySpec = buildAesKey(aesKeyBase64);
-        this.materialStorageProvider = parseStorageProvider(storageProviderName);
     }
 
     /**
@@ -145,13 +140,12 @@ public class IdentityVerificationService {
 
         AlipayIdentityClient.QueryResult queryResult = alipayIdentityClient.query(certifyId);
 
-        String materialUrl = null;
         if (queryResult.passed() && queryResult.materialInfo() != null && !queryResult.materialInfo().isBlank()) {
-            materialUrl = storeMaterialInfo(username, certifyId, queryResult.materialInfo());
+            publishMaterialUpload(username, certifyId, queryResult.materialInfo());
         }
 
         String newStatus = queryResult.passed() ? IdentityVerification.STATUS_PASSED : IdentityVerification.STATUS_FAILED;
-        verificationMapper.updateStatus(certifyId, newStatus, materialUrl, LocalDateTime.now());
+        verificationMapper.updateStatus(certifyId, newStatus, null, LocalDateTime.now());
 
         if (queryResult.passed()) {
             cacheVerifiedStatus(username, true);
@@ -182,22 +176,17 @@ public class IdentityVerificationService {
         return verificationMapper.selectByUsername(username, Math.max(1, Math.min(limit, 50)));
     }
 
-    private String storeMaterialInfo(String username, String certifyId, String materialInfo) {
+    private void publishMaterialUpload(String username, String certifyId, String materialInfo) {
         try {
-            ObjectStorageClient client = objectStorageRouter.get(materialStorageProvider);
-            String objectKey = MATERIAL_FOLDER + "/" + username + "/" + certifyId + ".json";
-            StorageUploadResult result = client.putObject(
-                    objectKey,
-                    materialInfo.getBytes(StandardCharsets.UTF_8),
-                    "application/json",
-                    "identity",
-                    ""
+            IdentityMaterialMessage message = new IdentityMaterialMessage(username, certifyId, materialInfo);
+            rabbitTemplate.convertAndSend(
+                    IdentityMaterialMqConfig.EXCHANGE,
+                    IdentityMaterialMqConfig.ROUTING_KEY,
+                    message
             );
-            log.info("identity material stored username={} certifyId={} url={}", username, certifyId, result.publicUrl());
-            return result.publicUrl();
+            log.info("identity material upload published username={} certifyId={}", username, certifyId);
         } catch (Exception ex) {
-            log.warn("identity material store failed username={} certifyId={} err={}", username, certifyId, ex.getMessage());
-            return null;
+            log.warn("identity material publish failed username={} certifyId={} err={}", username, certifyId, ex.getMessage());
         }
     }
 
@@ -288,17 +277,6 @@ public class IdentityVerificationService {
             return null;
         }
         return new SecretKeySpec(keyBytes, "AES");
-    }
-
-    private StorageProvider parseStorageProvider(String name) {
-        if (name == null || name.isBlank()) {
-            return StorageProvider.COS;
-        }
-        StorageProvider provider = StorageProvider.valueOf(name.trim().toUpperCase());
-        if (provider != StorageProvider.COS && provider != StorageProvider.OSS) {
-            throw new IllegalArgumentException("身份认证素材仅支持 COS 或 OSS 存储，当前配置: " + name);
-        }
-        return provider;
     }
 
     public record StartResult(String certifyId, String certifyUrl, String outerOrderNo) {
