@@ -143,13 +143,19 @@ public class LangChainWorkflowService {
          .append("- defender.scan：触发 Windows Defender 扫描。可选 type（QuickScan/FullScan，默认 QuickScan）。中风险需用户授权。\n")
          .append("- island.settings.list：列出 eIsland 全部可控设置项（主题、透明度、快捷键、背景、剪贴板、自启动等 40+ 项）及当前值。无需参数。首次操作前建议先调用此工具了解可用配置。低风险。\n")
          .append("- island.settings.read：读取指定设置项。参数 key（设置键名，如 theme-mode、island-opacity）。低风险。\n")
-         .append("- island.settings.write：写入指定设置项并实时广播到所有窗口。参数 key、value。写入后 UI 立即生效，无需重启。先用 island.settings.list 确认可用 key。低风险。\n")
+         .append("- island.settings.write：写入指定设置项并实时广播到所有窗口。参数 key（string）、value（类型由设置项决定）。写入后 UI 立即生效，无需重启。先用 island.settings.list 确认可用 key 和 value 类型。低风险。\n")
+         .append("  常用 key-value 示例：key=\"theme-mode\" value=\"dark\" | key=\"island-opacity\" value=80 | key=\"spring-animation\" value=true | key=\"expand-mouseleave-idle\" value=false | key=\"island-bg-mode\" value=\"gradient\" | key=\"autostart-mode\" value=\"enabled\" | key=\"hide-hotkey\" value=\"Alt+H\"\n")
          .append("- island.theme.get：获取当前主题模式（dark/light/system）。无需参数。低风险。\n")
-         .append("- island.theme.set：设置主题模式。参数 mode（dark/light/system）。立即生效。低风险。\n")
+         .append("- island.theme.set：设置主题模式。参数 mode（字符串，仅限 dark/light/system，小写）。立即生效。低风险。**切换主题时优先使用此工具，而非 island.settings.write。**\n")
          .append("- island.opacity.get：获取灵动岛透明度（10-100）。无需参数。低风险。\n")
-         .append("- island.opacity.set：设置灵动岛透明度。参数 opacity（10-100）。立即生效。低风险。\n")
+         .append("- island.opacity.set：设置灵动岛透明度。参数 opacity（数值 10-100，整数）。立即生效。低风险。**调整透明度时优先使用此工具。**\n")
          .append("- island.restart：重启 eIsland 应用。无需参数。仅在设置需要重启才能生效时使用。中风险。\n")
-         .append("- **eIsland 设置操作推荐流程：先 island.settings.list 查看全部设置 → 确认目标 key → island.settings.write 写入。主题和透明度有专用快捷工具 island.theme.set / island.opacity.set，优先使用。**\n\n");
+         .append("- **eIsland 设置操作推荐流程：**\n")
+         .append("  1. 主题切换 → 直接 island.theme.set（mode 参数必须小写：dark/light/system）\n")
+         .append("  2. 透明度调节 → 直接 island.opacity.set（opacity 参数为 10-100 整数）\n")
+         .append("  3. 其他设置 → 先 island.settings.list 查看全部设置和当前值 → 确认目标 key 和 value 类型 → island.settings.write 写入\n")
+         .append("  4. 不确定 key 名时 → 先 island.settings.list 列出所有可用 key，再操作\n")
+         .append("  5. 快捷键值格式为 Electron Accelerator 字符串，如 \"Alt+H\"、\"CommandOrControl+Shift+S\"、\"F12\"\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("当用户要求修改代码、新增功能、修复 Bug 或重构时，严格遵循以下流程：\n\n")
@@ -262,6 +268,33 @@ public class LangChainWorkflowService {
 
         p.append("示例17 - 打开 Windows 设置：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"sys.open\",\"purpose\":\"打开 Windows 显示设置帮助用户调整分辨率\",\"arguments\":{\"target\":\"display\"}}\n\n");
+
+        p.append("示例18 - 切换灵动岛主题为浅色模式：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.theme.set\",\"purpose\":\"将灵动岛主题切换为用户要求的浅色模式\",\"arguments\":{\"mode\":\"light\"}}\n\n");
+
+        p.append("示例19 - 切换灵动岛主题为深色模式：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.theme.set\",\"purpose\":\"将灵动岛主题切换为深色模式\",\"arguments\":{\"mode\":\"dark\"}}\n\n");
+
+        p.append("示例20 - 设置灵动岛跟随系统主题：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.theme.set\",\"purpose\":\"将灵动岛主题设置为跟随系统\",\"arguments\":{\"mode\":\"system\"}}\n\n");
+
+        p.append("示例21 - 调整灵动岛透明度：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.opacity.set\",\"purpose\":\"将灵动岛透明度调整为用户要求的70%\",\"arguments\":{\"opacity\":70}}\n\n");
+
+        p.append("示例22 - 查看灵动岛全部设置：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.settings.list\",\"purpose\":\"列出灵动岛全部可配置项及当前值以了解可用选项\",\"arguments\":{}}\n\n");
+
+        p.append("示例23 - 通过通用接口修改设置（开启弹簧动画）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.settings.write\",\"purpose\":\"开启灵动岛弹簧动画效果\",\"arguments\":{\"key\":\"spring-animation\",\"value\":true}}\n\n");
+
+        p.append("示例24 - 通过通用接口修改设置（关闭展开态自动收起）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.settings.write\",\"purpose\":\"关闭灵动岛展开状态下鼠标离开自动收起\",\"arguments\":{\"key\":\"expand-mouseleave-idle\",\"value\":false}}\n\n");
+
+        p.append("示例25 - 通过通用接口修改快捷键：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.settings.write\",\"purpose\":\"将灵动岛隐藏快捷键设置为用户指定的 Alt+H\",\"arguments\":{\"key\":\"hide-hotkey\",\"value\":\"Alt+H\"}}\n\n");
+
+        p.append("示例26 - 获取当前主题：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"island.theme.get\",\"purpose\":\"查看灵动岛当前主题模式以回答用户提问\",\"arguments\":{}}\n\n");
 
         // 回答质量
         p.append("# 回答质量要求\n")
@@ -411,7 +444,12 @@ public class LangChainWorkflowService {
          .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）\n")
          .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n")
          .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n")
-         .append("- eIsland 设置：用户要求修改灵动岛设置时，先 islandSettingsList 查看全部设置 → 确认 key → islandSettingsWrite 写入。主题用 islandThemeSet（dark/light/system），透明度用 islandOpacitySet（10-100）。写入后 UI 立即生效，无需重启。islandRestart 仅在必要时使用。\n\n");
+         .append("- eIsland 设置：\n")
+         .append("  - 主题切换 → 直接 islandThemeSet，mode 参数必须小写：dark/light/system。用户说浅色/亮色 → light，用户说深色/暗色 → dark，用户说跟随系统 → system\n")
+         .append("  - 透明度调节 → 直接 islandOpacitySet，opacity 参数为 10-100 整数\n")
+         .append("  - 其他设置 → 先 islandSettingsList 查看全部设置和当前值 → 确认 key → islandSettingsWrite 写入\n")
+         .append("  - 常用 key-value：theme-mode=\"dark\"/\"light\"/\"system\"、island-opacity=80、spring-animation=true/false、expand-mouseleave-idle=true/false、island-bg-mode=\"none\"/\"color\"/\"gradient\"/\"image\"/\"video\"、autostart-mode=\"disabled\"/\"enabled\"/\"high-priority\"、快捷键如 hide-hotkey=\"Alt+H\"\n")
+         .append("  - 写入后 UI 立即生效，无需重启。islandRestart 仅在极端情况使用\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("用户要求修改代码、新增功能、修复 Bug 或重构时，遵循以下流程：\n")
