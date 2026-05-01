@@ -570,6 +570,20 @@ public class MihtnelisAgentStreamService {
                 || safeToolName.startsWith("cmd.")
                 || safeToolName.startsWith("sys.")
                 || safeToolName.startsWith("win.")
+                || safeToolName.startsWith("clipboard.")
+                || safeToolName.startsWith("notification.")
+                || safeToolName.startsWith("net.")
+                || safeToolName.startsWith("monitor.")
+                || safeToolName.startsWith("volume.")
+                || safeToolName.startsWith("brightness.")
+                || safeToolName.startsWith("display.")
+                || safeToolName.startsWith("power.")
+                || safeToolName.startsWith("wifi.")
+                || safeToolName.startsWith("registry.")
+                || safeToolName.startsWith("service.")
+                || safeToolName.startsWith("schedule.")
+                || safeToolName.startsWith("firewall.")
+                || safeToolName.startsWith("defender.")
                 || "web.search".equals(safeToolName);
     }
 
@@ -584,12 +598,23 @@ public class MihtnelisAgentStreamService {
         String tool = pendingLocalTool.tool() == null ? "" : pendingLocalTool.tool().trim().toLowerCase();
         return tool.startsWith("file.delete")
                 || tool.startsWith("file.rename")
+                || tool.startsWith("file.trash")
                 || tool.startsWith("cmd.exec")
                 || tool.startsWith("cmd.powershell")
                 || tool.startsWith("win.close")
                 || tool.startsWith("win.minimize")
                 || tool.startsWith("win.maximize")
-                || tool.startsWith("win.restore");
+                || tool.startsWith("win.restore")
+                || tool.startsWith("power.")
+                || tool.startsWith("registry.write")
+                || tool.startsWith("registry.delete")
+                || tool.startsWith("service.start")
+                || tool.startsWith("service.stop")
+                || tool.startsWith("service.restart")
+                || tool.startsWith("schedule.task.create")
+                || tool.startsWith("net.proxy")
+                || tool.startsWith("net.hosts")
+                || tool.startsWith("defender.scan");
     }
 
     private String buildLocalToolAuthorizationMessage(String toolName, String purpose) {

@@ -830,6 +830,353 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("win.close", arguments);
         }
 
+        @Tool("截取当前屏幕并保存到工作区，客户端执行")
+        public Map<String, Object> winScreenshot(@P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("win.screenshot", arguments);
+        }
+
+        @Tool("读取剪贴板文本或图片，客户端执行")
+        public Map<String, Object> clipboardRead() {
+            return invoke("clipboard.read", Map.of());
+        }
+
+        @Tool("写入文本到剪贴板，客户端执行")
+        public Map<String, Object> clipboardWrite(@P("text") String text) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            arguments.put("text", text == null ? "" : text);
+            return invoke("clipboard.write", arguments);
+        }
+
+        @Tool("发送 Windows 通知，客户端执行")
+        public Map<String, Object> notificationSend(@P("title") String title,
+                                                    @P("body") String body) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (title != null && !title.isBlank()) {
+                arguments.put("title", AgentStringUtils.trimToEmpty(title));
+            }
+            if (body != null && !body.isBlank()) {
+                arguments.put("body", AgentStringUtils.trimToEmpty(body));
+            }
+            return invoke("notification.send", arguments);
+        }
+
+        @Tool("压缩文件或目录为 zip，客户端执行")
+        public Map<String, Object> fileCompress(@P("path") String path,
+                                                @P("destination") String destination) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (destination != null && !destination.isBlank()) {
+                arguments.put("destination", AgentStringUtils.trimToEmpty(destination));
+            }
+            return invoke("file.compress", arguments);
+        }
+
+        @Tool("解压 zip 文件，客户端执行")
+        public Map<String, Object> fileExtract(@P("path") String path,
+                                               @P("destination") String destination) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (destination != null && !destination.isBlank()) {
+                arguments.put("destination", AgentStringUtils.trimToEmpty(destination));
+            }
+            return invoke("file.extract", arguments);
+        }
+
+        @Tool("计算文件哈希，客户端执行")
+        public Map<String, Object> fileHash(@P("path") String path,
+                                            @P("algorithm") String algorithm) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (algorithm != null && !algorithm.isBlank()) {
+                arguments.put("algorithm", AgentStringUtils.trimToEmpty(algorithm));
+            }
+            return invoke("file.hash", arguments);
+        }
+
+        @Tool("将文件或目录移到回收站，客户端执行")
+        public Map<String, Object> fileTrash(@P("path") String path) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            return invoke("file.trash", arguments);
+        }
+
+        @Tool("Ping 测试，客户端执行")
+        public Map<String, Object> netPing(@P("host") String host,
+                                           @P("count") Integer count) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (host != null && !host.isBlank()) {
+                arguments.put("host", AgentStringUtils.trimToEmpty(host));
+            }
+            if (count != null) {
+                arguments.put("count", Math.max(1, Math.min(10, count)));
+            }
+            return invoke("net.ping", arguments);
+        }
+
+        @Tool("DNS 查询，客户端执行")
+        public Map<String, Object> netDns(@P("host") String host) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (host != null && !host.isBlank()) {
+                arguments.put("host", AgentStringUtils.trimToEmpty(host));
+            }
+            return invoke("net.dns", arguments);
+        }
+
+        @Tool("查询监听端口，客户端执行")
+        public Map<String, Object> netPorts(@P("filter") String filter) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            return invoke("net.ports", arguments);
+        }
+
+        @Tool("管理 Windows 代理设置，客户端执行")
+        public Map<String, Object> netProxy(@P("action") String action,
+                                            @P("server") String server) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (action != null && !action.isBlank()) {
+                arguments.put("action", AgentStringUtils.trimToEmpty(action));
+            }
+            if (server != null && !server.isBlank()) {
+                arguments.put("server", AgentStringUtils.trimToEmpty(server));
+            }
+            return invoke("net.proxy", arguments);
+        }
+
+        @Tool("读取或追加 hosts 记录，客户端执行")
+        public Map<String, Object> netHosts(@P("action") String action,
+                                            @P("ip") String ip,
+                                            @P("host") String host) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (action != null && !action.isBlank()) {
+                arguments.put("action", AgentStringUtils.trimToEmpty(action));
+            }
+            if (ip != null && !ip.isBlank()) {
+                arguments.put("ip", AgentStringUtils.trimToEmpty(ip));
+            }
+            if (host != null && !host.isBlank()) {
+                arguments.put("host", AgentStringUtils.trimToEmpty(host));
+            }
+            return invoke("net.hosts", arguments);
+        }
+
+        @Tool("获取 CPU 信息和负载，客户端执行")
+        public Map<String, Object> monitorCpu() {
+            return invoke("monitor.cpu", Map.of());
+        }
+
+        @Tool("获取内存使用情况，客户端执行")
+        public Map<String, Object> monitorMemory() {
+            return invoke("monitor.memory", Map.of());
+        }
+
+        @Tool("获取磁盘空间信息，客户端执行")
+        public Map<String, Object> monitorDisk() {
+            return invoke("monitor.disk", Map.of());
+        }
+
+        @Tool("获取 GPU 信息，客户端执行")
+        public Map<String, Object> monitorGpu() {
+            return invoke("monitor.gpu", Map.of());
+        }
+
+        @Tool("获取系统音量，客户端执行")
+        public Map<String, Object> volumeGet() {
+            return invoke("volume.get", Map.of());
+        }
+
+        @Tool("设置系统音量，客户端执行")
+        public Map<String, Object> volumeSet(@P("level") Integer level) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (level != null) {
+                arguments.put("level", Math.max(0, Math.min(100, level)));
+            }
+            return invoke("volume.set", arguments);
+        }
+
+        @Tool("获取屏幕亮度，客户端执行")
+        public Map<String, Object> brightnessGet() {
+            return invoke("brightness.get", Map.of());
+        }
+
+        @Tool("设置屏幕亮度，客户端执行")
+        public Map<String, Object> brightnessSet(@P("level") Integer level) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (level != null) {
+                arguments.put("level", Math.max(0, Math.min(100, level)));
+            }
+            return invoke("brightness.set", arguments);
+        }
+
+        @Tool("列出显示器信息，客户端执行")
+        public Map<String, Object> displayList() {
+            return invoke("display.list", Map.of());
+        }
+
+        @Tool("让电脑进入睡眠，客户端执行")
+        public Map<String, Object> powerSleep() {
+            return invoke("power.sleep", Map.of());
+        }
+
+        @Tool("关闭电脑，客户端执行")
+        public Map<String, Object> powerShutdown() {
+            return invoke("power.shutdown", Map.of());
+        }
+
+        @Tool("重启电脑，客户端执行")
+        public Map<String, Object> powerRestart() {
+            return invoke("power.restart", Map.of());
+        }
+
+        @Tool("扫描可用 Wi-Fi 网络，客户端执行")
+        public Map<String, Object> wifiList() {
+            return invoke("wifi.list", Map.of());
+        }
+
+        @Tool("读取注册表键值，客户端执行")
+        public Map<String, Object> registryRead(@P("path") String path,
+                                                @P("name") String name) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            return invoke("registry.read", arguments);
+        }
+
+        @Tool("写入注册表键值，客户端执行")
+        public Map<String, Object> registryWrite(@P("path") String path,
+                                                 @P("name") String name,
+                                                 @P("value") String value,
+                                                 @P("type") String type) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            if (value != null) {
+                arguments.put("value", value);
+            }
+            if (type != null && !type.isBlank()) {
+                arguments.put("type", AgentStringUtils.trimToEmpty(type));
+            }
+            return invoke("registry.write", arguments);
+        }
+
+        @Tool("删除注册表键或值，客户端执行")
+        public Map<String, Object> registryDelete(@P("path") String path,
+                                                  @P("name") String name) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (path != null && !path.isBlank()) {
+                arguments.put("path", AgentStringUtils.trimToEmpty(path));
+            }
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            return invoke("registry.delete", arguments);
+        }
+
+        @Tool("列出 Windows 服务，客户端执行")
+        public Map<String, Object> serviceList(@P("filter") String filter) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            return invoke("service.list", arguments);
+        }
+
+        @Tool("启动 Windows 服务，客户端执行")
+        public Map<String, Object> serviceStart(@P("name") String name) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            return invoke("service.start", arguments);
+        }
+
+        @Tool("停止 Windows 服务，客户端执行")
+        public Map<String, Object> serviceStop(@P("name") String name) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            return invoke("service.stop", arguments);
+        }
+
+        @Tool("重启 Windows 服务，客户端执行")
+        public Map<String, Object> serviceRestart(@P("name") String name) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            return invoke("service.restart", arguments);
+        }
+
+        @Tool("列出 Windows 计划任务，客户端执行")
+        public Map<String, Object> scheduleTaskList(@P("filter") String filter) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            return invoke("schedule.task.list", arguments);
+        }
+
+        @Tool("创建 Windows 计划任务，客户端执行")
+        public Map<String, Object> scheduleTaskCreate(@P("name") String name,
+                                                      @P("command") String command,
+                                                      @P("trigger") String trigger,
+                                                      @P("time") String time) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (name != null && !name.isBlank()) {
+                arguments.put("name", AgentStringUtils.trimToEmpty(name));
+            }
+            if (command != null && !command.isBlank()) {
+                arguments.put("command", command);
+            }
+            if (trigger != null && !trigger.isBlank()) {
+                arguments.put("trigger", AgentStringUtils.trimToEmpty(trigger));
+            }
+            if (time != null && !time.isBlank()) {
+                arguments.put("time", AgentStringUtils.trimToEmpty(time));
+            }
+            return invoke("schedule.task.create", arguments);
+        }
+
+        @Tool("列出 Windows 防火墙规则，客户端执行")
+        public Map<String, Object> firewallRules(@P("filter") String filter) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            return invoke("firewall.rules", arguments);
+        }
+
+        @Tool("触发 Windows Defender 扫描，客户端执行")
+        public Map<String, Object> defenderScan(@P("type") String type) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (type != null && !type.isBlank()) {
+                arguments.put("type", AgentStringUtils.trimToEmpty(type));
+            }
+            return invoke("defender.scan", arguments);
+        }
+
         @Tool("更新任务清单快照")
         public Map<String, Object> agentTodoWrite(@P("items") Object items) {
             Map<String, Object> arguments = new LinkedHashMap<>();

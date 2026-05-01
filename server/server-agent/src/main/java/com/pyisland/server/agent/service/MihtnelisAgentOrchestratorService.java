@@ -645,12 +645,23 @@ public class MihtnelisAgentOrchestratorService {
         String safeToolName = AgentStringUtils.trimToEmpty(toolName).toLowerCase(Locale.ROOT);
         if (safeToolName.startsWith("file.delete")
                 || safeToolName.startsWith("file.rename")
+                || safeToolName.startsWith("file.trash")
                 || safeToolName.startsWith("cmd.exec")
                 || safeToolName.startsWith("cmd.powershell")
                 || safeToolName.startsWith("win.close")
                 || safeToolName.startsWith("win.minimize")
                 || safeToolName.startsWith("win.maximize")
-                || safeToolName.startsWith("win.restore")) {
+                || safeToolName.startsWith("win.restore")
+                || safeToolName.startsWith("power.")
+                || safeToolName.startsWith("registry.write")
+                || safeToolName.startsWith("registry.delete")
+                || safeToolName.startsWith("service.start")
+                || safeToolName.startsWith("service.stop")
+                || safeToolName.startsWith("service.restart")
+                || safeToolName.startsWith("schedule.task.create")
+                || safeToolName.startsWith("net.proxy")
+                || safeToolName.startsWith("net.hosts")
+                || safeToolName.startsWith("defender.scan")) {
             return "high";
         }
         return "low";
