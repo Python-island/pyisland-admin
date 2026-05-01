@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.mapper.IdentityVerificationMapper">
+
+    <resultMap id="IdentityVerificationResultMap" type="com.pyisland.server.user.entity.IdentityVerification">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="outerOrderNo" column="outer_order_no"/>
+        <result property="certifyId" column="certify_id"/>
+        <result property="certNameCiphertext" column="cert_name_ciphertext"/>
+        <result property="certNoCiphertext" column="cert_no_ciphertext"/>
+        <result property="status" column="status"/>
+        <result property="materialInfoUrl" column="material_info_url"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="baseColumns">
+        id, username, outer_order_no, certify_id, cert_name_ciphertext, cert_no_ciphertext,
+        status, material_info_url, created_at, updated_at
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO identity_verification (username, outer_order_no, certify_id,
+                                           cert_name_ciphertext, cert_no_ciphertext,
+                                           status, material_info_url, created_at, updated_at)
+        VALUES (#{username}, #{outerOrderNo}, #{certifyId},
+                #{certNameCiphertext}, #{certNoCiphertext},
+                #{status}, #{materialInfoUrl}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="selectByCertifyId" resultMap="IdentityVerificationResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM identity_verification
+        WHERE certify_id = #{certifyId}
+        LIMIT 1
+    </select>
+
+    <select id="selectByOuterOrderNo" resultMap="IdentityVerificationResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM identity_verification
+        WHERE outer_order_no = #{outerOrderNo}
+        LIMIT 1
+    </select>
+
+    <select id="selectByUsername" resultMap="IdentityVerificationResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM identity_verification
+        WHERE username = #{username}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectLatestPassedByUsername" resultMap="IdentityVerificationResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM identity_verification
+        WHERE username = #{username} AND status = 'PASSED'
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateStatus">
+        UPDATE identity_verification
+        SET status = #{status},
+            material_info_url = #{materialInfoUrl},
+            updated_at = #{updatedAt}
+        WHERE certify_id = #{certifyId}
+    </update>
+
+</mapper>
