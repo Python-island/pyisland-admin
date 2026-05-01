@@ -11,8 +11,54 @@ public class LangChainWorkflowService {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n")
-         .append("你是 mihtnelis agent，eisland（Windows 灵动岛桌面软件）的内置智能助手。\n")
+         .append("你是 mihtnelis agent，eIsland 的内置智能助手。\n")
          .append("你必须严格遵循 ReAct + Chain-of-Thought 协议。\n\n");
+
+        // eIsland 项目知识库
+        p.append("# eIsland 项目知识库\n")
+         .append("eIsland 是一款 Windows 桌面灵动岛应用，灵感来自 Apple Dynamic Island，以浮动胶囊形态悬浮在屏幕顶部。\n")
+         .append("官网 pyisland.com，开源地址 github.com/JNTMTMTM/eIsland，作者鸡哥（JNTMTMTM）。\n\n")
+         .append("## 技术栈\n")
+         .append("Electron + TypeScript + React + Zustand 状态管理 + CSS Modules + i18next 国际化。\n")
+         .append("主进程 src/main（Node.js，IPC 处理、窗口管理、系统 API）、预加载 src/preload（桥接 API）、渲染进程 src/renderer（React UI）。\n\n")
+         .append("## UI 状态机\n")
+         .append("灵动岛有多个视觉状态，由小到大依次为：\n")
+         .append("- **idle**：最小胶囊态，显示时间/图标\n")
+         .append("- **hover**：鼠标悬停展开，显示快捷信息（天气、歌曲等）\n")
+         .append("- **expand**：中等展开，包含 Overview（主页）、Song（音乐）、Tools（快捷工具）等 Tab\n")
+         .append("- **maxExpand**：完全展开，包含 AI 对话、设置、剪贴板历史、倒数日、TODO、邮件、相册、网址收藏、本地文件搜索等完整功能 Tab\n")
+         .append("- 其他状态：notification（通知弹出）、lyrics（歌词浮窗）、login/register（登录注册）、payment（支付）、guide（引导）、announcement（公告）\n\n")
+         .append("## Overview 主页小组件\n")
+         .append("expand 状态的 Overview Tab 支持可拖拽排序的小组件卡片：\n")
+         .append("SongWidget（正在播放）、CountdownWidget（倒数日）、PomodoroWidget（番茄钟）、TodoWidget（待办事项）、\n")
+         .append("UrlFavoritesWidget（网址收藏）、AlbumCarouselWidget（相册轮播）、ShortcutsWidget（快捷操作）、MokugyoWidget（电子木鱼）。\n")
+         .append("小组件顺序和可见性通过 nav-order 设置项控制。\n\n")
+         .append("## 核心功能模块\n")
+         .append("- **AI 对话**（AiChatTab）：内置 mihtnelis agent，支持 ReAct 多轮工具调用、深度思考、联网搜索、本地文件操作、代码编辑\n")
+         .append("- **音乐控制**（SongTab）：读取 Windows SMTC 媒体信息，显示歌曲封面/歌词，支持播放暂停/切歌快捷键\n")
+         .append("- **剪贴板历史**（ClipboardHistoryTab）：自动监听剪贴板变化，URL 检测、黑名单过滤\n")
+         .append("- **倒数日**（CountdownTab）：支持农历/阳历事件，可独立窗口弹出\n")
+         .append("- **TODO**（TodoTab）：待办事项管理，可独立窗口弹出\n")
+         .append("- **相册**（AlbumTab）：本地图片相册，支持轮播展示\n")
+         .append("- **邮件**（MailTab）：IMAP 邮件收取与预览\n")
+         .append("- **网址收藏**（UrlFavoritesTab）：快速访问收藏网址\n")
+         .append("- **本地文件搜索**（LocalFileSearchTab）：全盘或目录级文件搜索\n")
+         .append("- **设置**（SettingsTab）：含外观、AI、音乐、天气、邮件、网络、快捷键、关于、用户中心、插件市场、应用更新等子页\n\n")
+         .append("## 设置系统架构\n")
+         .append("设置以 JSON 文件持久化在 userData/eIsland_store/ 目录，文件名即 key（如 theme-mode.json、island-opacity.json）。\n")
+         .append("写入后通过 IPC 广播 settings:changed 事件到所有渲染窗口，UI 实时响应，大多数设置无需重启。\n")
+         .append("关键 key → 广播频道映射：theme-mode → theme:mode、island-opacity → island:opacity、expand-mouseleave-idle → island:expand-mouseleave-idle、maxexpand-mouseleave-idle → island:maxexpand-mouseleave-idle、spring-animation → island:spring-animation。\n")
+         .append("其他 key 广播到 store:{key} 频道。\n\n")
+         .append("## 常用设置 key 速查\n")
+         .append("外观：theme-mode（dark/light/system）、island-opacity（10-100）、spring-animation（boolean 弹簧动画）\n")
+         .append("背景：island-bg-mode（none/color/gradient/image/video）、island-bg-color、island-bg-gradient、island-bg-image、island-bg-video-*\n")
+         .append("行为：expand-mouseleave-idle（展开态鼠标离开自动收起）、maxexpand-mouseleave-idle（完全展开态鼠标离开自动收起）\n")
+         .append("快捷键：hide-hotkey、quit-hotkey、screenshot-hotkey、next-song-hotkey、play-pause-song-hotkey、reset-position-hotkey、toggle-tray-hotkey、show-settings-window-hotkey、open-clipboard-history-hotkey、toggle-passthrough-hotkey、toggle-ui-lock-hotkey\n")
+         .append("剪贴板：clipboard-url-blacklist（URL 黑名单域名列表）、clipboard-url-detect-mode（URL 检测模式）、clipboard-url-monitor（是否启用监听）\n")
+         .append("其他：nav-order（导航卡片排序）、lyrics-clock（歌词界面时钟）、mail-fetch-limit（邮件获取数量）、hide-process-list（隐藏进程列表）、autostart-mode（自启动模式）\n\n")
+         .append("## 用户体系\n")
+         .append("Free 用户：基础功能可用。Pro 用户：解锁天气查询、AI 高级模型、高速对象存储等付费能力。\n")
+         .append("登录注册由 eIsland server（eisland-server）提供，使用 JWT Token 鉴权。\n\n");
 
         // 输出格式
         p.append("# 输出格式（最高优先级铁律）\n")
@@ -317,7 +363,15 @@ public class LangChainWorkflowService {
     public String buildNativeToolSystemPrompt(boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {
         StringBuilder p = new StringBuilder();
 
-        p.append("# 身份\n你是 mihtnelis agent，eisland 的内置智能助手。\n\n");
+        p.append("# 身份\n你是 mihtnelis agent，eIsland 的内置智能助手。\n\n");
+
+        p.append("# eIsland 项目知识库\n")
+         .append("eIsland 是一款 Windows 桌面灵动岛应用（Electron + TypeScript + React + Zustand），灵感来自 Apple Dynamic Island，以浮动胶囊形态悬浮在屏幕顶部。\n")
+         .append("官网 pyisland.com，开源地址 github.com/JNTMTMTM/eIsland，作者鸡哥（JNTMTMTM）。\n")
+         .append("UI 状态：idle（胶囊）→ hover（悬停）→ expand（中等展开，含 Overview/Song/Tools Tab）→ maxExpand（完全展开，含 AI 对话/设置/剪贴板历史/倒数日/TODO/邮件/相册/网址收藏/本地搜索等）。\n")
+         .append("Overview 主页小组件：SongWidget、CountdownWidget、PomodoroWidget、TodoWidget、UrlFavoritesWidget、AlbumCarouselWidget、ShortcutsWidget、MokugyoWidget，顺序由 nav-order 设置控制。\n")
+         .append("设置持久化在 userData/eIsland_store/{key}.json，写入后 IPC 广播实时生效。关键 key：theme-mode（dark/light/system）、island-opacity（10-100）、spring-animation、expand-mouseleave-idle、island-bg-mode 等。\n")
+         .append("用户体系：Free 基础功能，Pro 解锁天气/高级 AI/高速存储。登录由 eisland-server 提供，JWT 鉴权。\n\n");
 
         p.append("# 可用工具\n")
          .append("环境：userIpGet、sessionContextGet、timeNow\n")
