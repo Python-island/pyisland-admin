@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 public class MihtnelisAgentOrchestratorService {
 
     private static final int MAX_REACT_TURNS = 5;
+    private static final int MAX_EMPTY_RESULT_RETRIES = 1;
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
     private static final Pattern THINK_TAG_PATTERN = Pattern.compile("<think>.*?</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -230,7 +231,8 @@ public class MihtnelisAgentOrchestratorService {
                         }
                         : null;
 
-        for (int turn = effectiveStartTurn; turn <= MAX_REACT_TURNS; turn++) {
+        int emptyResultRetries = 0;
+        for (int turn = effectiveStartTurn, attempt = 0; attempt < MAX_REACT_TURNS; turn++, attempt++) {
             String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
             String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, streamListener, usageAccumulator);
             // 如果未使用流式监听器，仍通过旧路径推送整块思考内容
@@ -249,6 +251,10 @@ public class MihtnelisAgentOrchestratorService {
                 if (!fallbackFromRaw.isBlank()) {
                     return AgentExecutionResult.done(provider, fallbackFromRaw, proUser, traces,
                             usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
+                }
+                if (emptyResultRetries < MAX_EMPTY_RESULT_RETRIES) {
+                    emptyResultRetries++;
+                    continue;
                 }
                 break;
             }
@@ -293,7 +299,7 @@ public class MihtnelisAgentOrchestratorService {
             scratchpad = appendObservation(scratchpad, turn, decision.toolName(), decision.arguments(), toolResult);
         }
 
-        String fallbackMessage = resolveFallbackMessage(provider, traces);
+        String fallbackMessage = resolveFallbackMessage(provider, traces, scratchpad);
         return AgentExecutionResult.done(provider, fallbackMessage, proUser, traces,
                 usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
     }
@@ -546,7 +552,7 @@ public class MihtnelisAgentOrchestratorService {
         return "medium";
     }
 
-    private String resolveFallbackMessage(String provider, List<ToolInvocationTrace> traces) {
+    private String resolveFallbackMessage(String provider, List<ToolInvocationTrace> traces, String scratchpad) {
         if (traces != null && !traces.isEmpty()) {
             ToolInvocationTrace lastTrace = traces.get(traces.size() - 1);
             String tool = AgentStringUtils.trimToDefault(lastTrace.tool(), "unknown");
@@ -558,6 +564,9 @@ public class MihtnelisAgentOrchestratorService {
                 return "已完成工具调用：" + tool + "，但模型未生成最终结论。请继续追问“请基于以上工具结果给出最终回答”。";
             }
             return "工具调用未返回可用结论：" + tool + "，请重试或调整问题后再试。";
+        }
+        if (!AgentStringUtils.trimToDefault(scratchpad, "").isBlank()) {
+            return "工具已执行并返回结果，但模型未基于工具结果生成最终回答。系统已自动重试，请重新发起请求或缩小本次任务范围。";
         }
         return "当前 provider=" + AgentStringUtils.trimToDefault(provider, "deepseek")
                 + " 未返回有效结果，请检查模型配置与网络后重试。";
