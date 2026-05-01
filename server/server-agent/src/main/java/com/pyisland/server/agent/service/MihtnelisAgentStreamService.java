@@ -614,7 +614,11 @@ public class MihtnelisAgentStreamService {
                 || tool.startsWith("schedule.task.create")
                 || tool.startsWith("net.proxy")
                 || tool.startsWith("net.hosts")
-                || tool.startsWith("defender.scan");
+                || tool.startsWith("defender.scan")
+                || tool.startsWith("island.settings.write")
+                || tool.startsWith("island.theme.set")
+                || tool.startsWith("island.opacity.set")
+                || tool.startsWith("island.restart");
     }
 
     private String buildLocalToolAuthorizationMessage(String toolName, String purpose) {
@@ -638,6 +642,18 @@ public class MihtnelisAgentStreamService {
         }
         if (safeToolName.startsWith("win.minimize") || safeToolName.startsWith("win.maximize") || safeToolName.startsWith("win.restore")) {
             return "Agent 请求操作窗口状态（最小化/最大化/还原），是否允许执行？" + suffix;
+        }
+        if (safeToolName.startsWith("island.settings.write")) {
+            return "Agent 请求修改灵动岛设置，是否允许？" + suffix;
+        }
+        if (safeToolName.startsWith("island.theme.set")) {
+            return "Agent 请求切换灵动岛主题模式，是否允许？" + suffix;
+        }
+        if (safeToolName.startsWith("island.opacity.set")) {
+            return "Agent 请求调整灵动岛透明度，是否允许？" + suffix;
+        }
+        if (safeToolName.startsWith("island.restart")) {
+            return "Agent 请求重启灵动岛应用，是否允许？" + suffix;
         }
         return "Agent 请求执行高风险本地操作，是否允许执行？" + suffix;
     }

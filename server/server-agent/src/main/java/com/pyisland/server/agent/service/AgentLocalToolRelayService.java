@@ -270,7 +270,11 @@ public class AgentLocalToolRelayService {
                 || tool.startsWith("schedule.task.create")
                 || tool.startsWith("net.proxy")
                 || tool.startsWith("net.hosts")
-                || tool.startsWith("defender.scan");
+                || tool.startsWith("defender.scan")
+                || tool.startsWith("island.settings.write")
+                || tool.startsWith("island.theme.set")
+                || tool.startsWith("island.opacity.set")
+                || tool.startsWith("island.restart");
     }
 
     private record PendingLocalToolRequest(String requestId,

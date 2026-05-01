@@ -673,6 +673,12 @@ public class MihtnelisAgentOrchestratorService {
                 || safeToolName.startsWith("defender.scan")) {
             return "high";
         }
+        if (safeToolName.startsWith("island.settings.write")
+                || safeToolName.startsWith("island.theme.set")
+                || safeToolName.startsWith("island.opacity.set")
+                || safeToolName.startsWith("island.restart")) {
+            return "medium";
+        }
         return "low";
     }
 
