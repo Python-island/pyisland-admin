@@ -21,6 +21,7 @@ public class OssService implements ObjectStorageClient {
     private static final String RESOURCE_AVATAR = "avatar";
     private static final String RESOURCE_WALLPAPER = "wallpaper";
     private static final String RESOURCE_FEEDBACK = "feedback";
+    private static final String RESOURCE_IDENTITY = "identity";
 
     @Value("${aliyun.oss.admin-avatar.endpoint:}")
     private String adminAvatarEndpoint;
@@ -81,6 +82,21 @@ public class OssService implements ObjectStorageClient {
 
     @Value("${aliyun.oss.feedback.domain:}")
     private String feedbackDomain;
+
+    @Value("${aliyun.oss.identity.endpoint:}")
+    private String identityEndpoint;
+
+    @Value("${aliyun.oss.identity.access-key-id:}")
+    private String identityAccessKeyId;
+
+    @Value("${aliyun.oss.identity.access-key-secret:}")
+    private String identityAccessKeySecret;
+
+    @Value("${aliyun.oss.identity.bucket-name:}")
+    private String identityBucketName;
+
+    @Value("${aliyun.oss.identity.domain:}")
+    private String identityDomain;
 
     @Override
     public StorageProvider provider() {
@@ -217,6 +233,16 @@ public class OssService implements ObjectStorageClient {
                     safeText(feedbackDomain)
             );
         }
+        if (RESOURCE_IDENTITY.equals(resourceType)) {
+            return new BucketConfig(
+                    RESOURCE_IDENTITY,
+                    safeText(identityEndpoint),
+                    safeText(identityAccessKeyId),
+                    safeText(identityAccessKeySecret),
+                    safeText(identityBucketName),
+                    safeText(identityDomain)
+            );
+        }
         return new BucketConfig(
                 RESOURCE_AVATAR,
                 safeText(avatarEndpoint),
@@ -239,6 +265,9 @@ public class OssService implements ObjectStorageClient {
         }
         if (normalizedBizType.contains("feedback")) {
             return RESOURCE_FEEDBACK;
+        }
+        if (normalizedBizType.contains("identity")) {
+            return RESOURCE_IDENTITY;
         }
         if (normalizedBizType.contains("avatar")) {
             return RESOURCE_AVATAR;
@@ -270,6 +299,9 @@ public class OssService implements ObjectStorageClient {
                 || normalizedKey.startsWith("feedback/")
                 || normalizedKey.startsWith("issue-feedback/")) {
             return RESOURCE_FEEDBACK;
+        }
+        if (normalizedKey.startsWith("identity-material/")) {
+            return RESOURCE_IDENTITY;
         }
         return RESOURCE_AVATAR;
     }

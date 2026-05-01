@@ -75,6 +75,12 @@ aliyun:
       access-key-secret: ${OSS_FEEDBACK_ACCESS_KEY_SECRET}
       bucket-name: ${OSS_FEEDBACK_BUCKET_NAME:eisland-feedback-assets}
       domain: ${OSS_FEEDBACK_DOMAIN:}
+    identity:
+      endpoint: ${OSS_IDENTITY_ENDPOINT:}
+      access-key-id: ${OSS_IDENTITY_ACCESS_KEY_ID:}
+      access-key-secret: ${OSS_IDENTITY_ACCESS_KEY_SECRET:}
+      bucket-name: ${OSS_IDENTITY_BUCKET_NAME:}
+      domain: ${OSS_IDENTITY_DOMAIN:}
     vector:
       endpoint: ${OSS_VECTOR_ENDPOINT}
       access-key-id: ${OSS_VECTOR_ACCESS_KEY_ID}
@@ -102,6 +108,12 @@ tencent:
       secret-key: ${COS_FEEDBACK_SECRET_KEY}
       bucket-name: ${COS_FEEDBACK_BUCKET_NAME:eisland-feedback-assets}
       domain: ${COS_FEEDBACK_DOMAIN:}
+    identity:
+      region: ${COS_IDENTITY_REGION:ap-nanjing}
+      secret-id: ${COS_IDENTITY_SECRET_ID:}
+      secret-key: ${COS_IDENTITY_SECRET_KEY:}
+      bucket-name: ${COS_IDENTITY_BUCKET_NAME:}
+      domain: ${COS_IDENTITY_DOMAIN:}
 
 cloudflare:
   r2:

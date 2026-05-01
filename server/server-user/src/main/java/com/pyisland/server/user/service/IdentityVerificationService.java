@@ -8,7 +8,9 @@ import com.pyisland.server.user.entity.IdentityVerification;
 import com.pyisland.server.user.mapper.IdentityVerificationMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 身份认证业务服务。
@@ -39,10 +42,16 @@ public class IdentityVerificationService {
     private static final int AES_GCM_TAG_BITS = 128;
     private static final String MATERIAL_FOLDER = "identity-material";
     private static final DateTimeFormatter ORDER_NO_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final String REDIS_RATE_PREFIX = "identity:rate:";
+    private static final String REDIS_VERIFIED_PREFIX = "identity:verified:";
+    private static final long RATE_LIMIT_WINDOW_SECONDS = 300;
+    private static final long RATE_LIMIT_MAX = 3;
+    private static final long VERIFIED_CACHE_SECONDS = 3600;
 
     private final AlipayIdentityClient alipayIdentityClient;
     private final IdentityVerificationMapper verificationMapper;
     private final ObjectStorageRouter objectStorageRouter;
+    private final StringRedisTemplate redisTemplate;
     private final SecretKeySpec aesKeySpec;
     private final StorageProvider materialStorageProvider;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -51,12 +60,14 @@ public class IdentityVerificationService {
             AlipayIdentityClient alipayIdentityClient,
             IdentityVerificationMapper verificationMapper,
             ObjectStorageRouter objectStorageRouter,
+            @Qualifier("identityRedisTemplate") StringRedisTemplate redisTemplate,
             @Value("${IDENTITY_AES_KEY_BASE64:}") String aesKeyBase64,
             @Value("${IDENTITY_MATERIAL_STORAGE_PROVIDER:COS}") String storageProviderName
     ) {
         this.alipayIdentityClient = alipayIdentityClient;
         this.verificationMapper = verificationMapper;
         this.objectStorageRouter = objectStorageRouter;
+        this.redisTemplate = redisTemplate;
         this.aesKeySpec = buildAesKey(aesKeyBase64);
         this.materialStorageProvider = parseStorageProvider(storageProviderName);
     }
@@ -77,6 +88,8 @@ public class IdentityVerificationService {
         if (aesKeySpec == null) {
             throw new IllegalStateException("身份认证加密密钥未配置");
         }
+
+        checkRateLimit(username);
 
         IdentityVerification existing = verificationMapper.selectLatestPassedByUsername(username);
         if (existing != null) {
@@ -106,6 +119,7 @@ public class IdentityVerificationService {
         verificationMapper.insert(record);
 
         log.info("identity verification started username={} outerOrderNo={} certifyId={}", username, outerOrderNo, certifyId);
+        incrementRateLimit(username);
         return new StartResult(certifyId, certifyUrl, outerOrderNo);
     }
 
@@ -139,6 +153,10 @@ public class IdentityVerificationService {
         String newStatus = queryResult.passed() ? IdentityVerification.STATUS_PASSED : IdentityVerification.STATUS_FAILED;
         verificationMapper.updateStatus(certifyId, newStatus, materialUrl, LocalDateTime.now());
 
+        if (queryResult.passed()) {
+            cacheVerifiedStatus(username, true);
+        }
+
         log.info("identity verification query username={} certifyId={} passed={}", username, certifyId, queryResult.passed());
         return new VerifyResult(queryResult.passed(), queryResult.passed() ? "认证通过" : "认证未通过: " + queryResult.subMsg());
     }
@@ -147,8 +165,14 @@ public class IdentityVerificationService {
      * 查询用户是否已通过实名认证。
      */
     public boolean isVerified(String username) {
+        String cached = redisTemplate.opsForValue().get(REDIS_VERIFIED_PREFIX + username);
+        if (cached != null) {
+            return "1".equals(cached);
+        }
         IdentityVerification record = verificationMapper.selectLatestPassedByUsername(username);
-        return record != null;
+        boolean verified = record != null;
+        cacheVerifiedStatus(username, verified);
+        return verified;
     }
 
     /**
@@ -165,7 +189,9 @@ public class IdentityVerificationService {
             StorageUploadResult result = client.putObject(
                     objectKey,
                     materialInfo.getBytes(StandardCharsets.UTF_8),
-                    "application/json"
+                    "application/json",
+                    "identity",
+                    ""
             );
             log.info("identity material stored username={} certifyId={} url={}", username, certifyId, result.publicUrl());
             return result.publicUrl();
@@ -173,6 +199,36 @@ public class IdentityVerificationService {
             log.warn("identity material store failed username={} certifyId={} err={}", username, certifyId, ex.getMessage());
             return null;
         }
+    }
+
+    // ── Redis 频率限制与缓存 ──
+
+    private void checkRateLimit(String username) {
+        String key = REDIS_RATE_PREFIX + username;
+        String val = redisTemplate.opsForValue().get(key);
+        if (val != null) {
+            long count = Long.parseLong(val);
+            if (count >= RATE_LIMIT_MAX) {
+                throw new IllegalStateException("操作过于频繁，请 " + RATE_LIMIT_WINDOW_SECONDS / 60 + " 分钟后再试");
+            }
+        }
+    }
+
+    private void incrementRateLimit(String username) {
+        String key = REDIS_RATE_PREFIX + username;
+        Long current = redisTemplate.opsForValue().increment(key);
+        if (current != null && current == 1L) {
+            redisTemplate.expire(key, RATE_LIMIT_WINDOW_SECONDS, TimeUnit.SECONDS);
+        }
+    }
+
+    private void cacheVerifiedStatus(String username, boolean verified) {
+        redisTemplate.opsForValue().set(
+                REDIS_VERIFIED_PREFIX + username,
+                verified ? "1" : "0",
+                VERIFIED_CACHE_SECONDS,
+                TimeUnit.SECONDS
+        );
     }
 
     private String generateOuterOrderNo(String username) {
@@ -238,12 +294,11 @@ public class IdentityVerificationService {
         if (name == null || name.isBlank()) {
             return StorageProvider.COS;
         }
-        try {
-            return StorageProvider.valueOf(name.trim().toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            log.warn("未知对象存储提供商 {}，默认使用 COS", name);
-            return StorageProvider.COS;
+        StorageProvider provider = StorageProvider.valueOf(name.trim().toUpperCase());
+        if (provider != StorageProvider.COS && provider != StorageProvider.OSS) {
+            throw new IllegalArgumentException("身份认证素材仅支持 COS 或 OSS 存储，当前配置: " + name);
         }
+        return provider;
     }
 
     public record StartResult(String certifyId, String certifyUrl, String outerOrderNo) {

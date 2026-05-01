@@ -24,6 +24,7 @@ public class CosStorageService implements ObjectStorageClient {
     private static final String RESOURCE_AVATAR = "avatar";
     private static final String RESOURCE_WALLPAPER = "wallpaper";
     private static final String RESOURCE_FEEDBACK = "feedback";
+    private static final String RESOURCE_IDENTITY = "identity";
 
     @Value("${tencent.cos.avatar.region:ap-guangzhou}")
     private String avatarRegion;
@@ -69,6 +70,21 @@ public class CosStorageService implements ObjectStorageClient {
 
     @Value("${tencent.cos.feedback.domain:}")
     private String feedbackDomain;
+
+    @Value("${tencent.cos.identity.region:ap-nanjing}")
+    private String identityRegion;
+
+    @Value("${tencent.cos.identity.secret-id:}")
+    private String identitySecretId;
+
+    @Value("${tencent.cos.identity.secret-key:}")
+    private String identitySecretKey;
+
+    @Value("${tencent.cos.identity.bucket-name:}")
+    private String identityBucketName;
+
+    @Value("${tencent.cos.identity.domain:}")
+    private String identityDomain;
 
     @Override
     public StorageProvider provider() {
@@ -205,6 +221,16 @@ public class CosStorageService implements ObjectStorageClient {
                     safeText(feedbackDomain)
             );
         }
+        if (RESOURCE_IDENTITY.equals(resourceType)) {
+            return new BucketConfig(
+                    RESOURCE_IDENTITY,
+                    safeText(identityRegion),
+                    safeText(identitySecretId),
+                    safeText(identitySecretKey),
+                    safeText(identityBucketName),
+                    safeText(identityDomain)
+            );
+        }
         return new BucketConfig(
                 RESOURCE_AVATAR,
                 safeText(avatarRegion),
@@ -222,6 +248,9 @@ public class CosStorageService implements ObjectStorageClient {
         }
         if (normalizedBizType.contains("feedback")) {
             return RESOURCE_FEEDBACK;
+        }
+        if (normalizedBizType.contains("identity")) {
+            return RESOURCE_IDENTITY;
         }
         if (normalizedBizType.contains("avatar")) {
             return RESOURCE_AVATAR;
@@ -246,6 +275,9 @@ public class CosStorageService implements ObjectStorageClient {
                 || normalizedKey.startsWith("feedback/")
                 || normalizedKey.startsWith("issue-feedback/")) {
             return RESOURCE_FEEDBACK;
+        }
+        if (normalizedKey.startsWith("identity-material/")) {
+            return RESOURCE_IDENTITY;
         }
         return RESOURCE_AVATAR;
     }
