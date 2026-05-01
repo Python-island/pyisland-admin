@@ -209,6 +209,20 @@ public class AgentToolExecutionService {
                 || safeToolName.startsWith("cmd.")
                 || safeToolName.startsWith("sys.")
                 || safeToolName.startsWith("win.")
+                || safeToolName.startsWith("clipboard.")
+                || safeToolName.startsWith("notification.")
+                || safeToolName.startsWith("net.")
+                || safeToolName.startsWith("monitor.")
+                || safeToolName.startsWith("volume.")
+                || safeToolName.startsWith("brightness.")
+                || safeToolName.startsWith("display.")
+                || safeToolName.startsWith("power.")
+                || safeToolName.startsWith("wifi.")
+                || safeToolName.startsWith("registry.")
+                || safeToolName.startsWith("service.")
+                || safeToolName.startsWith("schedule.")
+                || safeToolName.startsWith("firewall.")
+                || safeToolName.startsWith("defender.")
                 || "web.search".equals(safeToolName);
     }
 

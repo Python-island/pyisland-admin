@@ -254,12 +254,23 @@ public class AgentLocalToolRelayService {
         String tool = AgentStringUtils.trimToEmpty(request.tool()).toLowerCase(Locale.ROOT);
         return tool.startsWith("file.delete")
                 || tool.startsWith("file.rename")
+                || tool.startsWith("file.trash")
                 || tool.startsWith("cmd.exec")
                 || tool.startsWith("cmd.powershell")
                 || tool.startsWith("win.close")
                 || tool.startsWith("win.minimize")
                 || tool.startsWith("win.maximize")
-                || tool.startsWith("win.restore");
+                || tool.startsWith("win.restore")
+                || tool.startsWith("power.")
+                || tool.startsWith("registry.write")
+                || tool.startsWith("registry.delete")
+                || tool.startsWith("service.start")
+                || tool.startsWith("service.stop")
+                || tool.startsWith("service.restart")
+                || tool.startsWith("schedule.task.create")
+                || tool.startsWith("net.proxy")
+                || tool.startsWith("net.hosts")
+                || tool.startsWith("defender.scan");
     }
 
     private record PendingLocalToolRequest(String requestId,
