@@ -141,6 +141,9 @@ public class IdentityVerificationService {
         AlipayIdentityClient.QueryResult queryResult = alipayIdentityClient.query(certifyId);
 
         if (queryResult.passed() && queryResult.materialInfo() != null && !queryResult.materialInfo().isBlank()) {
+            log.info("identity materialInfo from alipay username={} certifyId={} len={} preview={}",
+                    username, certifyId, queryResult.materialInfo().length(),
+                    queryResult.materialInfo().substring(0, Math.min(200, queryResult.materialInfo().length())));
             publishMaterialUpload(username, certifyId, queryResult.materialInfo());
         }
 

@@ -53,11 +53,19 @@ public class IdentityMaterialUploadConsumer {
             return;
         }
         try {
+            String materialInfo = message.materialInfo();
+            log.info("identity material consumer received username={} certifyId={} materialInfoNull={} materialInfoLen={}",
+                    message.username(), message.certifyId(),
+                    materialInfo == null, materialInfo == null ? 0 : materialInfo.length());
+            if (materialInfo == null || materialInfo.isBlank()) {
+                log.warn("identity material skipped (empty) username={} certifyId={}", message.username(), message.certifyId());
+                return;
+            }
             ObjectStorageClient client = objectStorageRouter.get(materialStorageProvider);
             String objectKey = MATERIAL_FOLDER + "/" + message.username() + "/" + message.certifyId() + ".json";
             StorageUploadResult result = client.putObject(
                     objectKey,
-                    message.materialInfo().getBytes(StandardCharsets.UTF_8),
+                    materialInfo.getBytes(StandardCharsets.UTF_8),
                     "application/json",
                     "identity",
                     ""
