@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { appUsers, userAccounts, type UserAccountItem, type Gender, sanitizeUrl } from "../api";
+import { appUsers, userAccounts, identityAdmin, type UserAccountItem, type Gender, type IdentityUserInfo, sanitizeUrl } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MessageDialog from "../components/MessageDialog";
 
@@ -58,6 +58,10 @@ export default function AppUserList() {
   const [roleVisible, setRoleVisible] = useState(false);
   const [roleTarget, setRoleTarget] = useState("");
   const [targetRole, setTargetRole] = useState<"admin" | "pro" | "user">("pro");
+  const [identityVisible, setIdentityVisible] = useState(false);
+  const [identityTarget, setIdentityTarget] = useState("");
+  const [identityInfo, setIdentityInfo] = useState<IdentityUserInfo | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
 
   const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -95,6 +99,27 @@ export default function AppUserList() {
       }
     } catch {
       showMsg(!banned ? "封禁失败" : "解除封禁失败", "err");
+    }
+  };
+
+  const handleQueryIdentity = async (username: string) => {
+    setIdentityTarget(username);
+    setIdentityInfo(null);
+    setIdentityVisible(true);
+    setIdentityLoading(true);
+    try {
+      const res = await identityAdmin.getUserInfo(username);
+      if (res.code === 200 && res.data) {
+        setIdentityInfo(res.data);
+      } else {
+        showMsg(res.message || "查询实名信息失败", "err");
+        setIdentityVisible(false);
+      }
+    } catch {
+      showMsg("查询实名信息失败", "err");
+      setIdentityVisible(false);
+    } finally {
+      setIdentityLoading(false);
     }
   };
 
@@ -348,6 +373,21 @@ export default function AppUserList() {
                             {Boolean(u.banned) ? "解除封禁" : "封禁"}
                           </button>
                           <button
+                            onClick={() => handleQueryIdentity(u.username)}
+                            className="cursor-pointer"
+                            style={{
+                              padding: "2px 12px",
+                              backgroundColor: "transparent",
+                              color: "#bf5af2",
+                              borderRadius: 980,
+                              border: "1px solid #bf5af2",
+                              fontSize: 12,
+                              lineHeight: 1.43,
+                            }}
+                          >
+                            实名信息
+                          </button>
+                          <button
                             onClick={() => requestDelete(u.username)}
                             className="cursor-pointer"
                             style={{
@@ -458,6 +498,65 @@ export default function AppUserList() {
         onConfirm={handleUpdateRole}
         onCancel={() => setRoleVisible(false)}
       />
+
+      {identityVisible && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.55)",
+          }}
+          onClick={() => setIdentityVisible(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--apple-surface-1)",
+              borderRadius: 16,
+              padding: 32,
+              minWidth: 360,
+              maxWidth: 480,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ color: "#fff", fontSize: 20, fontWeight: 600, marginTop: 0, marginBottom: 20 }}>
+              {identityTarget} 的实名信息
+            </h3>
+            {identityLoading ? (
+              <p style={{ color: "rgba(255,255,255,0.48)", fontSize: 14 }}>查询中...</p>
+            ) : identityInfo && !identityInfo.verified ? (
+              <p style={{ color: "rgba(255,255,255,0.56)", fontSize: 14 }}>该用户尚未完成实名认证</p>
+            ) : identityInfo ? (
+              <div style={{ display: "grid", gap: 14, color: "rgba(255,255,255,0.84)", fontSize: 14 }}>
+                <div><strong style={{ color: "rgba(255,255,255,0.56)" }}>姓名：</strong>{identityInfo.certName || "—"}</div>
+                <div><strong style={{ color: "rgba(255,255,255,0.56)" }}>身份证号：</strong><span style={{ fontFamily: "monospace" }}>{identityInfo.maskedCertNo || "—"}</span></div>
+                <div><strong style={{ color: "rgba(255,255,255,0.56)" }}>状态：</strong><span style={{ color: identityInfo.status === "PASSED" ? "#34c759" : "#ff9f0a", fontWeight: 600 }}>{identityInfo.status}</span></div>
+                <div><strong style={{ color: "rgba(255,255,255,0.56)" }}>认证时间：</strong>{identityInfo.verifiedAt || "—"}</div>
+              </div>
+            ) : null}
+            <div style={{ marginTop: 24, textAlign: "right" }}>
+              <button
+                onClick={() => setIdentityVisible(false)}
+                className="cursor-pointer"
+                style={{
+                  padding: "8px 24px",
+                  backgroundColor: "var(--apple-blue)",
+                  color: "#fff",
+                  borderRadius: 980,
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

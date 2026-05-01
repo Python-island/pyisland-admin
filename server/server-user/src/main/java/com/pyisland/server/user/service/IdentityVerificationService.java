@@ -179,6 +179,33 @@ public class IdentityVerificationService {
         return verificationMapper.selectByUsername(username, Math.max(1, Math.min(limit, 50)));
     }
 
+    /**
+     * 管理员查询用户实名信息（解密姓名，脱敏身份证号）。
+     * @param username 用户名。
+     * @return 实名信息；未认证返回 null。
+     */
+    public IdentityInfo getIdentityInfo(String username) {
+        IdentityVerification record = verificationMapper.selectLatestPassedByUsername(username);
+        if (record == null) {
+            return null;
+        }
+        String certName = decrypt(record.getCertNameCiphertext());
+        String certNo = decrypt(record.getCertNoCiphertext());
+        String maskedCertNo = maskCertNo(certNo);
+        return new IdentityInfo(certName, maskedCertNo, record.getStatus(), record.getCreatedAt(), record.getUpdatedAt());
+    }
+
+    private String maskCertNo(String certNo) {
+        if (certNo == null || certNo.length() < 8) {
+            return certNo;
+        }
+        return certNo.substring(0, 4) + "**********" + certNo.substring(certNo.length() - 4);
+    }
+
+    public record IdentityInfo(String certName, String maskedCertNo, String status,
+                                java.time.LocalDateTime verifiedAt, java.time.LocalDateTime updatedAt) {
+    }
+
     private void publishMaterialUpload(String username, String certifyId, String materialInfo) {
         try {
             IdentityMaterialMessage message = new IdentityMaterialMessage(username, certifyId, materialInfo);

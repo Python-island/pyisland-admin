@@ -992,7 +992,21 @@ export interface IdentityTestRecordItem {
   updatedAt: string;
 }
 
+export interface IdentityUserInfo {
+  verified: boolean;
+  certName?: string;
+  maskedCertNo?: string;
+  status?: string;
+  verifiedAt?: string;
+  updatedAt?: string;
+}
+
 export const identityAdmin = {
+  getUserInfo(username: string) {
+    return request<ApiResponse<IdentityUserInfo>>(
+      `/v1/admin/identity/user-info?username=${encodeURIComponent(username)}`
+    );
+  },
   testStart(payload: { username: string; certName: string; certNo: string }) {
     return request<ApiResponse<IdentityTestStartData>>("/v1/admin/identity/test/start", {
       method: "POST",

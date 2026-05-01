@@ -132,6 +132,28 @@ public class IdentityAdminController {
         return ResponseEntity.ok(Map.of("code", 200, "data", records));
     }
 
+    /**
+     * 查询指定用户的实名信息（解密姓名 + 脱敏身份证号）。
+     */
+    @GetMapping("/user-info")
+    public ResponseEntity<Map<String, Object>> userIdentityInfo(@RequestParam("username") String username) {
+        if (username == null || username.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "用户名不能为空"));
+        }
+        IdentityVerificationService.IdentityInfo info = verificationService.getIdentityInfo(username.trim());
+        if (info == null) {
+            return ResponseEntity.ok(Map.of("code", 200, "data", Map.of("verified", false)));
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("verified", true);
+        data.put("certName", info.certName());
+        data.put("maskedCertNo", info.maskedCertNo());
+        data.put("status", info.status());
+        data.put("verifiedAt", info.verifiedAt());
+        data.put("updatedAt", info.updatedAt());
+        return ResponseEntity.ok(Map.of("code", 200, "data", data));
+    }
+
     public static class TestStartRequest {
         public String username;
         public String certName;
