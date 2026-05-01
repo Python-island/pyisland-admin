@@ -48,10 +48,10 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user_account
             (username, email, password, role, pro_expire_at, avatar, gender, gender_custom,
-             birthday, enabled, session_token, created_at)
+             birthday, balance_fen, enabled, session_token, created_at)
         VALUES
             (#{username}, #{email}, #{password}, #{role}, #{proExpireAt}, #{avatar}, #{gender},
-             #{genderCustom}, #{birthday}, #{enabled}, #{sessionToken}, #{createdAt})
+             #{genderCustom}, #{birthday}, #{balanceFen}, #{enabled}, #{sessionToken}, #{createdAt})
     </insert>
 
     <select id="selectByRole" resultMap="UserResultMap">
