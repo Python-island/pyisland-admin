@@ -223,6 +223,7 @@ public class AgentToolExecutionService {
                 || safeToolName.startsWith("schedule.")
                 || safeToolName.startsWith("firewall.")
                 || safeToolName.startsWith("defender.")
+                || safeToolName.startsWith("island.")
                 || "web.search".equals(safeToolName);
     }
 

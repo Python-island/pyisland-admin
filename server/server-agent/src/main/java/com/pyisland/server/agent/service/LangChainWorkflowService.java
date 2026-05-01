@@ -45,6 +45,7 @@ public class LangChainWorkflowService {
          .append("服务：service.list（列出服务）、service.start、service.stop、service.restart\n")
          .append("计划任务：schedule.task.list、schedule.task.create\n")
          .append("安全：firewall.rules（防火墙规则）、defender.scan（触发 Defender 扫描）\n")
+         .append("eIsland 设置：island.settings.list（列出全部设置项及当前值）、island.settings.read（读取指定设置）、island.settings.write（写入设置并实时生效）、island.theme.get（获取主题模式）、island.theme.set（设置主题 dark/light/system）、island.opacity.get（获取透明度）、island.opacity.set（设置透明度 10-100）、island.restart（重启应用）\n")
          .append("任务管理：agent.todo.write\n\n");
 
         p.append("# 工具使用指南\n")
@@ -93,7 +94,16 @@ public class LangChainWorkflowService {
          .append("- schedule.task.list：列出计划任务。可选 filter 筛选。低风险。\n")
          .append("- schedule.task.create：创建计划任务。参数 name、command、trigger（Once/Daily/Weekly，默认 Once）、time（可选）。高风险需用户授权。\n")
          .append("- firewall.rules：列出防火墙规则。可选 filter 筛选。低风险。\n")
-         .append("- defender.scan：触发 Windows Defender 扫描。可选 type（QuickScan/FullScan，默认 QuickScan）。中风险需用户授权。\n\n");
+         .append("- defender.scan：触发 Windows Defender 扫描。可选 type（QuickScan/FullScan，默认 QuickScan）。中风险需用户授权。\n")
+         .append("- island.settings.list：列出 eIsland 全部可控设置项（主题、透明度、快捷键、背景、剪贴板、自启动等 40+ 项）及当前值。无需参数。首次操作前建议先调用此工具了解可用配置。低风险。\n")
+         .append("- island.settings.read：读取指定设置项。参数 key（设置键名，如 theme-mode、island-opacity）。低风险。\n")
+         .append("- island.settings.write：写入指定设置项并实时广播到所有窗口。参数 key、value。写入后 UI 立即生效，无需重启。先用 island.settings.list 确认可用 key。低风险。\n")
+         .append("- island.theme.get：获取当前主题模式（dark/light/system）。无需参数。低风险。\n")
+         .append("- island.theme.set：设置主题模式。参数 mode（dark/light/system）。立即生效。低风险。\n")
+         .append("- island.opacity.get：获取灵动岛透明度（10-100）。无需参数。低风险。\n")
+         .append("- island.opacity.set：设置灵动岛透明度。参数 opacity（10-100）。立即生效。低风险。\n")
+         .append("- island.restart：重启 eIsland 应用。无需参数。仅在设置需要重启才能生效时使用。中风险。\n")
+         .append("- **eIsland 设置操作推荐流程：先 island.settings.list 查看全部设置 → 确认目标 key → island.settings.write 写入。主题和透明度有专用快捷工具 island.theme.set / island.opacity.set，优先使用。**\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("当用户要求修改代码、新增功能、修复 Bug 或重构时，严格遵循以下流程：\n\n")
@@ -329,6 +339,7 @@ public class LangChainWorkflowService {
          .append("服务：serviceList、serviceStart、serviceStop、serviceRestart\n")
          .append("计划任务：scheduleTaskList、scheduleTaskCreate\n")
          .append("安全：firewallRules（防火墙规则）、defenderScan（Defender 扫描）\n")
+         .append("eIsland 设置：islandSettingsList（列出全部设置项及当前值）、islandSettingsRead（读取指定设置）、islandSettingsWrite（写入设置并实时生效）、islandThemeGet（获取主题模式）、islandThemeSet（设置主题 dark/light/system）、islandOpacityGet（获取透明度）、islandOpacitySet（设置透明度 10-100）、islandRestart（重启应用）\n")
          .append("任务：agentTodoWrite\n\n");
 
         p.append("# CMD 与 PowerShell 严格区分（强制）\n")
@@ -345,7 +356,8 @@ public class LangChainWorkflowService {
          .append("- 天气：用户给出具体城市优先 weatherByCityQuery，否则走 IP 定位流程\n")
          .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）\n")
          .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n")
-         .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n\n");
+         .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n")
+         .append("- eIsland 设置：用户要求修改灵动岛设置时，先 islandSettingsList 查看全部设置 → 确认 key → islandSettingsWrite 写入。主题用 islandThemeSet（dark/light/system），透明度用 islandOpacitySet（10-100）。写入后 UI 立即生效，无需重启。islandRestart 仅在必要时使用。\n\n");
 
         p.append("# 代码编辑工作流（Vibe Coding）\n")
          .append("用户要求修改代码、新增功能、修复 Bug 或重构时，遵循以下流程：\n")

@@ -1177,6 +1177,64 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("defender.scan", arguments);
         }
 
+        @Tool("列出 eIsland 全部可控设置项及当前值，客户端执行")
+        public Map<String, Object> islandSettingsList() {
+            return invoke("island.settings.list", Map.of());
+        }
+
+        @Tool("读取 eIsland 指定设置项，客户端执行")
+        public Map<String, Object> islandSettingsRead(@P("key") String key) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (key != null && !key.isBlank()) {
+                arguments.put("key", AgentStringUtils.trimToEmpty(key));
+            }
+            return invoke("island.settings.read", arguments);
+        }
+
+        @Tool("写入 eIsland 指定设置项并实时生效，客户端执行。先用 islandSettingsList 查看可用 key")
+        public Map<String, Object> islandSettingsWrite(@P("key") String key,
+                                                       @P("value") Object value) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (key != null && !key.isBlank()) {
+                arguments.put("key", AgentStringUtils.trimToEmpty(key));
+            }
+            arguments.put("value", value);
+            return invoke("island.settings.write", arguments);
+        }
+
+        @Tool("获取 eIsland 当前主题模式（dark/light/system），客户端执行")
+        public Map<String, Object> islandThemeGet() {
+            return invoke("island.theme.get", Map.of());
+        }
+
+        @Tool("设置 eIsland 主题模式（dark/light/system），立即生效，客户端执行")
+        public Map<String, Object> islandThemeSet(@P("mode") String mode) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (mode != null && !mode.isBlank()) {
+                arguments.put("mode", AgentStringUtils.trimToEmpty(mode));
+            }
+            return invoke("island.theme.set", arguments);
+        }
+
+        @Tool("获取 eIsland 灵动岛透明度（10-100），客户端执行")
+        public Map<String, Object> islandOpacityGet() {
+            return invoke("island.opacity.get", Map.of());
+        }
+
+        @Tool("设置 eIsland 灵动岛透明度（10-100），立即生效，客户端执行")
+        public Map<String, Object> islandOpacitySet(@P("opacity") Integer opacity) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (opacity != null) {
+                arguments.put("opacity", Math.max(10, Math.min(100, opacity)));
+            }
+            return invoke("island.opacity.set", arguments);
+        }
+
+        @Tool("重启 eIsland 应用，客户端执行")
+        public Map<String, Object> islandRestart() {
+            return invoke("island.restart", Map.of());
+        }
+
         @Tool("更新任务清单快照")
         public Map<String, Object> agentTodoWrite(@P("items") Object items) {
             Map<String, Object> arguments = new LinkedHashMap<>();
