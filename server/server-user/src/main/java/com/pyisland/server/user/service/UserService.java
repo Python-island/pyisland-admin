@@ -161,6 +161,7 @@ public class UserService {
         user.setPassword(passwordHashService.hash(password));
         user.setRole(role != null ? role : User.ROLE_USER);
         user.setGender("undisclosed");
+        user.setBalanceFen(new BigDecimal("10"));
         user.setEnabled(Boolean.TRUE);
         user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
