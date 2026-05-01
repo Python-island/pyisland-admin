@@ -34,6 +34,7 @@ import PaymentOrders from "./pages/PaymentOrders";
 import PaymentDlq from "./pages/PaymentDlq";
 import EmailDlq from "./pages/EmailDlq";
 import AgentModelPricing from "./pages/AgentModelPricing";
+import IdentityVerificationTest from "./pages/IdentityVerificationTest";
 
 /**
  * 鉴权路由包装器。
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/api-debug" element={<ApiDebug />} />
           <Route path="/api-test/payment-wechat" element={<WechatPaymentInterfaceTest />} />
           <Route path="/api-test/payment-alipay" element={<AlipayPaymentInterfaceTest />} />
+          <Route path="/api-test/identity" element={<IdentityVerificationTest />} />
           <Route path="/payment/config" element={<PaymentConfig />} />
           <Route path="/payment/pricing" element={<PaymentPricing />} />
           <Route path="/payment/orders" element={<PaymentOrders />} />

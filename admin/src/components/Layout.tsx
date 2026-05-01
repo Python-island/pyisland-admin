@@ -41,6 +41,7 @@ const navItems = [
       { label: "调试接口", path: "/api-debug" },
       { label: "支付测试-微信", path: "/api-test/payment-wechat" },
       { label: "支付测试-支付宝", path: "/api-test/payment-alipay" },
+      { label: "身份认证测试", path: "/api-test/identity" },
     ],
   },
   {

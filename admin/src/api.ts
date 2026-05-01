@@ -965,3 +965,59 @@ export const agentAdmin = {
     });
   },
 };
+
+export interface IdentityTestStartData {
+  certifyId: string;
+  certifyUrl: string;
+  outerOrderNo: string;
+}
+
+export interface IdentityTestQueryData {
+  passed: boolean;
+  message: string;
+}
+
+export interface IdentityTestStatusData {
+  verified: boolean;
+}
+
+export interface IdentityTestRecordItem {
+  id: number;
+  username: string;
+  outerOrderNo: string;
+  certifyId: string;
+  status: string;
+  materialInfoUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const identityAdmin = {
+  testStart(payload: { username: string; certName: string; certNo: string }) {
+    return request<ApiResponse<IdentityTestStartData>>("/v1/admin/identity/test/start", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  testQuery(username: string, certifyId: string) {
+    const query = new URLSearchParams();
+    query.set("username", username);
+    query.set("certifyId", certifyId);
+    return request<ApiResponse<IdentityTestQueryData>>(
+      `/v1/admin/identity/test/query?${query.toString()}`
+    );
+  },
+  testStatus(username: string) {
+    return request<ApiResponse<IdentityTestStatusData>>(
+      `/v1/admin/identity/test/status?username=${encodeURIComponent(username)}`
+    );
+  },
+  testRecords(username: string, limit = 20) {
+    const query = new URLSearchParams();
+    query.set("username", username);
+    query.set("limit", String(limit));
+    return request<ApiResponse<IdentityTestRecordItem[]>>(
+      `/v1/admin/identity/test/records?${query.toString()}`
+    );
+  },
+};
