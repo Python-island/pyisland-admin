@@ -11,12 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 身份认证人脸素材异步上传消费者。
@@ -29,21 +30,20 @@ public class IdentityMaterialUploadConsumer {
     private static final int MAX_RETRIES = 3;
     private static final String MATERIAL_FOLDER = "identity-material";
 
+    private static final List<StorageProvider> TARGET_PROVIDERS = List.of(StorageProvider.COS, StorageProvider.OSS);
+
     private final ObjectStorageRouter objectStorageRouter;
     private final IdentityVerificationMapper verificationMapper;
     private final RabbitTemplate rabbitTemplate;
-    private final StorageProvider materialStorageProvider;
 
     public IdentityMaterialUploadConsumer(
             ObjectStorageRouter objectStorageRouter,
             IdentityVerificationMapper verificationMapper,
-            RabbitTemplate rabbitTemplate,
-            @Value("${IDENTITY_MATERIAL_STORAGE_PROVIDER:COS}") String storageProviderName
+            RabbitTemplate rabbitTemplate
     ) {
         this.objectStorageRouter = objectStorageRouter;
         this.verificationMapper = verificationMapper;
         this.rabbitTemplate = rabbitTemplate;
-        this.materialStorageProvider = parseStorageProvider(storageProviderName);
     }
 
     @RabbitListener(queues = IdentityMaterialMqConfig.QUEUE)
@@ -54,26 +54,51 @@ public class IdentityMaterialUploadConsumer {
         }
         try {
             String materialInfo = message.materialInfo();
-            log.info("identity material consumer received username={} certifyId={} materialInfoNull={} materialInfoLen={}",
+            log.info("identity material consumer received username={} certifyId={} materialInfoNull={} materialInfoLen={} preview={}",
                     message.username(), message.certifyId(),
-                    materialInfo == null, materialInfo == null ? 0 : materialInfo.length());
+                    materialInfo == null, materialInfo == null ? 0 : materialInfo.length(),
+                    materialInfo == null ? "null" : materialInfo.substring(0, Math.min(300, materialInfo.length())));
             if (materialInfo == null || materialInfo.isBlank()) {
                 log.warn("identity material skipped (empty) username={} certifyId={}", message.username(), message.certifyId());
                 return;
             }
-            ObjectStorageClient client = objectStorageRouter.get(materialStorageProvider);
+            byte[] contentBytes = materialInfo.getBytes(StandardCharsets.UTF_8);
+            log.info("identity material contentBytes len={} username={} certifyId={}",
+                    contentBytes.length, message.username(), message.certifyId());
             String objectKey = MATERIAL_FOLDER + "/" + message.username() + "/" + message.certifyId() + ".json";
-            StorageUploadResult result = client.putObject(
-                    objectKey,
-                    materialInfo.getBytes(StandardCharsets.UTF_8),
-                    "application/json",
-                    "identity",
-                    ""
-            );
-            String materialUrl = result.publicUrl();
-            verificationMapper.updateMaterialUrl(message.certifyId(), materialUrl, LocalDateTime.now());
-            log.info("identity material uploaded async username={} certifyId={} url={}",
-                    message.username(), message.certifyId(), materialUrl);
+            String primaryUrl = null;
+            List<String> uploadedProviders = new ArrayList<>();
+            List<String> failedProviders = new ArrayList<>();
+
+            for (StorageProvider provider : TARGET_PROVIDERS) {
+                try {
+                    ObjectStorageClient client = objectStorageRouter.get(provider);
+                    StorageUploadResult result = client.putObject(
+                            objectKey,
+                            contentBytes,
+                            "application/json",
+                            "identity",
+                            ""
+                    );
+                    log.info("identity material uploaded to {} username={} certifyId={} url={} size={}",
+                            provider, message.username(), message.certifyId(), result.publicUrl(), result.contentLength());
+                    if (primaryUrl == null) {
+                        primaryUrl = result.publicUrl();
+                    }
+                    uploadedProviders.add(provider.name());
+                } catch (Exception providerEx) {
+                    log.error("identity material upload to {} failed username={} certifyId={} err={}",
+                            provider, message.username(), message.certifyId(), providerEx.getMessage());
+                    failedProviders.add(provider.name());
+                }
+            }
+
+            if (primaryUrl == null) {
+                throw new RuntimeException("所有存储提供商上传均失败: " + String.join(", ", failedProviders));
+            }
+            verificationMapper.updateMaterialUrl(message.certifyId(), primaryUrl, LocalDateTime.now());
+            log.info("identity material upload done username={} certifyId={} primaryUrl={} uploaded={} failed={}",
+                    message.username(), message.certifyId(), primaryUrl, uploadedProviders, failedProviders);
         } catch (Exception ex) {
             log.error("identity material upload failed username={} certifyId={} err={}",
                     message.username(), message.certifyId(), ex.getMessage());
@@ -126,14 +151,4 @@ public class IdentityMaterialUploadConsumer {
                 message.username(), message.certifyId(), nextRetry, errorMessage);
     }
 
-    private StorageProvider parseStorageProvider(String name) {
-        if (name == null || name.isBlank()) {
-            return StorageProvider.COS;
-        }
-        StorageProvider provider = StorageProvider.valueOf(name.trim().toUpperCase());
-        if (provider != StorageProvider.COS && provider != StorageProvider.OSS) {
-            throw new IllegalArgumentException("身份认证素材仅支持 COS 或 OSS 存储，当前配置: " + name);
-        }
-        return provider;
-    }
 }

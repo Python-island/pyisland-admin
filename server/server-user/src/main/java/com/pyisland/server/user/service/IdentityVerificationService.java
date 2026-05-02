@@ -141,10 +141,19 @@ public class IdentityVerificationService {
         AlipayIdentityClient.QueryResult queryResult = alipayIdentityClient.query(certifyId);
 
         if (queryResult.passed() && queryResult.materialInfo() != null && !queryResult.materialInfo().isBlank()) {
+            String rawMaterial = queryResult.materialInfo().trim();
             log.info("identity materialInfo from alipay username={} certifyId={} len={} preview={}",
-                    username, certifyId, queryResult.materialInfo().length(),
-                    queryResult.materialInfo().substring(0, Math.min(200, queryResult.materialInfo().length())));
-            publishMaterialUpload(username, certifyId, queryResult.materialInfo());
+                    username, certifyId, rawMaterial.length(),
+                    rawMaterial.substring(0, Math.min(200, rawMaterial.length())));
+            if ("{}".equals(rawMaterial) || "[]".equals(rawMaterial) || "null".equals(rawMaterial)) {
+                log.warn("identity materialInfo is empty object from alipay username={} certifyId={} raw={} (可能未开通「实人认证留底照」能力)",
+                        username, certifyId, rawMaterial);
+            } else {
+                publishMaterialUpload(username, certifyId, rawMaterial);
+            }
+        } else if (queryResult.passed()) {
+            log.warn("identity materialInfo is null/blank from alipay username={} certifyId={} (可能未开通「实人认证留底照」能力)",
+                    username, certifyId);
         }
 
         String newStatus = queryResult.passed() ? IdentityVerification.STATUS_PASSED : IdentityVerification.STATUS_FAILED;
@@ -214,7 +223,8 @@ public class IdentityVerificationService {
                     IdentityMaterialMqConfig.ROUTING_KEY,
                     message
             );
-            log.info("identity material upload published username={} certifyId={}", username, certifyId);
+            log.info("identity material upload published username={} certifyId={} materialInfoLen={}",
+                    username, certifyId, materialInfo == null ? 0 : materialInfo.length());
         } catch (Exception ex) {
             log.warn("identity material publish failed username={} certifyId={} err={}", username, certifyId, ex.getMessage());
         }
