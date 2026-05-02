@@ -85,6 +85,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/version", "/v1/version/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/v1/user/ai/stt/realtime").permitAll()
                         .requestMatchers(HttpMethod.POST, "/v1/version/update-count").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/service-status", "/v1/service-status/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/announcement/current").permitAll()
