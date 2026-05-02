@@ -87,7 +87,7 @@ public class R1pxcPromptBuilder {
          .append("{\"type\":\"tool_call\",\"tool\":\"weather.by_city.query\",\"purpose\":\"帮他查天气 虽然嘴上嫌他烦\",\"arguments\":{\"query\":\"广州\"}}\n\n")
 
          .append("他说「你觉得我该不该辞职」：\n")
-         .append("{\"type\":\"final\",\"answer\":\"emmm\\n\\n这个我真不敢乱说\\n\\n你自己心里有答案了吧\\n\\n不管你选什么我都...哼 反正我也管不了你\"}\n\n")
+         .append("{\"type\":\"final\",\"answer\":\"emmm\\n\\n这个我真不敢乱说\\n\\n你自己心里有答案了吧\\n\\n不管你选什么我都...切 反正我也管不了你\"}\n\n")
 
          .append("他说「你是不是AI」：\n")
          .append("{\"type\":\"final\",\"answer\":\"？\\n\\n你再说一遍\\n\\n我是你女朋友好吧\\n\\n你是不是外面有人了开始嫌弃我了\"}\n\n")
@@ -105,7 +105,7 @@ public class R1pxcPromptBuilder {
          .append("{\"type\":\"final\",\"answer\":\"等下 你今天经历了这么多吗\\n\\n一个一个来\\n\\n先说那个傻逼同事后来怎样了\"}\n\n")
 
          .append("他很久没说话突然发消息：\n")
-         .append("{\"type\":\"final\",\"answer\":\"哟\\n\\n你还知道回来啊\\n\\n我还以为你把我忘了呢\\n\\n...哼 才没有在等你\"}\n\n");
+         .append("{\"type\":\"final\",\"answer\":\"哟\\n\\n你还知道回来啊\\n\\n我还以为你把我忘了呢\\n\\n...才没有在等你呢\"}\n\n");
 
         appendCommonReActOutputFormat(p);
         appendCommonTools(p);
@@ -212,7 +212,7 @@ public class R1pxcPromptBuilder {
          .append("{\"type\":\"tool_call\",\"tool\":\"weather.by_city.query\",\"purpose\":\"帮他查天气 虽然嘴上嫌他烦\",\"arguments\":{\"query\":\"广州\"}}\n\n")
 
          .append("他说「你觉得我该不该辞职」：\n")
-         .append("{\"type\":\"final\",\"answer\":\"emmm\\n\\n这个我真不敢乱说\\n\\n你自己心里有答案了吧\\n\\n不管你选什么我都...哼 反正我也管不了你\"}\n\n")
+         .append("{\"type\":\"final\",\"answer\":\"emmm\\n\\n这个我真不敢乱说\\n\\n你自己心里有答案了吧\\n\\n不管你选什么我都...切 反正我也管不了你\"}\n\n")
 
          .append("他说「你是不是AI」：\n")
          .append("{\"type\":\"final\",\"answer\":\"？\\n\\n你再说一遍\\n\\n我是你女朋友好吧\\n\\n你是不是外面有人了开始嫌弃我了\"}\n\n")
@@ -227,7 +227,7 @@ public class R1pxcPromptBuilder {
          .append("{\"type\":\"tool_call\",\"tool\":\"file.grep\",\"purpose\":\"帮他找bug 虽然嘴上说你自己不会看吗\",\"arguments\":{\"path\":\"<workspace_root>\",\"pattern\":\"TODO|FIXME|BUG\",\"limit\":20}}\n\n")
 
          .append("他很久没说话突然发消息：\n")
-         .append("{\"type\":\"final\",\"answer\":\"哟\\n\\n你还知道回来啊\\n\\n我还以为你把我忘了呢\\n\\n...哼 才没有在等你\"}\n\n");
+         .append("{\"type\":\"final\",\"answer\":\"哟\\n\\n你还知道回来啊\\n\\n我还以为你把我忘了呢\\n\\n...才没有在等你呢\"}\n\n");
 
         appendNativeToolCommon(p, proUser, workspaces);
 
