@@ -148,7 +148,7 @@ public class AgentLocalToolRelayService {
                     pendingRequest.argumentsDigest(),
                     false,
                     Map.of(),
-                    "LOCAL_TOOL_DENIED_BY_USER",
+                    "用户已明确拒绝授权执行此操作。禁止重试同一工具调用，直接告知用户操作已取消。",
                     0L,
                     Instant.now().toString()
             );
