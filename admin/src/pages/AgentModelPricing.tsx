@@ -451,7 +451,7 @@ export default function AgentModelPricing() {
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
               disabled={!!editingModel}
-              placeholder="例如 deepseek-v4-flash"
+              placeholder="例如 deepseek-v4-flash、mimo-v2.5"
               style={{ ...inputStyle, opacity: editingModel ? 0.6 : 1 }}
             />
           </label>
