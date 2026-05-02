@@ -87,13 +87,13 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return text;
         } catch (Exception exception) {
             MihtnelisAgentProperties.Provider cfg = resolveProvider(provider);
-            log.warn("mihtnelis deepseek invoke failed by langchain4j, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
+            log.warn("mihtnelis LLM invoke failed by langchain4j, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider),
                     AgentStringUtils.trimTrailingSlash(cfg == null ? "" : cfg.getBaseUrl()),
                     AgentStringUtils.trimToEmpty(cfg == null ? "" : cfg.getModel()),
                     !AgentStringUtils.trimToEmpty(cfg == null ? "" : cfg.getApiKey()).isBlank(),
                     exception.getMessage());
-            throw new IllegalStateException("DeepSeek invoke failed: " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
+            throw new IllegalStateException("LLM invoke failed (" + AgentStringUtils.trimToEmpty(provider) + "): " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
         }
     }
 
@@ -133,7 +133,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                     AgentStringUtils.trimToEmpty(cfg == null ? "" : cfg.getModel()),
                     !AgentStringUtils.trimToEmpty(cfg == null ? "" : cfg.getApiKey()).isBlank(),
                     exception.getMessage());
-            throw new IllegalStateException("DeepSeek invoke failed: " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
+            throw new IllegalStateException("LLM invoke failed (" + AgentStringUtils.trimToEmpty(provider) + "): " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
         }
     }
 
@@ -240,9 +240,9 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             }
             return chatWithThinkingBlocking(request, usageAccumulator);
         } catch (Exception exception) {
-            log.warn("mihtnelis deepseek thinking-http invoke failed, provider={}, baseUrl={}, model={}, stream={}, reason={}",
+            log.warn("mihtnelis LLM thinking-http invoke failed, provider={}, baseUrl={}, model={}, stream={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider), baseUrl, model, useStream, exception.getMessage());
-            throw new IllegalStateException("DeepSeek invoke failed: " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
+            throw new IllegalStateException("LLM invoke failed (" + AgentStringUtils.trimToEmpty(provider) + "): " + AgentStringUtils.trimToEmpty(exception.getMessage()), exception);
         }
     }
 
@@ -252,7 +252,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
     private String chatWithThinkingBlocking(HttpRequest request, TokenUsageAccumulator usageAccumulator) throws Exception {
         HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(response.body()));
+            throw new IllegalStateException("LLM HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(response.body()));
         }
         JsonNode root = OBJECT_MAPPER.readTree(response.body());
         // 提取真实 token 用量
@@ -266,7 +266,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             content = extractNodeText(root.path("content"));
         }
         if (content.isBlank() && reasoningContent.isBlank()) {
-            throw new IllegalStateException("DeepSeek returned blank text");
+            throw new IllegalStateException("LLM returned blank text");
         }
         if (!reasoningContent.isBlank()) {
             return "<think>" + reasoningContent + "</think>\n" + content;
@@ -287,7 +287,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             try (java.io.InputStream is = response.body()) {
                 errorBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             }
-            throw new IllegalStateException("DeepSeek HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(errorBody));
+            throw new IllegalStateException("LLM HTTP " + response.statusCode() + ": " + AgentStringUtils.trimToEmpty(errorBody));
         }
         StringBuilder reasoningAccum = new StringBuilder();
         StringBuilder contentAccum = new StringBuilder();
@@ -342,7 +342,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         String reasoning = reasoningAccum.toString().trim();
         String content = contentAccum.toString().trim();
         if (content.isBlank() && reasoning.isBlank()) {
-            throw new IllegalStateException("DeepSeek returned blank text");
+            throw new IllegalStateException("LLM returned blank text");
         }
         if (!reasoning.isBlank()) {
             return "<think>" + reasoning + "</think>\n" + content;
@@ -364,7 +364,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         }
         int prompt = usage.path("prompt_tokens").asInt(0);
         int completion = usage.path("completion_tokens").asInt(0);
-        // DeepSeek 在 completion_tokens_details 中提供 reasoning_tokens
+        // 部分供应商在 completion_tokens_details 中提供 reasoning_tokens
         int reasoning = usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0);
         if (prompt > 0 || completion > 0) {
             usageAccumulator.add(prompt, completion, reasoning);
