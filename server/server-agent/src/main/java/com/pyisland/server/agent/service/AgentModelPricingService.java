@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import com.pyisland.server.agent.config.AgentBillingMqConfig;
+import com.pyisland.server.agent.mq.AgentUsageStatsMessage;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -34,13 +37,19 @@ public class AgentModelPricingService {
     private final AgentModelPricingMapper pricingMapper;
     private final AgentBalanceRedisService balanceRedisService;
     private final StringRedisTemplate pricingRedisTemplate;
+    private final AgentUsageStatsRedisService usageStatsRedisService;
+    private final org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
 
     public AgentModelPricingService(AgentModelPricingMapper pricingMapper,
                                     AgentBalanceRedisService balanceRedisService,
-                                    @Qualifier("agentPricingRedisTemplate") StringRedisTemplate pricingRedisTemplate) {
+                                    @Qualifier("agentPricingRedisTemplate") StringRedisTemplate pricingRedisTemplate,
+                                    AgentUsageStatsRedisService usageStatsRedisService,
+                                    org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate) {
         this.pricingMapper = pricingMapper;
         this.balanceRedisService = balanceRedisService;
         this.pricingRedisTemplate = pricingRedisTemplate;
+        this.usageStatsRedisService = usageStatsRedisService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     /**
@@ -160,6 +169,8 @@ public class AgentModelPricingService {
         BigDecimal actualDeducted = deductResult.actualDeducted();
         log.info("agent billing: deducted {} fen (requested {}) from user={}, model={}, inputTokens={}, cachedTokens={}, outputTokens={}",
                 actualDeducted.toPlainString(), costFen.toPlainString(), username, modelName, inputTokens, safeCached, outputTokens);
+        // 记录全局用量统计
+        recordUsageStats(modelName.trim(), inputTokens, safeCached, outputTokens, 0, actualDeducted);
         return actualDeducted;
     }
 
@@ -186,6 +197,31 @@ public class AgentModelPricingService {
             }
         }
         return pricing;
+    }
+
+    /**
+     * 记录全局用量统计：Redis DB13 原子增 + RabbitMQ 异步落库。
+     */
+    private void recordUsageStats(String modelName, int inputTokens, int cachedTokens,
+                                  int outputTokens, int reasoningTokens, BigDecimal costFen) {
+        long costMicroFen = costFen == null ? 0L : costFen.movePointRight(8).longValue();
+        try {
+            usageStatsRedisService.recordUsage(modelName, inputTokens, cachedTokens,
+                    outputTokens, reasoningTokens, costFen);
+        } catch (Exception e) {
+            log.warn("agent usage: redis record failed, model={}, err={}", modelName, e.getMessage());
+        }
+        try {
+            AgentUsageStatsMessage msg = new AgentUsageStatsMessage(
+                    modelName, inputTokens, cachedTokens, outputTokens, reasoningTokens, costMicroFen);
+            rabbitTemplate.convertAndSend(
+                    AgentBillingMqConfig.EXCHANGE,
+                    AgentBillingMqConfig.USAGE_STATS_ROUTING_KEY,
+                    msg
+            );
+        } catch (Exception e) {
+            log.warn("agent usage: mq publish failed, model={}, err={}", modelName, e.getMessage());
+        }
     }
 
     private void evictCache(String modelName) {

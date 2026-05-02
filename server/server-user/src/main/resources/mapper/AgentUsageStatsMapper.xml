@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pyisland.server.user.mapper.AgentUsageStatsMapper">
+
+    <resultMap id="AgentUsageStatsResultMap" type="com.pyisland.server.user.entity.AgentUsageStats">
+        <id property="id" column="id"/>
+        <result property="modelName" column="model_name"/>
+        <result property="totalInputTokens" column="total_input_tokens"/>
+        <result property="totalCachedTokens" column="total_cached_tokens"/>
+        <result property="totalOutputTokens" column="total_output_tokens"/>
+        <result property="totalReasoningTokens" column="total_reasoning_tokens"/>
+        <result property="totalRequestCount" column="total_request_count"/>
+        <result property="totalCostMicroFen" column="total_cost_micro_fen"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="baseColumns">
+        id, model_name, total_input_tokens, total_cached_tokens, total_output_tokens,
+        total_reasoning_tokens, total_request_count, total_cost_micro_fen, updated_at
+    </sql>
+
+    <select id="selectAll" resultMap="AgentUsageStatsResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM agent_usage_stats
+        ORDER BY total_request_count DESC
+    </select>
+
+    <select id="selectByModelName" resultMap="AgentUsageStatsResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM agent_usage_stats
+        WHERE model_name = #{modelName}
+    </select>
+
+    <insert id="upsertDelta">
+        INSERT INTO agent_usage_stats
+            (model_name, total_input_tokens, total_cached_tokens, total_output_tokens,
+             total_reasoning_tokens, total_request_count, total_cost_micro_fen, updated_at)
+        VALUES
+            (#{modelName}, #{deltaInputTokens}, #{deltaCachedTokens}, #{deltaOutputTokens},
+             #{deltaReasoningTokens}, #{deltaRequestCount}, #{deltaCostMicroFen}, #{updatedAt})
+        ON DUPLICATE KEY UPDATE
+            total_input_tokens = total_input_tokens + VALUES(total_input_tokens),
+            total_cached_tokens = total_cached_tokens + VALUES(total_cached_tokens),
+            total_output_tokens = total_output_tokens + VALUES(total_output_tokens),
+            total_reasoning_tokens = total_reasoning_tokens + VALUES(total_reasoning_tokens),
+            total_request_count = total_request_count + VALUES(total_request_count),
+            total_cost_micro_fen = total_cost_micro_fen + VALUES(total_cost_micro_fen),
+            updated_at = #{updatedAt}
+    </insert>
+
+</mapper>

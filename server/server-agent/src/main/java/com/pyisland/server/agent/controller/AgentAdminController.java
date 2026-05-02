@@ -33,15 +33,18 @@ public class AgentAdminController {
     private final AgentBillingDlqLogMapper dlqLogMapper;
     private final ServiceStatusService serviceStatusService;
     private final UserService userService;
+    private final com.pyisland.server.agent.service.AgentUsageStatsRedisService usageStatsRedisService;
 
     public AgentAdminController(AgentModelPricingService pricingService,
                                 AgentBillingDlqLogMapper dlqLogMapper,
                                 ServiceStatusService serviceStatusService,
-                                UserService userService) {
+                                UserService userService,
+                                com.pyisland.server.agent.service.AgentUsageStatsRedisService usageStatsRedisService) {
         this.pricingService = pricingService;
         this.dlqLogMapper = dlqLogMapper;
         this.serviceStatusService = serviceStatusService;
         this.userService = userService;
+        this.usageStatsRedisService = usageStatsRedisService;
     }
 
     /**
@@ -138,6 +141,17 @@ public class AgentAdminController {
     private record ServiceEnabledRequest(Boolean enabled, String message) {}
 
     private record GiftBalanceAllRequest(BigDecimal amountFen) {}
+
+    // ========== 用量统计 ==========
+
+    /**
+     * 查询全体用户各模型 agent 用量统计（实时数据来自 Redis DB13）。
+     */
+    @GetMapping("/usage-stats")
+    public ResponseEntity<?> getUsageStats() {
+        var stats = usageStatsRedisService.getAllModelStats();
+        return ResponseEntity.ok(Map.of("code", 200, "message", "ok", "data", stats));
+    }
 
     // ========== DLQ 异常记录 ==========
 

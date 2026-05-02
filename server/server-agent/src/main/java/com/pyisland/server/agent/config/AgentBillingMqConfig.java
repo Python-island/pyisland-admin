@@ -26,6 +26,9 @@ public class AgentBillingMqConfig {
     public static final String RETRY_HEADER = "x-agent-billing-retry-count";
     private static final long RETRY_DELAY_MS = 5000L;
 
+    public static final String USAGE_STATS_QUEUE = "eisland.agent.usage-stats.queue";
+    public static final String USAGE_STATS_ROUTING_KEY = "eisland.agent.usage-stats";
+
     @Bean
     public DirectExchange agentBillingExchange() {
         return new DirectExchange(EXCHANGE, true, false);
@@ -63,5 +66,15 @@ public class AgentBillingMqConfig {
     @Bean
     public Binding agentBillingDlqBinding(DirectExchange agentBillingExchange, Queue agentBillingDlqQueue) {
         return BindingBuilder.bind(agentBillingDlqQueue).to(agentBillingExchange).with(DLQ_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue agentUsageStatsQueue() {
+        return QueueBuilder.durable(USAGE_STATS_QUEUE).build();
+    }
+
+    @Bean
+    public Binding agentUsageStatsBinding(DirectExchange agentBillingExchange, Queue agentUsageStatsQueue) {
+        return BindingBuilder.bind(agentUsageStatsQueue).to(agentBillingExchange).with(USAGE_STATS_ROUTING_KEY);
     }
 }

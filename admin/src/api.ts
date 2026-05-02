@@ -927,6 +927,16 @@ export interface AgentModelPricingItem {
   updatedAt: string;
 }
 
+export interface AgentUsageStatsItem {
+  modelName: string;
+  totalInputTokens: number;
+  totalCachedTokens: number;
+  totalOutputTokens: number;
+  totalReasoningTokens: number;
+  totalRequestCount: number;
+  totalCostFen: string;
+}
+
 export const agentAdmin = {
   listModelPricing() {
     return request<ApiResponse<AgentModelPricingItem[]>>("/v1/admin/agent/model-pricing");
@@ -965,6 +975,9 @@ export const agentAdmin = {
       method: "PUT",
       body: JSON.stringify({ amountFen }),
     });
+  },
+  getUsageStats() {
+    return request<ApiResponse<AgentUsageStatsItem[]>>("/v1/admin/agent/usage-stats");
   },
 };
 

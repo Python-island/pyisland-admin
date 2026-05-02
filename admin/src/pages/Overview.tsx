@@ -14,9 +14,11 @@ import {
   weatherAdmin,
   wallpaperAdmin,
   issueFeedbackAdmin,
+  agentAdmin,
   type AppVersion,
   type DailyActiveStats,
   type WeatherQuotaStatus,
+  type AgentUsageStatsItem,
 } from "../api";
 
 const headingStyle: React.CSSProperties = {
@@ -44,12 +46,13 @@ export default function Overview() {
   const [pendingFeedbackCount, setPendingFeedbackCount] = useState(0);
   const [dailyActive, setDailyActive] = useState<DailyActiveStats>({ today: 0, days: 7, series: [] });
   const [weatherQuota, setWeatherQuota] = useState<WeatherQuotaStatus | null>(null);
+  const [usageStats, setUsageStats] = useState<AgentUsageStatsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [vRes, adminRes, userRes, userListRes, sRes, dauRes, reviewRes, feedbackRes, weatherQuotaRes] = await Promise.all([
+        const [vRes, adminRes, userRes, userListRes, sRes, dauRes, reviewRes, feedbackRes, weatherQuotaRes, usageRes] = await Promise.all([
           version.list(),
           adminUsers.count(),
           appUsers.count(),
@@ -59,6 +62,7 @@ export default function Overview() {
           wallpaperAdmin.list({ status: "pending", page: 1, pageSize: 1000 }),
           issueFeedbackAdmin.list({ status: "pending", page: 1, pageSize: 1 }),
           weatherAdmin.quota(),
+          agentAdmin.getUsageStats(),
         ]);
         if (vRes.code === 200 && vRes.data) setVersions(vRes.data);
         if (adminRes.code === 200 && adminRes.data !== undefined) setAdminCount(adminRes.data);
@@ -81,6 +85,9 @@ export default function Overview() {
         }
         if (weatherQuotaRes.code === 200 && weatherQuotaRes.data) {
           setWeatherQuota(weatherQuotaRes.data);
+        }
+        if (usageRes.code === 200 && usageRes.data) {
+          setUsageStats(usageRes.data);
         }
       } catch {
         /* ignore */
@@ -147,6 +154,7 @@ export default function Overview() {
         }}
       >
         <ApiOverviewCard weatherQuota={weatherQuota} />
+        <AgentUsageStatsCard stats={usageStats} />
       </div>
 
       {/* Version list */}
@@ -643,6 +651,142 @@ function DailyActiveCard({ data }: { data: DailyActiveStats }) {
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>近{data.days}天均值</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AgentUsageStatsCard({ stats }: { stats: AgentUsageStatsItem[] }) {
+  const totalRequests = stats.reduce((sum, s) => sum + (s.totalRequestCount || 0), 0);
+  const totalTokens = stats.reduce(
+    (sum, s) => sum + (s.totalInputTokens || 0) + (s.totalOutputTokens || 0),
+    0
+  );
+  const totalCostFen = stats.reduce((sum, s) => sum + parseFloat(s.totalCostFen || "0"), 0);
+
+  const fmtTokens = (n: number) => {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+    return String(n);
+  };
+  const fmtCost = (fen: number) => {
+    if (fen >= 100) return (fen / 100).toFixed(2) + " 元";
+    return fen.toFixed(4) + " 分";
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--apple-surface-1)",
+        borderRadius: 12,
+        padding: "24px 28px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          lineHeight: 1.33,
+          letterSpacing: "-0.12px",
+          color: "rgba(255,255,255,0.48)",
+          textTransform: "uppercase",
+          marginBottom: 16,
+        }}
+      >
+        Agent 模型用量（全体用户）
+      </div>
+
+      {/* 汇总行 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 16 }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 40,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "#ffffff",
+            }}
+          >
+            {totalRequests}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            总请求次数
+          </div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 24,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "var(--apple-link-dark)",
+            }}
+          >
+            {fmtTokens(totalTokens)}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            总 Tokens
+          </div>
+        </div>
+        <div style={{ width: 1, height: 48, backgroundColor: "rgba(255,255,255,0.08)" }} />
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 24,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              color: "#30d158",
+            }}
+          >
+            {fmtCost(totalCostFen)}
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", marginTop: 4, whiteSpace: "nowrap" }}>
+            总费用
+          </div>
+        </div>
+      </div>
+
+      {/* 分模型明细 */}
+      {stats.length === 0 ? (
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)" }}>暂无用量数据</div>
+      ) : (
+        <div style={{ display: "grid", gap: 6 }}>
+          {stats.map((s) => {
+            const modelTokens = (s.totalInputTokens || 0) + (s.totalOutputTokens || 0);
+            const modelCost = parseFloat(s.totalCostFen || "0");
+            return (
+              <div
+                key={s.modelName}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.88)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={s.modelName}
+                >
+                  {s.modelName}
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.56)", whiteSpace: "nowrap" }}>
+                  {s.totalRequestCount} 次 · {fmtTokens(modelTokens)} · {fmtCost(modelCost)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
