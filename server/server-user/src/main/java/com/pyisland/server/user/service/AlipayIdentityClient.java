@@ -72,6 +72,7 @@ public class AlipayIdentityClient {
         if (returnUrl != null && !returnUrl.isBlank()) {
             merchantConfig.setReturnUrl(returnUrl);
         }
+        merchantConfig.setOutPutFacialPicture(true);
         model.setMerchantConfig(merchantConfig);
 
         request.setBizModel(model);
