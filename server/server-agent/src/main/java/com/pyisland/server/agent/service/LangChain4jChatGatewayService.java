@@ -74,7 +74,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         if (safeRequestOptions.thinkingEnabled() || streamListener != null) {
             return chatWithThinkingHttp(provider, systemPrompt, userPrompt, safeRequestOptions, streamListener, usageAccumulator);
         }
-        OpenAiChatModel modelClient = buildModelClient(requestOptions);
+        OpenAiChatModel modelClient = buildModelClient(provider, requestOptions);
         String prompt = "System:\n"
                 + AgentStringUtils.trimToEmpty(systemPrompt)
                 + "\n\nUser:\n"
@@ -82,11 +82,11 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         try {
             String text = AgentStringUtils.trimToEmpty(modelClient.generate(prompt));
             if (text.isBlank()) {
-                throw new IllegalStateException("DeepSeek returned blank text");
+                throw new IllegalStateException("LLM returned blank text");
             }
             return text;
         } catch (Exception exception) {
-            MihtnelisAgentProperties.Provider cfg = resolveProvider();
+            MihtnelisAgentProperties.Provider cfg = resolveProvider(provider);
             log.warn("mihtnelis deepseek invoke failed by langchain4j, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider),
                     AgentStringUtils.trimTrailingSlash(cfg == null ? "" : cfg.getBaseUrl()),
@@ -110,7 +110,7 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                       boolean proUser,
                                       AgentToolExecutionService.ExecutionContext context,
                                       ChatRequestOptions requestOptions) {
-        OpenAiChatModel modelClient = buildModelClient(requestOptions);
+        OpenAiChatModel modelClient = buildModelClient(provider, requestOptions);
         NativeToolBridge toolBridge = new NativeToolBridge(toolExecutionService, proUser, context);
         NativeToolAssistant assistant = AiServices.builder(NativeToolAssistant.class)
                 .chatLanguageModel(modelClient)
@@ -122,11 +122,11 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                     AgentStringUtils.trimToEmpty(userPrompt)
             ));
             if (result.isBlank()) {
-                throw new IllegalStateException("DeepSeek returned blank text");
+                throw new IllegalStateException("LLM returned blank text");
             }
             return result;
         } catch (Exception exception) {
-            MihtnelisAgentProperties.Provider cfg = resolveProvider();
+            MihtnelisAgentProperties.Provider cfg = resolveProvider(provider);
             log.warn("mihtnelis native tool invoke failed by langchain4j, provider={}, baseUrl={}, model={}, apiKeyPresent={}, reason={}",
                     AgentStringUtils.trimToEmpty(provider),
                     AgentStringUtils.trimTrailingSlash(cfg == null ? "" : cfg.getBaseUrl()),
@@ -137,23 +137,23 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         }
     }
 
-    private OpenAiChatModel buildModelClient(ChatRequestOptions requestOptions) {
-        MihtnelisAgentProperties.Provider cfg = resolveProvider();
+    private OpenAiChatModel buildModelClient(String provider, ChatRequestOptions requestOptions) {
+        MihtnelisAgentProperties.Provider cfg = resolveProvider(provider);
         if (cfg == null || !cfg.isEnabled()) {
-            throw new IllegalStateException("DeepSeek provider is disabled");
+            throw new IllegalStateException("LLM provider is disabled: " + AgentStringUtils.trimToEmpty(provider));
         }
         String baseUrl = AgentStringUtils.trimTrailingSlash(cfg.getBaseUrl());
         String apiKey = AgentStringUtils.trimToEmpty(cfg.getApiKey());
         String clientModel = requestOptions == null ? "" : AgentStringUtils.trimToEmpty(requestOptions.model());
         String model = clientModel.isBlank() ? AgentStringUtils.trimToEmpty(cfg.getModel()) : clientModel;
         if (baseUrl.isBlank()) {
-            throw new IllegalStateException("DeepSeek baseUrl is empty");
+            throw new IllegalStateException("LLM provider baseUrl is empty: " + AgentStringUtils.trimToEmpty(provider));
         }
         if (apiKey.isBlank()) {
-            throw new IllegalStateException("DeepSeek apiKey is empty");
+            throw new IllegalStateException("LLM provider apiKey is empty: " + AgentStringUtils.trimToEmpty(provider));
         }
         if (model.isBlank()) {
-            throw new IllegalStateException("DeepSeek model is empty");
+            throw new IllegalStateException("LLM provider model is empty: " + AgentStringUtils.trimToEmpty(provider));
         }
         return OpenAiChatModel.builder()
                 .baseUrl(baseUrl)
@@ -163,10 +163,13 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                 .build();
     }
 
-    private MihtnelisAgentProperties.Provider resolveProvider() {
+    private MihtnelisAgentProperties.Provider resolveProvider(String provider) {
         MihtnelisAgentProperties.Llm llm = properties.getLlm();
         if (llm == null) {
             return null;
+        }
+        if ("mimo".equalsIgnoreCase(AgentStringUtils.trimToEmpty(provider))) {
+            return llm.getMimo();
         }
         return llm.getDeepseek();
     }
@@ -195,9 +198,9 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
                                         ChatRequestOptions requestOptions,
                                         ChatStreamListener streamListener,
                                         TokenUsageAccumulator usageAccumulator) {
-        MihtnelisAgentProperties.Provider cfg = resolveProvider();
+        MihtnelisAgentProperties.Provider cfg = resolveProvider(provider);
         if (cfg == null || !cfg.isEnabled()) {
-            throw new IllegalStateException("DeepSeek provider is disabled");
+            throw new IllegalStateException("LLM provider is disabled: " + AgentStringUtils.trimToEmpty(provider));
         }
         String baseUrl = AgentStringUtils.trimTrailingSlash(cfg.getBaseUrl());
         String apiKey = AgentStringUtils.trimToEmpty(cfg.getApiKey());

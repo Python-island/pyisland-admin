@@ -70,6 +70,7 @@ public class MihtnelisAgentProperties {
 
         private String gateway = "spring-ai";
         private Provider deepseek = new Provider();
+        private Provider mimo = new Provider();
 
         public String getGateway() {
             return gateway;
@@ -85,6 +86,14 @@ public class MihtnelisAgentProperties {
 
         public void setDeepseek(Provider deepseek) {
             this.deepseek = deepseek;
+        }
+
+        public Provider getMimo() {
+            return mimo;
+        }
+
+        public void setMimo(Provider mimo) {
+            this.mimo = mimo;
         }
     }
 

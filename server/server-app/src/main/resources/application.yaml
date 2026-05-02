@@ -234,6 +234,11 @@ mihtnelis:
         model: ${MIHTNELIS_AGENT_DEEPSEEK_MODEL:}
         thinking: ${MIHTNELIS_AGENT_DEEPSEEK_THINKING:false}
         reasoning-effort: ${MIHTNELIS_AGENT_DEEPSEEK_REASONING_EFFORT:medium}
+      mimo:
+        enabled: ${MIHTNELIS_AGENT_MIMO_ENABLED:false}
+        base-url: ${MIHTNELIS_AGENT_MIMO_BASE_URL:}
+        api-key: ${MIHTNELIS_AGENT_MIMO_API_KEY:}
+        model: ${MIHTNELIS_AGENT_MIMO_MODEL:MiMo-V2.5}
     oss-vector:
       enabled: ${MIHTNELIS_AGENT_OSS_VECTOR_ENABLED:true}
       endpoint: ${OSS_VECTOR_ENDPOINT}

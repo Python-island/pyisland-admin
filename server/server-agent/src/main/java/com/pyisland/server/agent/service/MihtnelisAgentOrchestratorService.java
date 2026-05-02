@@ -91,6 +91,9 @@ public class MihtnelisAgentOrchestratorService {
         if (!proUser && "deepseek-v4-pro".equalsIgnoreCase(requestedModel)) {
             throw new IllegalStateException("deepseek-v4-pro 仅 Pro 用户可用");
         }
+        if (!proUser && "MiMo-V2.5-Pro".equalsIgnoreCase(requestedModel)) {
+            throw new IllegalStateException("MiMo-V2.5-Pro 仅 Pro 用户可用");
+        }
         String userPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.message(), "");
         String contextPrompt = request == null ? "" : AgentStringUtils.trimToDefault(request.context(), "");
         MihtnelisAgentProperties.Provider providerConfig = resolveProviderConfig(provider);
@@ -523,8 +526,8 @@ public class MihtnelisAgentOrchestratorService {
         if (llm == null) {
             return null;
         }
-        if ("deepseek".equals(safeProvider) || safeProvider.isBlank()) {
-            return llm.getDeepseek();
+        if ("mimo".equals(safeProvider)) {
+            return llm.getMimo();
         }
         return llm.getDeepseek();
     }
