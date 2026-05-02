@@ -104,7 +104,8 @@ public class MihtnelisAgentStreamService {
                     request == null ? null : request.skills(),
                     request == null ? null : request.thinking(),
                     request == null ? null : request.reasoningEffort(),
-                    request == null ? null : request.timestamp()
+                    request == null ? null : request.timestamp(),
+                    request == null ? null : request.location()
             );
             String effectiveTraceId = normalizeTraceId(traceId);
             String effectiveSessionId = effectiveRequest.sessionId() == null ? "" : effectiveRequest.sessionId();
@@ -902,6 +903,7 @@ public class MihtnelisAgentStreamService {
                                          java.util.List<SkillEntry> skills,
                                          Boolean thinking,
                                          String reasoningEffort,
-                                         String timestamp) {
+                                         String timestamp,
+                                         String location) {
     }
 }
