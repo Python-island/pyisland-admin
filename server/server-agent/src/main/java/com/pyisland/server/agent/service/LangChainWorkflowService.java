@@ -34,10 +34,11 @@ public class LangChainWorkflowService {
     /**
      * 构造用户提示词
      */
-    public String buildUserPrompt(String userPrompt, String context, String provider) {
+    public String buildUserPrompt(String userPrompt, String context, String provider, String envMeta) {
         String safePrompt = userPrompt == null ? "" : userPrompt.trim();
         String safeContext = context == null ? "" : context.trim();
         String safeProvider = provider == null ? "auto" : provider.trim();
+        String safeMeta = envMeta == null ? "" : envMeta.trim();
 
         String attachmentBlock = extractAttachmentBlock(safePrompt);
         String questionOnly = stripAttachmentTags(safePrompt);
@@ -45,6 +46,9 @@ public class LangChainWorkflowService {
         StringBuilder sb = new StringBuilder();
         sb.append("provider=").append(safeProvider).append("\n\n");
 
+        if (!safeMeta.isBlank()) {
+            sb.append("当前环境: ").append(safeMeta).append("\n\n");
+        }
         if (!safeContext.isBlank()) {
             sb.append("对话上下文:\n").append(safeContext).append("\n\n");
         }
@@ -58,11 +62,12 @@ public class LangChainWorkflowService {
     /**
      * ReAct 多轮提示词（已修复高风险：硬约束 + 极简）
      */
-    public String buildReActUserPrompt(String userPrompt, String context, String provider, String scratchpad) {
+    public String buildReActUserPrompt(String userPrompt, String context, String provider, String scratchpad, String envMeta) {
         String safePrompt = userPrompt == null ? "" : userPrompt.trim();
         String safeContext = context == null ? "" : context.trim();
         String safeProvider = provider == null ? "auto" : provider.trim();
         String safeScratchpad = scratchpad == null ? "" : scratchpad.trim();
+        String safeMeta = envMeta == null ? "" : envMeta.trim();
 
         String attachmentBlock = extractAttachmentBlock(safePrompt);
         String questionOnly = stripAttachmentTags(safePrompt);
@@ -70,6 +75,9 @@ public class LangChainWorkflowService {
         StringBuilder pb = new StringBuilder();
         pb.append("provider=").append(safeProvider).append("\n\n");
 
+        if (!safeMeta.isBlank()) {
+            pb.append("当前环境: ").append(safeMeta).append("\n\n");
+        }
         if (!safeContext.isBlank()) {
             pb.append("对话上下文:\n").append(safeContext).append("\n\n");
         }

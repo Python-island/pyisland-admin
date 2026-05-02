@@ -100,21 +100,20 @@ public class MihtnelisAgentOrchestratorService {
         AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig, proUser);
 
         String agentMode = request == null ? "mihtnelis" : AgentStringUtils.trimToDefault(request.agentMode(), "mihtnelis");
-        // r1pxc 专属：注入客户端时间戳和地理位置，增强情境感知能力
+        // r1pxc 专属：将时间戳和地理位置提取为独立环境元数据，不混入用户消息
+        String envMeta = "";
         if ("r1pxc".equalsIgnoreCase(agentMode)) {
-            StringBuilder prefix = new StringBuilder();
+            StringBuilder metaBuf = new StringBuilder();
             String ts = request == null ? null : request.timestamp();
             if (ts != null && !ts.isBlank()) {
-                prefix.append("[当前时间: ").append(ts.trim()).append("]");
+                metaBuf.append("时间: ").append(ts.trim());
             }
             String loc = request == null ? null : request.location();
             if (loc != null && !loc.isBlank()) {
-                if (prefix.length() > 0) prefix.append(" ");
-                prefix.append("[当前位置: ").append(loc.trim()).append("]");
+                if (metaBuf.length() > 0) metaBuf.append(" | ");
+                metaBuf.append("位置: ").append(loc.trim());
             }
-            if (prefix.length() > 0) {
-                userPrompt = prefix.append("\n").append(userPrompt).toString();
-            }
+            envMeta = metaBuf.toString();
         }
         java.util.List<String> workspaces = request == null ? null : request.workspaces();
         java.util.List<MihtnelisAgentStreamService.SkillEntry> skills = request == null ? null : request.skills();
@@ -127,7 +126,7 @@ public class MihtnelisAgentOrchestratorService {
         if (chatGatewayService.supportsNativeToolCalling() && !chatRequestOptions.thinkingEnabled()
                 && toolExecutionObserver == null) {
             String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(agentMode, proUser, workspaces, skills);
-            String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider);
+            String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider, envMeta);
             String answer = chatGatewayService.chatWithNativeTools(
                     provider,
                     nativeSystemPrompt,
@@ -253,7 +252,7 @@ public class MihtnelisAgentOrchestratorService {
 
         int emptyResultRetries = 0;
         for (int turn = effectiveStartTurn, attempt = 0; attempt < MAX_REACT_TURNS; turn++, attempt++) {
-            String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad);
+            String gatewayPrompt = workflowService.buildReActUserPrompt(userPrompt, contextPrompt, provider, scratchpad, envMeta);
             String llmOutput = chatGatewayService.chat(provider, systemPrompt, gatewayPrompt, chatRequestOptions, streamListener, usageAccumulator);
             // 如果未使用流式监听器，仍通过旧路径推送整块思考内容
             if (streamListener == null) {
