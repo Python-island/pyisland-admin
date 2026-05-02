@@ -11,6 +11,7 @@ public class AgentModelPricing {
     private Long id;
     private String modelName;
     private Long inputPriceFenPerMillion;
+    private Long cachedInputPriceFenPerMillion;
     private Long outputPriceFenPerMillion;
     private Boolean enabled;
     private LocalDateTime updatedAt;
@@ -37,6 +38,14 @@ public class AgentModelPricing {
 
     public void setInputPriceFenPerMillion(Long inputPriceFenPerMillion) {
         this.inputPriceFenPerMillion = inputPriceFenPerMillion;
+    }
+
+    public Long getCachedInputPriceFenPerMillion() {
+        return cachedInputPriceFenPerMillion;
+    }
+
+    public void setCachedInputPriceFenPerMillion(Long cachedInputPriceFenPerMillion) {
+        this.cachedInputPriceFenPerMillion = cachedInputPriceFenPerMillion;
     }
 
     public Long getOutputPriceFenPerMillion() {

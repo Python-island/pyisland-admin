@@ -366,8 +366,10 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
         int completion = usage.path("completion_tokens").asInt(0);
         // 部分供应商在 completion_tokens_details 中提供 reasoning_tokens
         int reasoning = usage.path("completion_tokens_details").path("reasoning_tokens").asInt(0);
+        // MiMo 等供应商在 prompt_tokens_details 中提供 cached_tokens（缓存命中 token 数）
+        int cached = usage.path("prompt_tokens_details").path("cached_tokens").asInt(0);
         if (prompt > 0 || completion > 0) {
-            usageAccumulator.add(prompt, completion, reasoning);
+            usageAccumulator.add(prompt, completion, reasoning, cached);
         }
     }
 

@@ -63,7 +63,7 @@ public class AgentModelPricingService {
     /**
      * 新增或更新模型定价。
      */
-    public boolean upsert(String modelName, long inputPriceFenPerMillion, long outputPriceFenPerMillion, boolean enabled) {
+    public boolean upsert(String modelName, long inputPriceFenPerMillion, long cachedInputPriceFenPerMillion, long outputPriceFenPerMillion, boolean enabled) {
         if (modelName == null || modelName.isBlank()) {
             return false;
         }
@@ -71,11 +71,12 @@ public class AgentModelPricingService {
         AgentModelPricing existing = pricingMapper.selectByModelName(name);
         boolean ok;
         if (existing != null) {
-            ok = pricingMapper.updateByModelName(name, inputPriceFenPerMillion, outputPriceFenPerMillion, enabled, LocalDateTime.now()) > 0;
+            ok = pricingMapper.updateByModelName(name, inputPriceFenPerMillion, cachedInputPriceFenPerMillion, outputPriceFenPerMillion, enabled, LocalDateTime.now()) > 0;
         } else {
             AgentModelPricing pricing = new AgentModelPricing();
             pricing.setModelName(name);
             pricing.setInputPriceFenPerMillion(inputPriceFenPerMillion);
+            pricing.setCachedInputPriceFenPerMillion(cachedInputPriceFenPerMillion);
             pricing.setOutputPriceFenPerMillion(outputPriceFenPerMillion);
             pricing.setEnabled(enabled);
             pricing.setUpdatedAt(LocalDateTime.now());
@@ -106,15 +107,24 @@ public class AgentModelPricingService {
     private static final int SCALE = 8;
 
     /**
-     * 根据 token 用量扣费，精度 8 位小数。
-     *
-     * @param username    用户名。
-     * @param modelName   模型名。
-     * @param inputTokens  输入 token 数。
-     * @param outputTokens 输出 token 数。
-     * @return 扣费金额（分，8位小数），BigDecimal.ZERO 表示免费或未配置定价，负数表示余额不足。
+     * 根据 token 用量扣费，精度 8 位小数（无缓存 token 信息时的兼容入口）。
      */
     public BigDecimal deductForUsage(String username, String modelName, int inputTokens, int outputTokens) {
+        return deductForUsage(username, modelName, inputTokens, outputTokens, 0);
+    }
+
+    /**
+     * 根据 token 用量扣费，精度 8 位小数。
+     * 支持缓存命中 token 差异化计价：cachedTokens 按缓存价计费，其余按正常输入价计费。
+     *
+     * @param username     用户名。
+     * @param modelName    模型名。
+     * @param inputTokens  输入 token 数（含 cachedTokens）。
+     * @param outputTokens 输出 token 数。
+     * @param cachedTokens 缓存命中 token 数（来自 prompt_tokens_details.cached_tokens）。
+     * @return 扣费金额（分，8位小数），BigDecimal.ZERO 表示免费或未配置定价，负数表示余额不足。
+     */
+    public BigDecimal deductForUsage(String username, String modelName, int inputTokens, int outputTokens, int cachedTokens) {
         if (username == null || username.isBlank() || modelName == null || modelName.isBlank()) {
             return BigDecimal.ZERO;
         }
@@ -123,15 +133,21 @@ public class AgentModelPricingService {
             return BigDecimal.ZERO;
         }
         long inputFen = pricing.getInputPriceFenPerMillion() == null ? 0 : pricing.getInputPriceFenPerMillion();
+        long cachedFen = pricing.getCachedInputPriceFenPerMillion() == null ? inputFen : pricing.getCachedInputPriceFenPerMillion();
         long outputFen = pricing.getOutputPriceFenPerMillion() == null ? 0 : pricing.getOutputPriceFenPerMillion();
-        // costFen = (inputTokens * inputPriceFen / 1_000_000) + (outputTokens * outputPriceFen / 1_000_000)
-        BigDecimal inputCost = BigDecimal.valueOf(inputTokens)
+        // 将 inputTokens 拆分为缓存命中和未命中两部分
+        int safeCached = Math.max(0, Math.min(cachedTokens, inputTokens));
+        int uncachedInput = inputTokens - safeCached;
+        BigDecimal uncachedInputCost = BigDecimal.valueOf(uncachedInput)
                 .multiply(BigDecimal.valueOf(inputFen))
+                .divide(ONE_MILLION, SCALE, RoundingMode.HALF_UP);
+        BigDecimal cachedInputCost = BigDecimal.valueOf(safeCached)
+                .multiply(BigDecimal.valueOf(cachedFen))
                 .divide(ONE_MILLION, SCALE, RoundingMode.HALF_UP);
         BigDecimal outputCost = BigDecimal.valueOf(outputTokens)
                 .multiply(BigDecimal.valueOf(outputFen))
                 .divide(ONE_MILLION, SCALE, RoundingMode.HALF_UP);
-        BigDecimal costFen = inputCost.add(outputCost);
+        BigDecimal costFen = uncachedInputCost.add(cachedInputCost).add(outputCost);
         if (costFen.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -141,8 +157,8 @@ public class AgentModelPricingService {
             return BigDecimal.valueOf(-1);
         }
         BigDecimal actualDeducted = deductResult.actualDeducted();
-        log.info("agent billing: deducted {} fen (requested {}) from user={}, model={}, inputTokens={}, outputTokens={}",
-                actualDeducted.toPlainString(), costFen.toPlainString(), username, modelName, inputTokens, outputTokens);
+        log.info("agent billing: deducted {} fen (requested {}) from user={}, model={}, inputTokens={}, cachedTokens={}, outputTokens={}",
+                actualDeducted.toPlainString(), costFen.toPlainString(), username, modelName, inputTokens, safeCached, outputTokens);
         return actualDeducted;
     }
 

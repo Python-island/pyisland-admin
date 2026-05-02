@@ -7,13 +7,14 @@
         <id property="id" column="id"/>
         <result property="modelName" column="model_name"/>
         <result property="inputPriceFenPerMillion" column="input_price_fen_per_million"/>
+        <result property="cachedInputPriceFenPerMillion" column="cached_input_price_fen_per_million"/>
         <result property="outputPriceFenPerMillion" column="output_price_fen_per_million"/>
         <result property="enabled" column="enabled"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
     <sql id="baseColumns">
-        id, model_name, input_price_fen_per_million, output_price_fen_per_million, enabled, updated_at
+        id, model_name, input_price_fen_per_million, cached_input_price_fen_per_million, output_price_fen_per_million, enabled, updated_at
     </sql>
 
     <select id="selectAll" resultMap="AgentModelPricingResultMap">
@@ -30,14 +31,15 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO agent_model_pricing
-            (model_name, input_price_fen_per_million, output_price_fen_per_million, enabled, updated_at)
+            (model_name, input_price_fen_per_million, cached_input_price_fen_per_million, output_price_fen_per_million, enabled, updated_at)
         VALUES
-            (#{modelName}, #{inputPriceFenPerMillion}, #{outputPriceFenPerMillion}, #{enabled}, #{updatedAt})
+            (#{modelName}, #{inputPriceFenPerMillion}, #{cachedInputPriceFenPerMillion}, #{outputPriceFenPerMillion}, #{enabled}, #{updatedAt})
     </insert>
 
     <update id="updateByModelName">
         UPDATE agent_model_pricing
         SET input_price_fen_per_million = #{inputPriceFenPerMillion},
+            cached_input_price_fen_per_million = #{cachedInputPriceFenPerMillion},
             output_price_fen_per_million = #{outputPriceFenPerMillion},
             enabled = #{enabled},
             updated_at = #{updatedAt}

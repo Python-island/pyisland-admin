@@ -27,21 +27,28 @@ public interface AgentChatGatewayService {
         private final AtomicInteger promptTokens = new AtomicInteger(0);
         private final AtomicInteger completionTokens = new AtomicInteger(0);
         private final AtomicInteger reasoningTokens = new AtomicInteger(0);
+        private final AtomicInteger cachedTokens = new AtomicInteger(0);
 
         /** 将一次 API 调用返回的 usage 累加进来。 */
         public void add(int prompt, int completion, int reasoning) {
+            add(prompt, completion, reasoning, 0);
+        }
+
+        public void add(int prompt, int completion, int reasoning, int cached) {
             promptTokens.addAndGet(prompt);
             completionTokens.addAndGet(completion);
             reasoningTokens.addAndGet(reasoning);
+            cachedTokens.addAndGet(cached);
         }
 
         public void add(int prompt, int completion) {
-            add(prompt, completion, 0);
+            add(prompt, completion, 0, 0);
         }
 
         public int getPromptTokens() { return promptTokens.get(); }
         public int getCompletionTokens() { return completionTokens.get(); }
         public int getReasoningTokens() { return reasoningTokens.get(); }
+        public int getCachedTokens() { return cachedTokens.get(); }
         public int getTotalTokens() { return promptTokens.get() + completionTokens.get(); }
     }
 

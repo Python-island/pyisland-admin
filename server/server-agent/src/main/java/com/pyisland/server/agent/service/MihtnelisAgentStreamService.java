@@ -455,10 +455,11 @@ public class MihtnelisAgentStreamService {
             int outputTokens = apiCompletionTokens > 0 ? apiCompletionTokens
                     : streamedChunkTokens;
             int reasoningTokens = executionResult.totalReasoningTokens();
+            int cachedTokens = executionResult.totalCachedTokens();
             String billingModel = model != null && !model.isBlank() ? model : "deepseek-v4-flash";
             java.math.BigDecimal deductedFen = java.math.BigDecimal.ZERO;
             try {
-                deductedFen = modelPricingService.deductForUsage(username, billingModel, inputTokens, outputTokens);
+                deductedFen = modelPricingService.deductForUsage(username, billingModel, inputTokens, outputTokens, cachedTokens);
             } catch (Exception billingEx) {
                 // 扣费失败不阻断流式响应
             }
@@ -469,6 +470,7 @@ public class MihtnelisAgentStreamService {
             finalPayload.put("billedInputTokens", inputTokens);
             finalPayload.put("billedOutputTokens", outputTokens);
             finalPayload.put("billedReasoningTokens", reasoningTokens);
+            finalPayload.put("billedCachedTokens", cachedTokens);
             finalPayload.put("billedModel", billingModel);
             finalPayload.put("deductedFen", deductedFen);
             finalPayload.put("billingUnit", "1M_token");

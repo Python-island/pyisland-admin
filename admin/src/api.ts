@@ -921,6 +921,7 @@ export interface AgentModelPricingItem {
   id: number;
   modelName: string;
   inputPriceFenPerMillion: number;
+  cachedInputPriceFenPerMillion: number;
   outputPriceFenPerMillion: number;
   enabled: boolean;
   updatedAt: string;
@@ -933,6 +934,7 @@ export const agentAdmin = {
   upsertModelPricing(payload: {
     modelName: string;
     inputPriceFenPerMillion: number;
+    cachedInputPriceFenPerMillion: number;
     outputPriceFenPerMillion: number;
     enabled: boolean;
   }) {

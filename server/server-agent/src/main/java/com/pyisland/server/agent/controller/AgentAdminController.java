@@ -62,9 +62,10 @@ public class AgentAdminController {
             return ResponseEntity.badRequest().body(Map.of("code", 400, "message", "模型名不能为空"));
         }
         long inputPrice = request.inputPriceFenPerMillion() == null ? 0 : request.inputPriceFenPerMillion();
+        long cachedInputPrice = request.cachedInputPriceFenPerMillion() == null ? 0 : request.cachedInputPriceFenPerMillion();
         long outputPrice = request.outputPriceFenPerMillion() == null ? 0 : request.outputPriceFenPerMillion();
         boolean enabled = request.enabled() == null || request.enabled();
-        boolean ok = pricingService.upsert(request.modelName(), inputPrice, outputPrice, enabled);
+        boolean ok = pricingService.upsert(request.modelName(), inputPrice, cachedInputPrice, outputPrice, enabled);
         if (!ok) {
             return ResponseEntity.internalServerError().body(Map.of("code", 500, "message", "保存失败"));
         }
@@ -193,6 +194,7 @@ public class AgentAdminController {
     private record ModelPricingRequest(
             String modelName,
             Long inputPriceFenPerMillion,
+            Long cachedInputPriceFenPerMillion,
             Long outputPriceFenPerMillion,
             Boolean enabled
     ) {}

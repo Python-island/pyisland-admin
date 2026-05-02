@@ -57,6 +57,7 @@ export default function AgentModelPricing() {
   // form
   const [modelName, setModelName] = useState("");
   const [inputPrice, setInputPrice] = useState(0);
+  const [cachedInputPrice, setCachedInputPrice] = useState(0);
   const [outputPrice, setOutputPrice] = useState(0);
   const [enabled, setEnabled] = useState(true);
   const [editingModel, setEditingModel] = useState<string | null>(null);
@@ -166,6 +167,7 @@ export default function AgentModelPricing() {
   const resetForm = () => {
     setModelName("");
     setInputPrice(0);
+    setCachedInputPrice(0);
     setOutputPrice(0);
     setEnabled(true);
     setEditingModel(null);
@@ -174,6 +176,7 @@ export default function AgentModelPricing() {
   const startEdit = (item: AgentModelPricingItem) => {
     setModelName(item.modelName);
     setInputPrice(item.inputPriceFenPerMillion);
+    setCachedInputPrice(item.cachedInputPriceFenPerMillion ?? 0);
     setOutputPrice(item.outputPriceFenPerMillion);
     setEnabled(item.enabled);
     setEditingModel(item.modelName);
@@ -194,6 +197,7 @@ export default function AgentModelPricing() {
       const res = await agentAdmin.upsertModelPricing({
         modelName: trimmedName,
         inputPriceFenPerMillion: Math.max(0, Math.round(inputPrice)),
+        cachedInputPriceFenPerMillion: Math.max(0, Math.round(cachedInputPrice)),
         outputPriceFenPerMillion: Math.max(0, Math.round(outputPrice)),
         enabled,
       });
@@ -488,6 +492,20 @@ export default function AgentModelPricing() {
           </label>
 
           <label style={{ color: "#fff", fontSize: 13 }}>
+            <div style={{ marginBottom: 6 }}>缓存命中输入价格（分 / 百万 token）</div>
+            <input
+              type="number"
+              min={0}
+              value={cachedInputPrice}
+              onChange={(e) => setCachedInputPrice(Math.max(0, Number(e.target.value) || 0))}
+              style={inputStyle}
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+              ≈ ¥{fenToYuan(cachedInputPrice)} / 百万 token（缓存命中时使用此价格）
+            </div>
+          </label>
+
+          <label style={{ color: "#fff", fontSize: 13 }}>
             <div style={{ marginBottom: 6 }}>输出价格（分 / 百万 token）</div>
             <input
               type="number"
@@ -544,6 +562,7 @@ export default function AgentModelPricing() {
               <tr>
                 <th style={thStyle}>模型名称</th>
                 <th style={thStyle}>输入价（分/百万token）</th>
+                <th style={thStyle}>缓存命中输入价</th>
                 <th style={thStyle}>输出价（分/百万token）</th>
                 <th style={thStyle}>状态</th>
                 <th style={thStyle}>更新时间</th>
@@ -560,6 +579,12 @@ export default function AgentModelPricing() {
                     {item.inputPriceFenPerMillion}
                     <span style={{ marginLeft: 6, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
                       (¥{fenToYuan(item.inputPriceFenPerMillion)})
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    {item.cachedInputPriceFenPerMillion ?? 0}
+                    <span style={{ marginLeft: 6, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+                      (¥{fenToYuan(item.cachedInputPriceFenPerMillion ?? 0)})
                     </span>
                   </td>
                   <td style={tdStyle}>

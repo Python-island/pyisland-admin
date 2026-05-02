@@ -44,6 +44,7 @@ public interface AgentModelPricingMapper {
      */
     int updateByModelName(@Param("modelName") String modelName,
                           @Param("inputPriceFenPerMillion") Long inputPriceFenPerMillion,
+                          @Param("cachedInputPriceFenPerMillion") Long cachedInputPriceFenPerMillion,
                           @Param("outputPriceFenPerMillion") Long outputPriceFenPerMillion,
                           @Param("enabled") Boolean enabled,
                           @Param("updatedAt") LocalDateTime updatedAt);

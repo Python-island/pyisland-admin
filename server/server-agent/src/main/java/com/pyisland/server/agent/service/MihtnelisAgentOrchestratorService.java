@@ -249,12 +249,12 @@ public class MihtnelisAgentOrchestratorService {
                 String finalAnswer = AgentStringUtils.trimToDefault(decision.finalAnswer(), "");
                 if (!finalAnswer.isBlank()) {
                     return AgentExecutionResult.done(provider, finalAnswer, proUser, traces,
-                            usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
+                            usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens(), usageAccumulator.getCachedTokens());
                 }
                 String fallbackFromRaw = stripJsonEnvelopes(stripThinkBlocks(AgentStringUtils.trimToDefault(llmOutput, "")));
                 if (!fallbackFromRaw.isBlank()) {
                     return AgentExecutionResult.done(provider, fallbackFromRaw, proUser, traces,
-                            usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
+                            usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens(), usageAccumulator.getCachedTokens());
                 }
                 if (emptyResultRetries < MAX_EMPTY_RESULT_RETRIES) {
                     emptyResultRetries++;
@@ -305,7 +305,7 @@ public class MihtnelisAgentOrchestratorService {
 
         String fallbackMessage = resolveFallbackMessage(provider, traces, scratchpad);
         return AgentExecutionResult.done(provider, fallbackMessage, proUser, traces,
-                usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens());
+                usageAccumulator.getPromptTokens(), usageAccumulator.getCompletionTokens(), usageAccumulator.getReasoningTokens(), usageAccumulator.getCachedTokens());
     }
 
     private static final Pattern MARKDOWN_CODE_BLOCK_PATTERN = Pattern.compile("```(?:json)?\s*\n?(.*?)\n?\s*```", Pattern.DOTALL);
@@ -698,12 +698,13 @@ public class MihtnelisAgentOrchestratorService {
                                        int resumeTurn,
                                        int totalPromptTokens,
                                        int totalCompletionTokens,
-                                       int totalReasoningTokens) {
+                                       int totalReasoningTokens,
+                                       int totalCachedTokens) {
         public static AgentExecutionResult done(String provider,
                                                 String answer,
                                                 boolean proUser,
                                                 List<ToolInvocationTrace> traces) {
-            return done(provider, answer, proUser, traces, 0, 0, 0);
+            return done(provider, answer, proUser, traces, 0, 0, 0, 0);
         }
 
         public static AgentExecutionResult done(String provider,
@@ -713,6 +714,17 @@ public class MihtnelisAgentOrchestratorService {
                                                 int promptTokens,
                                                 int completionTokens,
                                                 int reasoningTokens) {
+            return done(provider, answer, proUser, traces, promptTokens, completionTokens, reasoningTokens, 0);
+        }
+
+        public static AgentExecutionResult done(String provider,
+                                                String answer,
+                                                boolean proUser,
+                                                List<ToolInvocationTrace> traces,
+                                                int promptTokens,
+                                                int completionTokens,
+                                                int reasoningTokens,
+                                                int cachedTokens) {
             return new AgentExecutionResult(
                     provider,
                     AgentStringUtils.trimToDefault(answer, ""),
@@ -726,7 +738,8 @@ public class MihtnelisAgentOrchestratorService {
                     0,
                     promptTokens,
                     completionTokens,
-                    reasoningTokens
+                    reasoningTokens,
+                    cachedTokens
             );
         }
 
@@ -745,7 +758,7 @@ public class MihtnelisAgentOrchestratorService {
                     false,
                     "",
                     0,
-                    0, 0, 0
+                    0, 0, 0, 0
             );
         }
 
@@ -766,7 +779,7 @@ public class MihtnelisAgentOrchestratorService {
                     true,
                     scratchpad == null ? "" : scratchpad,
                     turn,
-                    0, 0, 0
+                    0, 0, 0, 0
             );
         }
     }
