@@ -2,6 +2,7 @@ package com.pyisland.server.agent.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pyisland.server.agent.service.AgentBalanceRedisService;
 import com.pyisland.server.agent.service.AgentRealtimeSttAuthService;
 import com.pyisland.server.agent.service.TencentRealtimeAsrRelayService;
 import org.slf4j.Logger;
@@ -15,6 +16,8 @@ import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,15 +26,22 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRealtimeSttWebSocketHandler.class);
 
+    private static final String STT_MODEL_NAME = "stt-realtime";
+    private static final BigDecimal FEN_PER_MINUTE = new BigDecimal("5");
+    private static final int SCALE = 8;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AgentRealtimeSttAuthService agentRealtimeSttAuthService;
     private final TencentRealtimeAsrRelayService tencentRealtimeAsrRelayService;
+    private final AgentBalanceRedisService agentBalanceRedisService;
     private final Map<String, SessionState> sessionStateMap = new ConcurrentHashMap<>();
 
     public AgentRealtimeSttWebSocketHandler(AgentRealtimeSttAuthService agentRealtimeSttAuthService,
-                                            TencentRealtimeAsrRelayService tencentRealtimeAsrRelayService) {
+                                            TencentRealtimeAsrRelayService tencentRealtimeAsrRelayService,
+                                            AgentBalanceRedisService agentBalanceRedisService) {
         this.agentRealtimeSttAuthService = agentRealtimeSttAuthService;
         this.tencentRealtimeAsrRelayService = tencentRealtimeAsrRelayService;
+        this.agentBalanceRedisService = agentBalanceRedisService;
     }
 
     @Override
@@ -77,6 +87,10 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 safeSendEvent(session, "stt_partial", "语音识别已在运行");
                 return;
             }
+            if (agentBalanceRedisService.isBalanceZero(state.username)) {
+                safeSendEvent(session, "stt_error", "余额不足，请充值后使用语音识别");
+                return;
+            }
             try {
                 state.relaySession = tencentRealtimeAsrRelayService.startSession(new TencentRealtimeAsrRelayService.Callbacks() {
                     @Override
@@ -95,6 +109,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                     }
                 });
                 state.started = true;
+                state.startTimeMillis = System.currentTimeMillis();
                 log.info("Realtime STT session started. user={}, sessionId={}", state.username, session.getId());
             } catch (Exception ex) {
                 log.warn("Realtime STT start failed. user={}, sessionId={}, message={}", state.username, session.getId(), ex.getMessage());
@@ -183,7 +198,36 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
             state.relaySession.stop();
             state.relaySession = null;
         }
+        if (state.started && state.startTimeMillis > 0) {
+            billForUsage(state);
+        }
         state.started = false;
+        state.startTimeMillis = 0;
+    }
+
+    private void billForUsage(SessionState state) {
+        long durationMillis = System.currentTimeMillis() - state.startTimeMillis;
+        if (durationMillis <= 0) {
+            return;
+        }
+        long durationSeconds = (durationMillis + 9_999L) / 10_000L * 10L;
+        BigDecimal durationMinutes = BigDecimal.valueOf(durationSeconds)
+                .divide(BigDecimal.valueOf(60L), SCALE, RoundingMode.HALF_UP);
+        BigDecimal costFen = durationMinutes.multiply(FEN_PER_MINUTE).setScale(SCALE, RoundingMode.HALF_UP);
+        if (costFen.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        try {
+            AgentBalanceRedisService.DeductResult result = agentBalanceRedisService.deduct(
+                    state.username, costFen, STT_MODEL_NAME, 0, 0);
+            long durationSec = durationMillis / 1000;
+            log.info("STT billing: user={}, duration={}s, cost={} fen, deducted={} fen, balanceZero={}",
+                    state.username, durationSec, costFen.toPlainString(),
+                    result.actualDeducted().toPlainString(), result.balanceZero());
+        } catch (Exception ex) {
+            log.error("STT billing failed: user={}, cost={} fen, err={}",
+                    state.username, costFen.toPlainString(), ex.getMessage());
+        }
     }
 
     private String resolveQueryParam(WebSocketSession session, String key) {
@@ -199,11 +243,13 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
     private static final class SessionState {
         private final String username;
         private boolean started;
+        private long startTimeMillis;
         private TencentRealtimeAsrRelayService.Session relaySession;
 
         private SessionState(String username) {
             this.username = username;
             this.started = false;
+            this.startTimeMillis = 0;
             this.relaySession = null;
         }
     }
