@@ -133,7 +133,8 @@ public class AgentModelPricingService {
             return BigDecimal.ZERO;
         }
         long inputFen = pricing.getInputPriceFenPerMillion() == null ? 0 : pricing.getInputPriceFenPerMillion();
-        long cachedFen = pricing.getCachedInputPriceFenPerMillion() == null ? inputFen : pricing.getCachedInputPriceFenPerMillion();
+        Long cachedRaw = pricing.getCachedInputPriceFenPerMillion();
+        long cachedFen = (cachedRaw == null || cachedRaw <= 0) ? inputFen : cachedRaw;
         long outputFen = pricing.getOutputPriceFenPerMillion() == null ? 0 : pricing.getOutputPriceFenPerMillion();
         // 将 inputTokens 拆分为缓存命中和未命中两部分
         int safeCached = Math.max(0, Math.min(cachedTokens, inputTokens));
