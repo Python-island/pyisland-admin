@@ -100,6 +100,13 @@ public class MihtnelisAgentOrchestratorService {
         AgentChatGatewayService.ChatRequestOptions chatRequestOptions = resolveChatRequestOptions(request, providerConfig, proUser);
 
         String agentMode = request == null ? "mihtnelis" : AgentStringUtils.trimToDefault(request.agentMode(), "mihtnelis");
+        // r1pxc 专属：注入客户端时间戳，增强时间感知能力
+        if ("r1pxc".equalsIgnoreCase(agentMode)) {
+            String ts = request == null ? null : request.timestamp();
+            if (ts != null && !ts.isBlank()) {
+                userPrompt = "[当前时间: " + ts.trim() + "]\n" + userPrompt;
+            }
+        }
         java.util.List<String> workspaces = request == null ? null : request.workspaces();
         java.util.List<MihtnelisAgentStreamService.SkillEntry> skills = request == null ? null : request.skills();
         AgentToolExecutionService.ExecutionContext executionContext =

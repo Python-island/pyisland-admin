@@ -103,7 +103,8 @@ public class MihtnelisAgentStreamService {
                     request == null ? null : request.workspaces(),
                     request == null ? null : request.skills(),
                     request == null ? null : request.thinking(),
-                    request == null ? null : request.reasoningEffort()
+                    request == null ? null : request.reasoningEffort(),
+                    request == null ? null : request.timestamp()
             );
             String effectiveTraceId = normalizeTraceId(traceId);
             String effectiveSessionId = effectiveRequest.sessionId() == null ? "" : effectiveRequest.sessionId();
@@ -900,6 +901,7 @@ public class MihtnelisAgentStreamService {
                                          java.util.List<String> workspaces,
                                          java.util.List<SkillEntry> skills,
                                          Boolean thinking,
-                                         String reasoningEffort) {
+                                         String reasoningEffort,
+                                         String timestamp) {
     }
 }
