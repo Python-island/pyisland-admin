@@ -158,16 +158,18 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+        log.warn("STT WebSocket transport error, sessionId={}, err={}", session.getId(),
+                exception == null ? "unknown" : exception.getMessage());
         SessionState state = sessionStateMap.remove(session.getId());
         if (state != null) {
             stopRelaySession(state);
         }
-        if (session.isOpen()) {
-            try {
-                sendEvent(session, "stt_error", "实时语音连接异常");
-            } finally {
+        try {
+            if (session.isOpen()) {
                 session.close(CloseStatus.SERVER_ERROR);
             }
+        } catch (Exception ignored) {
+            // session already broken, nothing to do
         }
     }
 
