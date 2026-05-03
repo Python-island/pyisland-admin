@@ -116,7 +116,6 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 safeSendEvent(session, "stt_error", "语音识别启动失败");
                 return;
             }
-            safeSendEvent(session, "stt_partial", "语音识别连接成功");
             return;
         }
 
