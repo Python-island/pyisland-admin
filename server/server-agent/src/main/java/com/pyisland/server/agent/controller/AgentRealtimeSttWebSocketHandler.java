@@ -64,16 +64,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
-        String username = authResult.username();
-        String oldSessionId = activeUserSessionMap.put(username, session.getId());
-        if (oldSessionId != null && !oldSessionId.equals(session.getId())) {
-            SessionState oldState = sessionStateMap.remove(oldSessionId);
-            if (oldState != null) {
-                log.info("Evicting previous STT session for user={}, oldSessionId={}", username, oldSessionId);
-                stopRelaySession(oldState);
-            }
-        }
-        sessionStateMap.put(session.getId(), new SessionState(username));
+        sessionStateMap.put(session.getId(), new SessionState(authResult.username()));
     }
 
     @Override
@@ -106,6 +97,14 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
             if (state.started && state.relaySession != null) {
                 safeSendEvent(session, "stt_partial", "语音识别已在运行");
                 return;
+            }
+            String prevSessionId = activeUserSessionMap.put(state.username, session.getId());
+            if (prevSessionId != null && !prevSessionId.equals(session.getId())) {
+                SessionState prevState = sessionStateMap.get(prevSessionId);
+                if (prevState != null && prevState.started) {
+                    log.info("Evicting previous STT relay for user={}, oldSessionId={}", state.username, prevSessionId);
+                    stopRelaySession(prevState);
+                }
             }
             if (agentBalanceRedisService.getBalance(state.username).compareTo(FEN_PER_MINUTE) < 0) {
                 safeSendEvent(session, "stt_error", "余额不足，请充值后使用");
