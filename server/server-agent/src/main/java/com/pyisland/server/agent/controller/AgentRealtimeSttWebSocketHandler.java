@@ -98,13 +98,17 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 safeSendEvent(session, "stt_partial", "语音识别已在运行");
                 return;
             }
-            String prevSessionId = activeUserSessionMap.put(state.username, session.getId());
-            if (prevSessionId != null && !prevSessionId.equals(session.getId())) {
-                SessionState prevState = sessionStateMap.get(prevSessionId);
-                if (prevState != null && prevState.started) {
-                    log.info("Evicting previous STT relay for user={}, oldSessionId={}", state.username, prevSessionId);
-                    stopRelaySession(prevState);
+            synchronized (activeUserSessionMap) {
+                String prevSessionId = activeUserSessionMap.get(state.username);
+                if (prevSessionId != null && !prevSessionId.equals(session.getId())) {
+                    SessionState prevState = sessionStateMap.get(prevSessionId);
+                    if (prevState != null && prevState.started && prevState.relaySession != null) {
+                        log.info("Rejecting duplicate STT start for user={}, existing sessionId={}", state.username, prevSessionId);
+                        safeSendEvent(session, "stt_error", "语音识别已在运行");
+                        return;
+                    }
                 }
+                activeUserSessionMap.put(state.username, session.getId());
             }
             if (agentBalanceRedisService.getBalance(state.username).compareTo(FEN_PER_MINUTE) < 0) {
                 safeSendEvent(session, "stt_error", "余额不足，请充值后使用");
