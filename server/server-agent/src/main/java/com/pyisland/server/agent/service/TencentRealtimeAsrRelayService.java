@@ -55,6 +55,8 @@ public class TencentRealtimeAsrRelayService {
         final String[] lastPartial = {""};
         final String[] lastFinal = {""};
 
+        Session[] sessionHolder = new Session[1];
+
         SpeechRecognizerListener listener = new SpeechRecognizerListener() {
             @Override
             public void onRecognitionStart(SpeechRecognizerResponse response) {
@@ -94,6 +96,9 @@ public class TencentRealtimeAsrRelayService {
                 String msg = response == null ? "" : response.getMessage();
                 log.warn("ASR recognition failed, code={}, message={}", response == null ? -1 : response.getCode(), msg);
                 callbacks.onError(msg == null || msg.isBlank() ? "腾讯语音识别失败" : msg);
+                if (sessionHolder[0] != null) {
+                    sessionHolder[0].stop();
+                }
             }
 
             @Override
@@ -104,7 +109,9 @@ public class TencentRealtimeAsrRelayService {
 
         SpeechRecognizer recognizer = new SpeechRecognizer(client, credential, request, listener);
         recognizer.start();
-        return new Session(recognizer);
+        Session session = new Session(recognizer);
+        sessionHolder[0] = session;
+        return session;
     }
 
     @PreDestroy
@@ -146,16 +153,20 @@ public class TencentRealtimeAsrRelayService {
 
     public static class Session {
         private final SpeechRecognizer recognizer;
+        private volatile boolean stopped = false;
 
         public Session(SpeechRecognizer recognizer) {
             this.recognizer = recognizer;
         }
 
         public void write(byte[] bytes) throws Exception {
+            if (stopped) return;
             recognizer.write(bytes);
         }
 
-        public void stop() {
+        public synchronized void stop() {
+            if (stopped) return;
+            stopped = true;
             try {
                 recognizer.stop();
             } catch (Exception ignored) {
