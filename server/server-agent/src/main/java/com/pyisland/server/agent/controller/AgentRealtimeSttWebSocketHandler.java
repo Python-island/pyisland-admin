@@ -80,7 +80,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
 
         if ("stt_start".equals(event)) {
             if (!tencentRealtimeAsrRelayService.isConfigured()) {
-                safeSendEvent(session, "stt_error", "服务端未配置腾讯实时语音识别密钥");
+                safeSendEvent(session, "stt_error", "服务端未配置");
                 return;
             }
             if (state.started && state.relaySession != null) {
@@ -88,7 +88,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 return;
             }
             if (agentBalanceRedisService.getBalance(state.username).compareTo(FEN_PER_MINUTE) < 0) {
-                safeSendEvent(session, "stt_error", "余额不足，请充值后使用语音识别");
+                safeSendEvent(session, "stt_error", "余额不足，请充值后使用");
                 return;
             }
             try {
