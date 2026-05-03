@@ -40,6 +40,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
     private final TencentRealtimeAsrRelayService tencentRealtimeAsrRelayService;
     private final AgentBalanceRedisService agentBalanceRedisService;
     private final Map<String, SessionState> sessionStateMap = new ConcurrentHashMap<>();
+    private final Map<String, String> activeUserSessionMap = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "stt-cutoff");
         t.setDaemon(true);
@@ -63,7 +64,16 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
-        sessionStateMap.put(session.getId(), new SessionState(authResult.username()));
+        String username = authResult.username();
+        String oldSessionId = activeUserSessionMap.put(username, session.getId());
+        if (oldSessionId != null && !oldSessionId.equals(session.getId())) {
+            SessionState oldState = sessionStateMap.remove(oldSessionId);
+            if (oldState != null) {
+                log.info("Evicting previous STT session for user={}, oldSessionId={}", username, oldSessionId);
+                stopRelaySession(oldState);
+            }
+        }
+        sessionStateMap.put(session.getId(), new SessionState(username));
     }
 
     @Override
@@ -176,6 +186,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         SessionState state = sessionStateMap.remove(session.getId());
         if (state != null) {
+            activeUserSessionMap.remove(state.username, session.getId());
             stopRelaySession(state);
         }
     }
@@ -186,6 +197,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 exception == null ? "unknown" : exception.getMessage());
         SessionState state = sessionStateMap.remove(session.getId());
         if (state != null) {
+            activeUserSessionMap.remove(state.username, session.getId());
             stopRelaySession(state);
         }
         try {
