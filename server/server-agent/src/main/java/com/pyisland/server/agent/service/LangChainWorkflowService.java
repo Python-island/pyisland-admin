@@ -22,12 +22,12 @@ public class LangChainWorkflowService {
         this.edocPromptBuilder = edocPromptBuilder;
     }
 
-    public String buildSystemPrompt(String agentMode, boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildSystemPrompt(String agentMode, boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         String mode = agentMode == null ? "mihtnelis" : agentMode.trim().toLowerCase();
         return switch (mode) {
             case "r1pxc" -> r1pxcPromptBuilder.buildSystemPrompt(proUser, workspaces, skills);
             case "edoc" -> edocPromptBuilder.buildSystemPrompt(proUser, workspaces, skills);
-            default -> mihtnelisPromptBuilder.buildSystemPrompt(proUser, workspaces, skills);
+            default -> mihtnelisPromptBuilder.buildSystemPrompt(proUser, workspaces, skills, snapshotMode);
         };
     }
 
@@ -105,12 +105,12 @@ public class LangChainWorkflowService {
     /**
      * 原生工具系统提示词（已恢复关键策略）
      */
-    public String buildNativeToolSystemPrompt(String agentMode, boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildNativeToolSystemPrompt(String agentMode, boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         String mode = agentMode == null ? "mihtnelis" : agentMode.trim().toLowerCase();
         return switch (mode) {
             case "r1pxc" -> r1pxcPromptBuilder.buildNativeToolSystemPrompt(proUser, workspaces, skills);
             case "edoc" -> edocPromptBuilder.buildNativeToolSystemPrompt(proUser, workspaces, skills);
-            default -> mihtnelisPromptBuilder.buildNativeToolSystemPrompt(proUser, workspaces, skills);
+            default -> mihtnelisPromptBuilder.buildNativeToolSystemPrompt(proUser, workspaces, skills, snapshotMode);
         };
     }
 

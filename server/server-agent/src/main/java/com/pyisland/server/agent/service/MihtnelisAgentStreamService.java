@@ -105,7 +105,8 @@ public class MihtnelisAgentStreamService {
                     request == null ? null : request.thinking(),
                     request == null ? null : request.reasoningEffort(),
                     request == null ? null : request.timestamp(),
-                    request == null ? null : request.location()
+                    request == null ? null : request.location(),
+                    request == null ? null : request.snapshotMode()
             );
             String effectiveTraceId = normalizeTraceId(traceId);
             String effectiveSessionId = effectiveRequest.sessionId() == null ? "" : effectiveRequest.sessionId();
@@ -904,6 +905,7 @@ public class MihtnelisAgentStreamService {
                                          Boolean thinking,
                                          String reasoningEffort,
                                          String timestamp,
-                                         String location) {
+                                         String location,
+                                         Boolean snapshotMode) {
     }
 }

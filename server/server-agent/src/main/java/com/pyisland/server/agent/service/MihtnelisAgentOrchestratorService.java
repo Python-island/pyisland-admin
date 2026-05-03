@@ -117,6 +117,7 @@ public class MihtnelisAgentOrchestratorService {
         }
         java.util.List<String> workspaces = request == null ? null : request.workspaces();
         java.util.List<MihtnelisAgentStreamService.SkillEntry> skills = request == null ? null : request.skills();
+        boolean snapshotMode = request != null && Boolean.TRUE.equals(request.snapshotMode());
         AgentToolExecutionService.ExecutionContext executionContext =
                 new AgentToolExecutionService.ExecutionContext(username, clientIp, toolExecutionObserver);
         List<ToolInvocationTrace> traces = new java.util.ArrayList<>();
@@ -125,7 +126,7 @@ public class MihtnelisAgentOrchestratorService {
         // 仅在无流式观察者时走 native tool calling 快捷路径。
         if (chatGatewayService.supportsNativeToolCalling() && !chatRequestOptions.thinkingEnabled()
                 && toolExecutionObserver == null) {
-            String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(agentMode, proUser, workspaces, skills);
+            String nativeSystemPrompt = workflowService.buildNativeToolSystemPrompt(agentMode, proUser, workspaces, skills, snapshotMode);
             String nativeUserPrompt = workflowService.buildUserPrompt(userPrompt, contextPrompt, provider, envMeta);
             String answer = chatGatewayService.chatWithNativeTools(
                     provider,
@@ -139,7 +140,7 @@ public class MihtnelisAgentOrchestratorService {
             return AgentExecutionResult.done(provider, AgentStringUtils.trimToDefault(answer, ""), proUser, traces);
         }
 
-        String systemPrompt = workflowService.buildSystemPrompt(agentMode, proUser, workspaces, skills);
+        String systemPrompt = workflowService.buildSystemPrompt(agentMode, proUser, workspaces, skills, snapshotMode);
         String scratchpad = initialScratchpad == null ? "" : initialScratchpad;
         int effectiveStartTurn = Math.max(1, startTurn);
 

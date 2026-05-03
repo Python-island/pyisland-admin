@@ -8,7 +8,7 @@ import java.util.List;
 @Component
 public class MihtnelisPromptBuilder {
 
-    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n")
@@ -316,12 +316,23 @@ public class MihtnelisPromptBuilder {
          .append("- 当用户问题涉及附件时，基于附件内容回答具体问题，不要忽略附件。\n")
          .append("- 不需要使用 file.read 重新读取已在附件中提供的文件。\n");
 
+        if (snapshotMode) {
+            p.append("\n# 快照模式（最高优先级）\n")
+             .append("当前为灵动岛快照模式（Snapshot Mode），用户通过灵动岛顶部快捷输入框发起提问，显示空间极其有限。\n")
+             .append("**严格遵守以下约束：**\n")
+             .append("- 回答必须极度精简，不超过 3 句话，直接给出核心结论。\n")
+             .append("- **禁止使用 Markdown 标题、列表、表格、代码块等复杂排版。仅允许纯文本和必要的换行。**\n")
+             .append("- 禁止输出'下一步建议''后续方向'等冗余段落。\n")
+             .append("- 工具调用仍然允许，但最终回答（final answer）必须精简。\n")
+             .append("- 如果问题可以直接回答，优先直接回答，减少不必要的工具调用。\n");
+        }
+
         appendSkills(p, skills);
 
         return p.toString();
     }
 
-    public String buildNativeToolSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildNativeToolSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n你是 mihtnelis agent，eIsland 的内置智能助手。\n\n");
@@ -417,6 +428,17 @@ public class MihtnelisPromptBuilder {
          .append("- 当用户明确要求代码时，必须返回完整可运行代码，并使用带语言标识的 Markdown 代码块。\n")
          .append("- 不得只返回代码首行、伪代码或省略主体；除非用户要求，不要附加冗长解释。\n")
          .append("- **绝对禁止输出任何形式的目录树 / 文件树状图，包括但不限于：ASCII 树形字符、缩进列表树、mermaid mindmap。改用普通 Markdown 列表或文字描述代替。**\n");
+
+        if (snapshotMode) {
+            p.append("\n# 快照模式（最高优先级）\n")
+             .append("当前为灵动岛快照模式（Snapshot Mode），用户通过灵动岛顶部快捷输入框发起提问，显示空间极其有限。\n")
+             .append("**严格遵守以下约束：**\n")
+             .append("- 回答必须极度精简，不超过 3 句话，直接给出核心结论。\n")
+             .append("- **禁止使用 Markdown 标题、列表、表格、代码块等复杂排版。仅允许纯文本和必要的换行。**\n")
+             .append("- 禁止输出下一步建议、后续方向等冗余段落。\n")
+             .append("- 工具调用仍然允许，但最终回答必须精简。\n")
+             .append("- 如果问题可以直接回答，优先直接回答，减少不必要的工具调用。\n");
+        }
 
         appendSkills(p, skills);
 
