@@ -20,6 +20,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
@@ -29,12 +33,18 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
     private static final String STT_MODEL_NAME = "stt-realtime";
     private static final BigDecimal FEN_PER_MINUTE = new BigDecimal("5");
     private static final int SCALE = 8;
+    private static final long MAX_SESSION_SECONDS = 60L;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AgentRealtimeSttAuthService agentRealtimeSttAuthService;
     private final TencentRealtimeAsrRelayService tencentRealtimeAsrRelayService;
     private final AgentBalanceRedisService agentBalanceRedisService;
     private final Map<String, SessionState> sessionStateMap = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "stt-cutoff");
+        t.setDaemon(true);
+        return t;
+    });
 
     public AgentRealtimeSttWebSocketHandler(AgentRealtimeSttAuthService agentRealtimeSttAuthService,
                                             TencentRealtimeAsrRelayService tencentRealtimeAsrRelayService,
@@ -110,6 +120,16 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 });
                 state.started = true;
                 state.startTimeMillis = System.currentTimeMillis();
+                state.cutoffFuture = scheduler.schedule(() -> {
+                    log.info("STT auto cutoff ({}s). user={}, sessionId={}", MAX_SESSION_SECONDS, state.username, session.getId());
+                    stopRelaySession(state);
+                    safeSendEvent(session, "stt_error", "已达最大录音时长");
+                    try {
+                        if (session.isOpen()) {
+                            session.close(CloseStatus.NORMAL);
+                        }
+                    } catch (Exception ignored) {}
+                }, MAX_SESSION_SECONDS, TimeUnit.SECONDS);
                 log.info("Realtime STT session started. user={}, sessionId={}", state.username, session.getId());
             } catch (Exception ex) {
                 log.warn("Realtime STT start failed. user={}, sessionId={}, message={}", state.username, session.getId(), ex.getMessage());
@@ -195,6 +215,10 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
         if (state == null) {
             return;
         }
+        if (state.cutoffFuture != null) {
+            state.cutoffFuture.cancel(false);
+            state.cutoffFuture = null;
+        }
         if (state.relaySession != null) {
             state.relaySession.stop();
             state.relaySession = null;
@@ -246,12 +270,14 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
         private boolean started;
         private long startTimeMillis;
         private TencentRealtimeAsrRelayService.Session relaySession;
+        private ScheduledFuture<?> cutoffFuture;
 
         private SessionState(String username) {
             this.username = username;
             this.started = false;
             this.startTimeMillis = 0;
             this.relaySession = null;
+            this.cutoffFuture = null;
         }
     }
 }
