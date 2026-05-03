@@ -87,7 +87,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
                 safeSendEvent(session, "stt_partial", "语音识别已在运行");
                 return;
             }
-            if (agentBalanceRedisService.isBalanceZero(state.username)) {
+            if (agentBalanceRedisService.getBalance(state.username).compareTo(FEN_PER_MINUTE) < 0) {
                 safeSendEvent(session, "stt_error", "余额不足，请充值后使用语音识别");
                 return;
             }
