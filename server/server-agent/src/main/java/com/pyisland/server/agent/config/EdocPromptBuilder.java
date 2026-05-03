@@ -8,7 +8,7 @@ import java.util.List;
 @Component
 public class EdocPromptBuilder {
 
-    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         StringBuilder p = new StringBuilder();
         p.append("# 身份\n")
          .append("你是 edoc，一个专注于代码开发的 AI 编程助手。\n")
@@ -57,11 +57,22 @@ public class EdocPromptBuilder {
         p.append("# 错误处理\n工具失败时分析原因，尝试替代方案，全部失败后告知用户并给出手动解决建议。\n");
 
         appendCommonAttachmentRules(p);
+
+        if (snapshotMode) {
+            p.append("\n# 快照模式（最高优先级）\n")
+             .append("当前为灵动岛快照模式，显示空间极其有限。\n")
+             .append("**严格遵守：**\n")
+             .append("- 回答不超过 3 句话，直接给结论或代码要点。\n")
+             .append("- **禁止使用 Markdown 标题、列表、表格、代码块等复杂排版。仅允许纯文本和必要的换行。**\n")
+             .append("- 工具调用仍然允许，但最终回答必须精简。\n")
+             .append("- 能直接回答就直接回答，减少不必要的工具调用。\n");
+        }
+
         appendSkills(p, skills);
         return p.toString();
     }
 
-    public String buildNativeToolSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildNativeToolSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         StringBuilder p = new StringBuilder();
         p.append("# 身份\n你是 edoc，专注于代码开发的 AI 编程助手，用户的 vibe coding 搭档。\n\n");
 
@@ -87,6 +98,16 @@ public class EdocPromptBuilder {
          .append("- 代码必须完整可运行，禁止省略。代码块必须带语言标识。\n")
          .append("- **绝对禁止输出目录树/文件树状图。**\n")
          .append("- 不暴露工具名称和内部格式。\n");
+
+        if (snapshotMode) {
+            p.append("\n# 快照模式（最高优先级）\n")
+             .append("当前为灵动岛快照模式，显示空间极其有限。\n")
+             .append("**严格遵守：**\n")
+             .append("- 回答不超过 3 句话，直接给结论或代码要点。\n")
+             .append("- **禁止使用 Markdown 标题、列表、表格、代码块等复杂排版。仅允许纯文本和必要的换行。**\n")
+             .append("- 工具调用仍然允许，但最终回答必须精简。\n")
+             .append("- 能直接回答就直接回答，减少不必要的工具调用。\n");
+        }
 
         appendSkills(p, skills);
         return p.toString();

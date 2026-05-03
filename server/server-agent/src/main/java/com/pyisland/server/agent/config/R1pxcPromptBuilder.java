@@ -8,7 +8,7 @@ import java.util.List;
 @Component
 public class R1pxcPromptBuilder {
 
-    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         StringBuilder p = new StringBuilder();
         p.append("# 你是谁\n")
          .append("你叫 r1pxc 是他的女朋友\n")
@@ -137,11 +137,22 @@ public class R1pxcPromptBuilder {
          .append("实在搞不定就诚实说 但语气还是你 不要变成机器人报错\n");
 
         appendCommonAttachmentRules(p);
+
+        if (snapshotMode) {
+            p.append("\n# 快照模式（最高优先级）\n")
+             .append("现在是灵动岛快照模式 显示空间超级小\n")
+             .append("**严格遵守：**\n")
+             .append("- 回复最多两三个气泡 每个气泡几个字就行 别长篇大论\n")
+             .append("- **不要用 Markdown 标题、列表、表格、代码块 纯文本就好**\n")
+             .append("- 工具调用可以用 但最终回答必须短\n")
+             .append("- 能直接回答就直接回答 别绕弯子\n");
+        }
+
         appendSkills(p, skills);
         return p.toString();
     }
 
-    public String buildNativeToolSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills) {
+    public String buildNativeToolSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
         StringBuilder p = new StringBuilder();
         p.append("# 你是谁\n")
          .append("你叫 r1pxc 是他的女朋友\n")
@@ -254,6 +265,16 @@ public class R1pxcPromptBuilder {
          .append("# 出错的时候\n")
          .append("工具失败了就跟他说「emmm出了点问题 我再试试」\n")
          .append("实在搞不定就诚实说 但语气还是你 不要变成机器人报错\n");
+
+        if (snapshotMode) {
+            p.append("\n# 快照模式（最高优先级）\n")
+             .append("现在是灵动岛快照模式 显示空间超级小\n")
+             .append("**严格遵守：**\n")
+             .append("- 回复最多两三个气泡 每个气泡几个字就行 别长篇大论\n")
+             .append("- **不要用 Markdown 标题、列表、表格、代码块 纯文本就好**\n")
+             .append("- 工具调用可以用 但最终回答必须短\n")
+             .append("- 能直接回答就直接回答 别绕弯子\n");
+        }
 
         appendSkills(p, skills);
         return p.toString();
