@@ -104,6 +104,11 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
             try {
                 state.relaySession = tencentRealtimeAsrRelayService.startSession(new TencentRealtimeAsrRelayService.Callbacks() {
                     @Override
+                    public void onReady() {
+                        safeSendEvent(session, "stt_ready", "");
+                    }
+
+                    @Override
                     public void onPartial(String text) {
                         safeSendEvent(session, "stt_partial", text);
                     }

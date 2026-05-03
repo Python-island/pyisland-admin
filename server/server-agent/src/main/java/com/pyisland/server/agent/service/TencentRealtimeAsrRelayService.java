@@ -61,6 +61,7 @@ public class TencentRealtimeAsrRelayService {
             @Override
             public void onRecognitionStart(SpeechRecognizerResponse response) {
                 log.debug("ASR recognition started, voiceId={}", response == null ? "" : response.getVoiceId());
+                callbacks.onReady();
             }
 
             @Override
@@ -146,6 +147,7 @@ public class TencentRealtimeAsrRelayService {
     }
 
     public interface Callbacks {
+        void onReady();
         void onPartial(String text);
         void onFinal(String text);
         void onError(String message);
@@ -167,10 +169,6 @@ public class TencentRealtimeAsrRelayService {
         public synchronized void stop() {
             if (stopped) return;
             stopped = true;
-            try {
-                recognizer.stop();
-            } catch (Exception ignored) {
-            }
             try {
                 recognizer.close();
             } catch (Exception ignored) {
