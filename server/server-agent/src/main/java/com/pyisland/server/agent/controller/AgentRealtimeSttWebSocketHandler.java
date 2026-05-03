@@ -212,7 +212,7 @@ public class AgentRealtimeSttWebSocketHandler extends BinaryWebSocketHandler {
         if (durationMillis <= 0) {
             return;
         }
-        long durationSeconds = (durationMillis + 9_999L) / 10_000L * 10L;
+        long durationSeconds = (durationMillis + 999L) / 1000L;
         BigDecimal durationMinutes = BigDecimal.valueOf(durationSeconds)
                 .divide(BigDecimal.valueOf(60L), SCALE, RoundingMode.HALF_UP);
         BigDecimal costFen = durationMinutes.multiply(FEN_PER_MINUTE).setScale(SCALE, RoundingMode.HALF_UP);
