@@ -160,6 +160,14 @@ public class EdocPromptBuilder {
          .append("- island.theme.set（mode 参数小写：dark/light/system）优先于 island.settings.write。\n")
          .append("- island.opacity.set（opacity 10-100 整数）优先于 island.settings.write。\n")
          .append("- 其他设置：先 island.settings.list → 确认 key → island.settings.write。\n\n");
+
+        p.append("# 联网搜索规范（强制）\n")
+         .append("1. **同一话题最多调用 2 次 web.search。** 第 1 次精准关键词搜索；若不理想，第 2 次换不同关键词重试。2 次后必须基于已有信息回答，不得继续搜索。\n")
+         .append("2. **禁止重复或相似的搜索词。** 每次 query 必须有实质性差异，严禁换词序或微调后重复搜索。\n")
+         .append("3. **优先深读而非广搜。** 搜索返回结果后，某条结果看起来相关，应先 web.page.read 深入阅读，而非立即再搜。\n")
+         .append("4. **搜索词要精准具体。** 包含具体实体、时间范围或技术术语，避免过于宽泛。\n")
+         .append("5. **知识范围内直接回答。** 不涉及实时信息的编程问题直接回答，无需联网。\n")
+         .append("6. **搜索无果坦诚告知。** 2 次后仍无答案，坦诚说明并基于已有知识给出建议。\n\n");
     }
 
     private void appendCommonThinkingFramework(StringBuilder p) {
@@ -219,8 +227,16 @@ public class EdocPromptBuilder {
             p.append("# 权限限制\n非 Pro 用户禁止调用天气相关工具，请求时引导升级 Pro。\n\n");
         }
 
+        p.append("# 联网搜索规范（强制）\n")
+         .append("1. **同一话题最多调用 2 次 webSearch。** 第 1 次精准关键词搜索；若不理想，第 2 次换不同关键词重试。2 次后必须基于已有信息回答，不得继续搜索。\n")
+         .append("2. **禁止重复或相似的搜索词。** 每次 query 必须有实质性差异，严禁换词序或微调后重复搜索。\n")
+         .append("3. **优先深读而非广搜。** 搜索返回结果后，某条结果看起来相关，应先 webPageRead 深入阅读，而非立即再搜。\n")
+         .append("4. **搜索词要精准具体。** 包含具体实体、时间范围或技术术语，避免过于宽泛。\n")
+         .append("5. **知识范围内直接回答。** 不涉及实时信息的编程问题直接回答，无需联网。\n")
+         .append("6. **搜索无果坦诚告知。** 2 次后仍无答案，坦诚说明并基于已有知识给出建议。\n\n");
+
         p.append("# 决策策略\n")
-         .append("- 纯知识问答直接回答。天气用 weatherByCityQuery 或 IP 定位。联网用 webSearch。\n")
+         .append("- 纯知识问答直接回答。天气用 weatherByCityQuery 或 IP 定位。联网用 webSearch（同一话题最多 2 次）。\n")
          .append("- 窗口操作：先 winList → 确认目标 → winMinimize/winMaximize/winRestore/winClose。\n")
          .append("- eIsland 设置：主题用 islandThemeSet，透明度用 islandOpacitySet，其他先 islandSettingsList → islandSettingsWrite。\n\n");
 

@@ -92,6 +92,15 @@ public class MihtnelisPromptBuilder {
          .append("eIsland 设置：island.settings.list（列出全部设置项及当前值）、island.settings.read（读取指定设置）、island.settings.write（写入设置并实时生效）、island.theme.get（获取主题模式）、island.theme.set（设置主题 dark/light/system）、island.opacity.get（获取透明度）、island.opacity.set（设置透明度 10-100）、island.restart（重启应用）\n")
          .append("任务管理：agent.todo.write\n\n");
 
+        p.append("# 联网搜索规范（强制）\n")
+         .append("web.search 和 web.page.read 的使用必须遵守以下铁律：\n")
+         .append("1. **同一话题最多调用 2 次 web.search。** 第 1 次使用精准关键词搜索；若结果不理想，第 2 次换一组不同关键词重试。2 次后无论结果如何，必须基于已有信息给出最佳回答，不得继续搜索。\n")
+         .append("2. **禁止重复或相似的搜索词。** 每次 web.search 的 query 必须与之前的 query 有实质性差异，严禁换个词序或加减一两个字后重复搜索。\n")
+         .append("3. **优先深读而非广搜。** 第 1 次搜索返回结果后，如果某条结果看起来相关，应先用 web.page.read 深入阅读该页面，而不是立即发起第 2 次搜索。\n")
+         .append("4. **搜索词要精准具体。** 避免使用过于宽泛的 query（如'最新新闻'），应包含具体实体、时间范围或技术术语。\n")
+         .append("5. **知识范围内的问题直接回答。** 如果问题属于你的知识范围且不涉及实时信息，直接回答，不要联网搜索。\n")
+         .append("6. **搜索无果时坦诚告知。** 2 次搜索后仍未找到答案，用 final 回答时坦诚说明'联网搜索未找到相关信息'，并基于已有知识给出最佳建议。\n\n");
+
         p.append("# 工具使用指南\n")
          .append("- file.tree：快速了解目录结构，优先于多次 file.list 嵌套调用。参数 maxDepth（1-6，默认3）、limit（最大500）。\n")
          .append("- file.replace：修改文件内容时优先使用，比 file.read + file.write 更安全高效。参数 path、search（精确匹配）、replacement、replaceAll（默认true）。\n")
@@ -377,10 +386,18 @@ public class MihtnelisPromptBuilder {
             p.append("# 权限限制\n非 Pro 用户禁止调用天气相关工具，请求时引导升级 Pro。\n\n");
         }
 
+        p.append("# 联网搜索规范（强制）\n")
+         .append("1. **同一话题最多调用 2 次 webSearch。** 第 1 次精准关键词搜索；若不理想，第 2 次换不同关键词重试。2 次后必须基于已有信息回答，不得继续搜索。\n")
+         .append("2. **禁止重复或相似的搜索词。** 每次 query 必须有实质性差异，严禁换词序或微调后重复搜索。\n")
+         .append("3. **优先深读而非广搜。** 搜索返回结果后，某条结果看起来相关，应先 webPageRead 深入阅读，而非立即再搜。\n")
+         .append("4. **搜索词要精准具体。** 包含具体实体、时间范围或技术术语，避免过于宽泛。\n")
+         .append("5. **知识范围内直接回答。** 不涉及实时信息的问题无需联网。\n")
+         .append("6. **搜索无果坦诚告知。** 2 次后仍无答案，坦诚说明并基于已有知识给出建议。\n\n");
+
         p.append("# 决策策略\n")
          .append("- 纯知识问答直接回答，不调用工具\n")
          .append("- 天气：用户给出具体城市优先 weatherByCityQuery，否则走 IP 定位流程\n")
-         .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）\n")
+         .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）。同一话题最多 2 次 webSearch。\n")
          .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n")
          .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n")
          .append("- eIsland 设置：\n")

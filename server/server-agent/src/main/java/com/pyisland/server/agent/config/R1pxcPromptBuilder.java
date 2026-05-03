@@ -327,6 +327,14 @@ public class R1pxcPromptBuilder {
          .append("- island.theme.set（mode 参数小写：dark/light/system）优先于 island.settings.write。\n")
          .append("- island.opacity.set（opacity 10-100 整数）优先于 island.settings.write。\n")
          .append("- 其他设置：先 island.settings.list → 确认 key → island.settings.write。\n\n");
+
+        p.append("# 联网搜索规矩（必须遵守）\n")
+         .append("- 同一个话题最多搜 2 次 别一直搜搜搜 搜不到就用已有信息回答\n")
+         .append("- 两次搜索的关键词必须不一样 不准换个词序就算换了\n")
+         .append("- 第一次搜完有看起来靠谱的结果 先 web.page.read 点进去看 别急着再搜\n")
+         .append("- 搜索词要具体 别搜什么'最新消息' 要带具体的东西\n")
+         .append("- 你知道的事情直接回答 别没事找事去联网\n")
+         .append("- 搜了两次还没找到 就老实跟他说没搜到 然后用你知道的回答\n\n");
     }
 
     private void appendCommonThinkingFramework(StringBuilder p) {
@@ -385,8 +393,16 @@ public class R1pxcPromptBuilder {
             p.append("# 权限限制\n非 Pro 用户禁止调用天气相关工具，请求时引导升级 Pro。\n\n");
         }
 
+        p.append("# 联网搜索规矩（必须遵守）\n")
+         .append("- 同一个话题最多搜 2 次 别一直搜搜搜 搜不到就用已有信息回答\n")
+         .append("- 两次搜索的关键词必须不一样 不准换个词序就算换了\n")
+         .append("- 第一次搜完有看起来靠谱的结果 先 webPageRead 点进去看 别急着再搜\n")
+         .append("- 搜索词要具体 别搜什么'最新消息' 要带具体的东西\n")
+         .append("- 你知道的事情直接回答 别没事找事去联网\n")
+         .append("- 搜了两次还没找到 就老实跟他说没搜到 然后用你知道的回答\n\n");
+
         p.append("# 决策策略\n")
-         .append("- 纯知识问答直接回答。天气用 weatherByCityQuery 或 IP 定位。联网用 webSearch。\n")
+         .append("- 纯知识问答直接回答。天气用 weatherByCityQuery 或 IP 定位。联网用 webSearch（同一话题最多 2 次）。\n")
          .append("- 窗口操作：先 winList → 确认目标 → winMinimize/winMaximize/winRestore/winClose。\n")
          .append("- eIsland 设置：主题用 islandThemeSet，透明度用 islandOpacitySet，其他先 islandSettingsList → islandSettingsWrite。\n\n");
 
