@@ -9,6 +9,10 @@ import java.util.List;
 public class MihtnelisPromptBuilder {
 
     public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
+        return buildSystemPrompt(proUser, workspaces, skills, snapshotMode, false);
+    }
+
+    public String buildSystemPrompt(boolean proUser, List<String> workspaces, List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode, boolean localMode) {
         StringBuilder p = new StringBuilder();
 
         p.append("# 身份\n")
@@ -69,10 +73,15 @@ public class MihtnelisPromptBuilder {
          .append("tool_call 的 purpose 必填，必须说明“为什么调用该工具”，且要和当前用户请求直接相关。\n")
          .append("若调用 file.delete、file.rename、cmd.exec、cmd.powershell 或 win.close，purpose 必须具体到目标与预期结果，不可使用“处理任务”“继续执行”等空泛描述。\n\n");
 
-        p.append("# 可用工具\n")
-         .append("环境感知：user.ip.get、session.context.get、time.now\n")
-         .append("天气：weather.by_city.query、weather.city.lookup、location.by_ip.resolve、weather.query、weather.quota.status\n")
-         .append("联网：web.search、web.page.read\n")
+        p.append("# 可用工具\n");
+        if (!localMode) {
+            p.append("环境感知：user.ip.get、session.context.get、time.now\n")
+             .append("天气：weather.by_city.query、weather.city.lookup、location.by_ip.resolve、weather.query、weather.quota.status\n")
+             .append("联网：web.search、web.page.read\n");
+        } else {
+            p.append("环境感知：time.now\n");
+        }
+        p
          .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
          .append("命令执行：cmd.exec（Windows CMD，cmd.exe）、cmd.powershell（Windows PowerShell，powershell.exe）\n")
          .append("系统：sys.info（OS/CPU/内存）、sys.env（环境变量查询）、sys.open（打开 Windows 系统组件）\n")
@@ -92,14 +101,16 @@ public class MihtnelisPromptBuilder {
          .append("eIsland 设置：island.settings.list（列出全部设置项及当前值）、island.settings.read（读取指定设置）、island.settings.write（写入设置并实时生效）、island.theme.get（获取主题模式）、island.theme.set（设置主题 dark/light/system）、island.opacity.get（获取透明度）、island.opacity.set（设置透明度 10-100）、island.restart（重启应用）\n")
          .append("任务管理：agent.todo.write\n\n");
 
-        p.append("# 联网搜索规范（强制）\n")
-         .append("web.search 和 web.page.read 的使用必须遵守以下铁律：\n")
-         .append("1. **同一话题最多调用 2 次 web.search。** 第 1 次使用精准关键词搜索；若结果不理想，第 2 次换一组不同关键词重试。2 次后无论结果如何，必须基于已有信息给出最佳回答，不得继续搜索。\n")
-         .append("2. **禁止重复或相似的搜索词。** 每次 web.search 的 query 必须与之前的 query 有实质性差异，严禁换个词序或加减一两个字后重复搜索。\n")
-         .append("3. **优先深读而非广搜。** 第 1 次搜索返回结果后，如果某条结果看起来相关，应先用 web.page.read 深入阅读该页面，而不是立即发起第 2 次搜索。\n")
-         .append("4. **搜索词要精准具体。** 避免使用过于宽泛的 query（如'最新新闻'），应包含具体实体、时间范围或技术术语。\n")
-         .append("5. **知识范围内的问题直接回答。** 如果问题属于你的知识范围且不涉及实时信息，直接回答，不要联网搜索。\n")
-         .append("6. **搜索无果时坦诚告知。** 2 次搜索后仍未找到答案，用 final 回答时坦诚说明'联网搜索未找到相关信息'，并基于已有知识给出最佳建议。\n\n");
+        if (!localMode) {
+            p.append("# 联网搜索规范（强制）\n")
+             .append("web.search 和 web.page.read 的使用必须遵守以下铁律：\n")
+             .append("1. **同一话题最多调用 2 次 web.search。** 第 1 次使用精准关键词搜索；若结果不理想，第 2 次换一组不同关键词重试。2 次后无论结果如何，必须基于已有信息给出最佳回答，不得继续搜索。\n")
+             .append("2. **禁止重复或相似的搜索词。** 每次 web.search 的 query 必须与之前的 query 有实质性差异，严禁换个词序或加减一两个字后重复搜索。\n")
+             .append("3. **优先深读而非广搜。** 第 1 次搜索返回结果后，如果某条结果看起来相关，应先用 web.page.read 深入阅读该页面，而不是立即发起第 2 次搜索。\n")
+             .append("4. **搜索词要精准具体。** 避免使用过于宽泛的 query（如'最新新闻'），应包含具体实体、时间范围或技术术语。\n")
+             .append("5. **知识范围内的问题直接回答。** 如果问题属于你的知识范围且不涉及实时信息，直接回答，不要联网搜索。\n")
+             .append("6. **搜索无果时坦诚告知。** 2 次搜索后仍未找到答案，用 final 回答时坦诚说明'联网搜索未找到相关信息'，并基于已有知识给出最佳建议。\n\n");
+        }
 
         p.append("# 工具使用指南\n")
          .append("- file.tree：快速了解目录结构，优先于多次 file.list 嵌套调用。参数 maxDepth（1-6，默认3）、limit（最大500）。\n")
@@ -196,8 +207,11 @@ public class MihtnelisPromptBuilder {
          .append("- **幂等性**：file.replace 的 search 值必须唯一匹配目标位置，避免误改其他代码。\n")
          .append("- **多文件联动**：功能涉及多个文件时（如前后端联动），按依赖顺序逐一修改，每改一个文件都验证。\n\n");
 
-        if (!proUser) {
+        if (!localMode && !proUser) {
             p.append("# 权限限制\n非 Pro 用户严禁调用天气相关工具，请求时引导升级 Pro。\n\n");
+        }
+        if (localMode) {
+            p.append("# 本地模式限制\n当前为本地直连模式，不支持联网搜索和天气查询功能。如用户需要这些功能，请引导其切换为云端模式。\n\n");
         }
 
         p.append("# 思考框架（内部使用）\n")
@@ -225,11 +239,13 @@ public class MihtnelisPromptBuilder {
         p.append("示例1 - 直接回答：\n")
          .append("{\"type\":\"final\",\"answer\":\"**String** 是不可变类，**StringBuilder** 是可变类，适合频繁修改场景。性能差异明显。\"}\n\n");
 
-        p.append("示例2 - 天气查询：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"weather.by_city.query\",\"purpose\":\"查询用户指定城市当前天气\",\"arguments\":{\"query\":\"广州\"}}\n\n");
+        if (!localMode) {
+            p.append("示例2 - 天气查询：\n")
+             .append("{\"type\":\"tool_call\",\"tool\":\"weather.by_city.query\",\"purpose\":\"查询用户指定城市当前天气\",\"arguments\":{\"query\":\"广州\"}}\n\n");
 
-        p.append("示例3 - 联网搜索：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"web.search\",\"purpose\":\"检索最新官方信息以回答用户的配置升级问题\",\"arguments\":{\"query\":\"2026 MacBook Pro 配置升级\",\"limit\":5}}\n\n");
+            p.append("示例3 - 联网搜索：\n")
+             .append("{\"type\":\"tool_call\",\"tool\":\"web.search\",\"purpose\":\"检索最新官方信息以回答用户的配置升级问题\",\"arguments\":{\"query\":\"2026 MacBook Pro 配置升级\",\"limit\":5}}\n\n");
+        }
 
         p.append("示例4 - 本地文件搜索：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"file.grep\",\"purpose\":\"在工作区定位 FIXME 以便后续修复\",\"arguments\":{\"path\":\"<workspace_root>\",\"pattern\":\"FIXME\",\"limit\":30}}\n\n");

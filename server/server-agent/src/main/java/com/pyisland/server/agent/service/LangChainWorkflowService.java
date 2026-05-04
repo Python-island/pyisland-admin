@@ -23,11 +23,15 @@ public class LangChainWorkflowService {
     }
 
     public String buildSystemPrompt(String agentMode, boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode) {
+        return buildSystemPrompt(agentMode, proUser, workspaces, skills, snapshotMode, false);
+    }
+
+    public String buildSystemPrompt(String agentMode, boolean proUser, java.util.List<String> workspaces, java.util.List<MihtnelisAgentStreamService.SkillEntry> skills, boolean snapshotMode, boolean localMode) {
         String mode = agentMode == null ? "mihtnelis" : agentMode.trim().toLowerCase();
         return switch (mode) {
             case "r1pxc" -> r1pxcPromptBuilder.buildSystemPrompt(proUser, workspaces, skills, snapshotMode);
             case "edoc" -> edocPromptBuilder.buildSystemPrompt(proUser, workspaces, skills, snapshotMode);
-            default -> mihtnelisPromptBuilder.buildSystemPrompt(proUser, workspaces, skills, snapshotMode);
+            default -> mihtnelisPromptBuilder.buildSystemPrompt(proUser, workspaces, skills, snapshotMode, localMode);
         };
     }
 

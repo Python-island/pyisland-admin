@@ -2,7 +2,10 @@ package com.pyisland.server.agent.controller;
 
 import com.pyisland.server.agent.service.AgentWebAuthorizationService;
 import com.pyisland.server.agent.service.AgentLocalToolRelayService;
+import com.pyisland.server.agent.service.LangChainWorkflowService;
 import com.pyisland.server.agent.service.MihtnelisAgentStreamService;
+import com.pyisland.server.user.entity.User;
+import com.pyisland.server.user.service.UserService;
 import com.pyisland.server.servicestatus.entity.ServiceStatus;
 import com.pyisland.server.servicestatus.service.ServiceStatusService;
 import org.springframework.http.HttpStatus;
@@ -18,6 +21,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,15 +35,21 @@ public class MihtnelisAgentController {
     private final AgentWebAuthorizationService webAuthorizationService;
     private final AgentLocalToolRelayService localToolRelayService;
     private final ServiceStatusService serviceStatusService;
+    private final LangChainWorkflowService workflowService;
+    private final UserService userService;
 
     public MihtnelisAgentController(MihtnelisAgentStreamService streamService,
                                     AgentWebAuthorizationService webAuthorizationService,
                                     AgentLocalToolRelayService localToolRelayService,
-                                    ServiceStatusService serviceStatusService) {
+                                    ServiceStatusService serviceStatusService,
+                                    LangChainWorkflowService workflowService,
+                                    UserService userService) {
         this.streamService = streamService;
         this.webAuthorizationService = webAuthorizationService;
         this.localToolRelayService = localToolRelayService;
         this.serviceStatusService = serviceStatusService;
+        this.workflowService = workflowService;
+        this.userService = userService;
     }
 
     /**
@@ -237,5 +247,52 @@ public class MihtnelisAgentController {
 
     private record AgentLocalToolAccessResolveRequest(String requestId,
                                                       boolean allow) {
+    }
+
+    /**
+     * 获取 Agent 系统提示词
+     */
+    @PostMapping(value = "/agent/prompt", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> getAgentPrompt(Authentication authentication,
+                                             @RequestBody AgentPromptRequest request) {
+        String username = caller(authentication);
+        if (username == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "error", "未登录"
+            ));
+        }
+        String agentMode = request == null || request.agentMode() == null
+                ? "mihtnelis" : request.agentMode().trim();
+        boolean snapshotMode = request != null && Boolean.TRUE.equals(request.snapshotMode());
+        boolean localMode = request != null && Boolean.TRUE.equals(request.localMode());
+        List<String> workspaces = request == null ? null : request.workspaces();
+        List<MihtnelisAgentStreamService.SkillEntry> skills = request == null ? null : request.skills();
+
+        User user = userService.getByUsername(username);
+        boolean proUser = isProUser(user);
+
+        String systemPrompt = workflowService.buildSystemPrompt(
+                agentMode, proUser, workspaces, skills, snapshotMode, localMode);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "systemPrompt", systemPrompt
+        ));
+    }
+
+    private boolean isProUser(User user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+        String role = user.getRole().trim().toLowerCase(java.util.Locale.ROOT);
+        return User.ROLE_PRO.equals(role) || User.ROLE_ADMIN.equals(role);
+    }
+
+    private record AgentPromptRequest(String agentMode,
+                                      Boolean snapshotMode,
+                                      Boolean localMode,
+                                      List<String> workspaces,
+                                      List<MihtnelisAgentStreamService.SkillEntry> skills) {
     }
 }
