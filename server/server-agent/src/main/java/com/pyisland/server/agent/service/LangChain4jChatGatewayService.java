@@ -793,6 +793,11 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("sys.launch", arguments);
         }
 
+        @Tool("获取当前正在播放的歌曲信息（通过 Windows SMTC），返回 title/artist/album/isPlaying/duration_ms/position_ms，不返回专辑封面，客户端执行")
+        public Map<String, Object> sysNowplaying() {
+            return invoke("sys.nowplaying", Map.of());
+        }
+
         @Tool("获取本地目录树形结构，客户端执行")
         public Map<String, Object> fileTree(@P("path") String path,
                                              @P("maxDepth") Integer maxDepth,
