@@ -780,6 +780,19 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("sys.installed-apps", arguments);
         }
 
+        @Tool("启动程序、打开文件或 URL（用默认关联程序），参数 target 为文件路径/URL/exe路径，app 可选指定用哪个程序打开，客户端执行")
+        public Map<String, Object> sysLaunch(@P("target") String target,
+                                              @P("app") String app) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (target != null && !target.isBlank()) {
+                arguments.put("target", AgentStringUtils.trimToEmpty(target));
+            }
+            if (app != null && !app.isBlank()) {
+                arguments.put("app", AgentStringUtils.trimToEmpty(app));
+            }
+            return invoke("sys.launch", arguments);
+        }
+
         @Tool("获取本地目录树形结构，客户端执行")
         public Map<String, Object> fileTree(@P("path") String path,
                                              @P("maxDepth") Integer maxDepth,
