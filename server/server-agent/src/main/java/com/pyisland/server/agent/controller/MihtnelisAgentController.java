@@ -271,6 +271,12 @@ public class MihtnelisAgentController {
 
         User user = userService.getByUsername(username);
         boolean proUser = isProUser(user);
+        if (localMode && !proUser) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false,
+                    "error", "本地模型仅 Pro 用户可用"
+            ));
+        }
 
         String systemPrompt = workflowService.buildSystemPrompt(
                 agentMode, proUser, workspaces, skills, snapshotMode, localMode);
