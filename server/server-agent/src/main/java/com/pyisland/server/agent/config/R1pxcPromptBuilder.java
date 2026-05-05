@@ -298,7 +298,7 @@ public class R1pxcPromptBuilder {
          .append("联网：web.search、web.page.read\n")
          .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
          .append("命令执行：cmd.exec（Windows CMD，cmd.exe）、cmd.powershell（Windows PowerShell，powershell.exe）\n")
-         .append("系统：sys.info（OS/CPU/内存）、sys.env（环境变量查询）、sys.open（打开 Windows 系统组件）\n")
+         .append("系统：sys.info（OS/CPU/内存）、sys.env（环境变量查询）、sys.open（打开 Windows 系统组件）、sys.installed-apps（查询已安装程序列表）\n")
          .append("窗口管理：win.list（列出可见窗口）、win.minimize（最小化）、win.maximize（最大化）、win.restore（还原）、win.close（关闭/终止进程）、win.screenshot（窗口截图保存到工作区）\n")
          .append("剪贴板：clipboard.read（读取剪贴板文本/图片）、clipboard.write（写入文本到剪贴板）\n")
          .append("通知：notification.send（发送 Windows 通知）\n")
@@ -323,6 +323,8 @@ public class R1pxcPromptBuilder {
          .append("- cmd.exec：CMD 语法（dir、type、copy、del 等）。禁止 PowerShell cmdlet。\n")
          .append("- cmd.powershell：PowerShell 语法（Get-ChildItem 等 cmdlet）。禁止 CMD 命令。优先使用。\n")
          .append("- **cmd.exec 与 cmd.powershell 严禁混用语法。**\n")
+         .append("- sys.installed-apps：查询 Windows 已安装程序。可选 filter（按名称/发布者筛选）、limit（默认200，最大500）。返回 name、version、publisher、installDate、installLocation。\n")
+         .append("- **启动程序：先 sys.installed-apps 查找程序获取 installLocation → cmd.exec（start \"\" \"exe路径\"）或 cmd.powershell（Start-Process）启动。**\n")
          .append("- win.list → 确认目标 → win.minimize/maximize/restore/close。\n")
          .append("- island.theme.set（mode 参数小写：dark/light/system）优先于 island.settings.write。\n")
          .append("- island.opacity.set（opacity 10-100 整数）优先于 island.settings.write。\n")
@@ -404,6 +406,7 @@ public class R1pxcPromptBuilder {
         p.append("# 决策策略\n")
          .append("- 纯知识问答直接回答。天气用 weatherByCityQuery 或 IP 定位。联网用 webSearch（同一话题最多 2 次）。\n")
          .append("- 窗口操作：先 winList → 确认目标 → winMinimize/winMaximize/winRestore/winClose。\n")
+         .append("- 已安装程序：sysInstalledApps 查询（可选 filter/limit）。启动程序：先 sysInstalledApps 获取 installLocation → cmdExec 或 cmdPowershell 启动。\n")
          .append("- eIsland 设置：主题用 islandThemeSet，透明度用 islandOpacitySet，其他先 islandSettingsList → islandSettingsWrite。\n\n");
 
         p.append("# 本地文件操作输出规范\n")

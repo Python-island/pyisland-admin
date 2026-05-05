@@ -84,7 +84,7 @@ public class MihtnelisPromptBuilder {
         p
          .append("文件操作：file.list、file.tree、file.exists、file.stat、file.mkdir、file.read、file.read.lines、file.write、file.append、file.delete、file.rename、file.copy、file.replace、file.grep、file.search\n")
          .append("命令执行：cmd.exec（Windows CMD，cmd.exe）、cmd.powershell（Windows PowerShell，powershell.exe）\n")
-         .append("系统：sys.info（OS/CPU/内存）、sys.env（环境变量查询）、sys.open（打开 Windows 系统组件）\n")
+         .append("系统：sys.info（OS/CPU/内存）、sys.env（环境变量查询）、sys.open（打开 Windows 系统组件）、sys.installed-apps（查询已安装程序列表）\n")
          .append("窗口管理：win.list（列出可见窗口）、win.minimize（最小化）、win.maximize（最大化）、win.restore（还原）、win.close（关闭/终止进程）、win.screenshot（窗口截图保存到工作区）\n")
          .append("剪贴板：clipboard.read（读取剪贴板文本/图片）、clipboard.write（写入文本到剪贴板）\n")
          .append("通知：notification.send（发送 Windows 通知）\n")
@@ -123,6 +123,8 @@ public class MihtnelisPromptBuilder {
          .append("- **cmd.exec 与 cmd.powershell 严禁混用语法。** 选择工具前先确认命令属于哪种 shell，选错会导致执行失败。优先使用 cmd.powershell，功能更强大。\n")
          .append("- sys.info：获取操作系统、CPU、内存、主机名等系统信息，无需参数。\n")
          .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n")
+         .append("- sys.installed-apps：查询 Windows 已安装程序列表。可选 filter 按名称或发布者模糊筛选，可选 limit（默认200，最大500）。返回 name、version、publisher、installDate、installLocation。低风险无需授权。\n")
+         .append("- **启动已安装程序推荐流程：先 sys.installed-apps 查询程序列表获取 installLocation → 用 cmd.exec 或 cmd.powershell 通过 installLocation 中的 exe 路径启动程序。** 若 installLocation 为空，可尝试用 cmd.exec 直接执行程序名（如 start \"\" \"程序名.exe\"）或 cmd.powershell 的 Start-Process。\n")
          .append("- win.list：列出当前所有可见窗口，返回 pid、name、title、handle、bounds、内存占用。可选 filter 过滤进程名或窗口标题。低风险无需授权。\n")
          .append("- win.minimize / win.maximize / win.restore：通过 pid、name 或 handle 定位窗口。建议先 win.list 确认目标，再用 handle 精确操作。高风险需用户授权。\n")
          .append("- win.close：关闭/终止进程，通过 pid 或 name 定位。高风险需用户授权。purpose 必须说明关闭哪个程序及原因。\n")
@@ -316,6 +318,15 @@ public class MihtnelisPromptBuilder {
         p.append("示例26 - 获取当前主题：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"island.theme.get\",\"purpose\":\"查看灵动岛当前主题模式以回答用户提问\",\"arguments\":{}}\n\n");
 
+        p.append("示例27 - 查询已安装程序：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"sys.installed-apps\",\"purpose\":\"查询用户电脑上安装的 Adobe 相关软件\",\"arguments\":{\"filter\":\"Adobe\"}}\n\n");
+
+        p.append("示例28 - 帮用户启动已安装程序（第一步：查找程序安装路径）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"sys.installed-apps\",\"purpose\":\"查找用户要启动的 Photoshop 的安装路径\",\"arguments\":{\"filter\":\"Photoshop\"}}\n\n");
+
+        p.append("示例29 - 帮用户启动已安装程序（第二步：用安装路径启动）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"cmd.exec\",\"purpose\":\"启动用户要求的 Photoshop 程序\",\"arguments\":{\"command\":\"start \\\"\\\" \\\"C:\\\\Program Files\\\\Adobe\\\\Adobe Photoshop 2026\\\\Photoshop.exe\\\"\"}}\n\n");
+
         p.append("# 回答质量要求\n")
          .append("- 语言：简洁自然的中文为主，专有名词保留英文。\n")
          .append("- 格式：大量使用 Markdown 提升可读性（标题、列表、粗体、代码块等）。\n")
@@ -376,7 +387,7 @@ public class MihtnelisPromptBuilder {
          .append("联网：webSearch、webPageRead\n")
          .append("文件：fileList、fileTree、fileExists、fileStat、fileMkdir、fileRead、fileReadLines、fileWrite、fileAppend、fileDelete、fileRename、fileCopy、fileReplace、fileGrep、fileSearch\n")
          .append("命令：cmdExec（Windows CMD，cmd.exe）、cmdPowershell（Windows PowerShell，powershell.exe）\n")
-         .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）、sysOpen（打开 Windows 系统组件）\n")
+         .append("系统：sysInfo（OS/CPU/内存）、sysEnv（环境变量查询）、sysOpen（打开 Windows 系统组件）、sysInstalledApps（查询已安装程序列表）\n")
          .append("窗口：winList（列出可见窗口）、winMinimize（最小化）、winMaximize（最大化）、winRestore（还原）、winClose（关闭/终止进程）、winScreenshot（窗口截图保存到工作区）\n")
          .append("剪贴板：clipboardRead（读取剪贴板文本/图片）、clipboardWrite（写入文本到剪贴板）\n")
          .append("通知：notificationSend（发送 Windows 通知）\n")
@@ -416,6 +427,8 @@ public class MihtnelisPromptBuilder {
          .append("- 联网：优先 webSearch，snippet 足够则直接回答，需要详情时再调用 webPageRead（最多一次）。同一话题最多 2 次 webSearch。\n")
          .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n")
          .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n")
+         .append("- 已安装程序：sysInstalledApps 查询已安装程序列表（可选 filter 按名称/发布者筛选，可选 limit 默认200）。返回 name、version、publisher、installDate、installLocation。低风险无需授权。\n")
+         .append("- 启动程序：先 sysInstalledApps 查找程序获取 installLocation → 再 cmdExec（start \"\" \"exe路径\"）或 cmdPowershell（Start-Process）启动。若 installLocation 为空，尝试直接执行程序名。\n")
          .append("- eIsland 设置：\n")
          .append("  - 主题切换 → 直接 islandThemeSet，mode 参数必须小写：dark/light/system。用户说浅色/亮色 → light，用户说深色/暗色 → dark，用户说跟随系统 → system\n")
          .append("  - 透明度调节 → 直接 islandOpacitySet，opacity 参数为 10-100 整数\n")

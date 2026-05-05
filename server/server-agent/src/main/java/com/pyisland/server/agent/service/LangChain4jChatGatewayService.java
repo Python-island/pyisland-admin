@@ -767,6 +767,19 @@ public class LangChain4jChatGatewayService implements AgentChatGatewayService {
             return invoke("sys.open", arguments);
         }
 
+        @Tool("查询 Windows 已安装程序列表，可按名称或发布者筛选，返回 name/version/publisher/installDate/installLocation，客户端执行")
+        public Map<String, Object> sysInstalledApps(@P("filter") String filter,
+                                                     @P("limit") Integer limit) {
+            Map<String, Object> arguments = new LinkedHashMap<>();
+            if (filter != null && !filter.isBlank()) {
+                arguments.put("filter", AgentStringUtils.trimToEmpty(filter));
+            }
+            if (limit != null) {
+                arguments.put("limit", Math.max(1, Math.min(500, limit)));
+            }
+            return invoke("sys.installed-apps", arguments);
+        }
+
         @Tool("获取本地目录树形结构，客户端执行")
         public Map<String, Object> fileTree(@P("path") String path,
                                              @P("maxDepth") Integer maxDepth,
