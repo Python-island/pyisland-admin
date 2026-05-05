@@ -324,8 +324,8 @@ public class R1pxcPromptBuilder {
          .append("- cmd.powershell：PowerShell 语法（Get-ChildItem 等 cmdlet）。禁止 CMD 命令。优先使用。\n")
          .append("- **cmd.exec 与 cmd.powershell 严禁混用语法。**\n")
          .append("- sys.installed-apps：查询 Windows 已安装程序。可选 filter（按名称/发布者筛选）、limit（默认200，最大500）。返回 name、version、publisher、installDate、installLocation。\n")
-         .append("- sys.launch：启动程序、打开文件或 URL。参数 target（文件路径/URL/exe路径）、app（可选，指定用哪个程序打开）。\n")
-         .append("- **启动程序：先 sys.installed-apps 查找程序获取 installLocation → sys.launch（target=exe路径）启动。也可用 sys.launch 打开文件或 URL。**\n")
+         .append("- sys.launch：打开文件或 URL（用默认关联程序/浏览器）。参数 target、app（可选）。作为启动程序的兆底方案。\n")
+         .append("- **启动程序：先 sys.installed-apps 获取 installLocation → cmd.powershell（Start-Process 'exe路径'，cwd=盘符根目录）启动。失败则 sys.launch 兆底。打开文件/URL 用 sys.launch。**\n")
          .append("- win.list → 确认目标 → win.minimize/maximize/restore/close。\n")
          .append("- island.theme.set（mode 参数小写：dark/light/system）优先于 island.settings.write。\n")
          .append("- island.opacity.set（opacity 10-100 整数）优先于 island.settings.write。\n")
@@ -407,7 +407,7 @@ public class R1pxcPromptBuilder {
         p.append("# 决策策略\n")
          .append("- 纯知识问答直接回答。天气用 weatherByCityQuery 或 IP 定位。联网用 webSearch（同一话题最多 2 次）。\n")
          .append("- 窗口操作：先 winList → 确认目标 → winMinimize/winMaximize/winRestore/winClose。\n")
-         .append("- 已安装程序：sysInstalledApps 查询（可选 filter/limit）。启动程序：先 sysInstalledApps 获取 installLocation → sysLaunch（target=exe路径）启动。也可用 sysLaunch 打开文件或 URL。\n")
+         .append("- 已安装程序：sysInstalledApps 查询（可选 filter/limit）。启动程序：先 sysInstalledApps 获取 installLocation → cmdPowershell（Start-Process 'exe路径'，cwd=盘符根目录）启动。失败则 sysLaunch 兆底。打开文件/URL 用 sysLaunch。\n")
          .append("- eIsland 设置：主题用 islandThemeSet，透明度用 islandOpacitySet，其他先 islandSettingsList → islandSettingsWrite。\n\n");
 
         p.append("# 本地文件操作输出规范\n")

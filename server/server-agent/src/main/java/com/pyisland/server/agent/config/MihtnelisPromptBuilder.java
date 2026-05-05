@@ -124,8 +124,8 @@ public class MihtnelisPromptBuilder {
          .append("- sys.info：获取操作系统、CPU、内存、主机名等系统信息，无需参数。\n")
          .append("- sys.env：查询环境变量。指定 name 精确查单个，或 filter 模糊匹配多个（如 filter=\"JAVA\"）。\n")
          .append("- sys.installed-apps：查询 Windows 已安装程序列表。可选 filter 按名称或发布者模糊筛选，可选 limit（默认200，最大500）。返回 name、version、publisher、installDate、installLocation。低风险无需授权。\n")
-         .append("- sys.launch：启动程序、打开文件或 URL。参数 target（文件路径/URL/可执行文件路径）、app（可选，指定用哪个程序打开）。低风险无需授权。\n")
-         .append("- **启动已安装程序推荐流程：先 sys.installed-apps 查询获取 installLocation → 用 sys.launch 的 target 参数传入 exe 完整路径启动。** 若 installLocation 为空，可尝试 sys.launch 直接传入程序名。也可用 sys.launch 打开文件（用默认关联程序）或 URL（用默认浏览器）。\n")
+         .append("- sys.launch：打开文件或 URL（用默认关联程序/浏览器）。参数 target（文件路径/URL/exe路径）、app（可选）。低风险无需授权。作为启动程序的兆底方案。\n")
+         .append("- **启动已安装程序推荐流程：先 sys.installed-apps 查询获取 installLocation → 用 cmd.powershell 的 Start-Process 启动（如 Start-Process 'D:\\xxx\\app.exe'，cwd 设为程序所在盘符根目录）。** 若 cmd.powershell 启动失败，再用 sys.launch 兆底。也可用 sys.launch 打开文件（用默认关联程序）或 URL（用默认浏览器）。\n")
          .append("- win.list：列出当前所有可见窗口，返回 pid、name、title、handle、bounds、内存占用。可选 filter 过滤进程名或窗口标题。低风险无需授权。\n")
          .append("- win.minimize / win.maximize / win.restore：通过 pid、name 或 handle 定位窗口。建议先 win.list 确认目标，再用 handle 精确操作。高风险需用户授权。\n")
          .append("- win.close：关闭/终止进程，通过 pid 或 name 定位。高风险需用户授权。purpose 必须说明关闭哪个程序及原因。\n")
@@ -325,8 +325,8 @@ public class MihtnelisPromptBuilder {
         p.append("示例28 - 帮用户启动已安装程序（第一步：查找程序安装路径）：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"sys.installed-apps\",\"purpose\":\"查找用户要启动的 Photoshop 的安装路径\",\"arguments\":{\"filter\":\"Photoshop\"}}\n\n");
 
-        p.append("示例29 - 帮用户启动已安装程序（第二步：用 sys.launch 启动）：\n")
-         .append("{\"type\":\"tool_call\",\"tool\":\"sys.launch\",\"purpose\":\"启动用户要求的 Photoshop 程序\",\"arguments\":{\"target\":\"C:\\\\Program Files\\\\Adobe\\\\Adobe Photoshop 2026\\\\Photoshop.exe\"}}\n\n");
+        p.append("示例29 - 帮用户启动已安装程序（第二步：用 cmd.powershell Start-Process 启动）：\n")
+         .append("{\"type\":\"tool_call\",\"tool\":\"cmd.powershell\",\"purpose\":\"启动用户要求的 Photoshop 程序\",\"arguments\":{\"command\":\"Start-Process 'C:\\\\Program Files\\\\Adobe\\\\Adobe Photoshop 2026\\\\Photoshop.exe'\",\"cwd\":\"C:\\\\\"}}\n\n");
 
         p.append("示例30 - 用默认浏览器打开网址：\n")
          .append("{\"type\":\"tool_call\",\"tool\":\"sys.launch\",\"purpose\":\"用默认浏览器打开用户要求的网址\",\"arguments\":{\"target\":\"https://www.google.com\"}}\n\n");
@@ -435,7 +435,7 @@ public class MihtnelisPromptBuilder {
          .append("- 本地操作：优先使用 fileGrep 或 fileSearch 定位，危险操作必须提醒风险\n")
          .append("- 窗口操作：先 winList 查看全部窗口 → 确认目标 → 再 winMinimize/winMaximize/winRestore/winClose。winClose 高风险需用户授权。\n")
          .append("- 已安装程序：sysInstalledApps 查询已安装程序列表（可选 filter 按名称/发布者筛选，可选 limit 默认200）。返回 name、version、publisher、installDate、installLocation。低风险无需授权。\n")
-         .append("- 启动程序：先 sysInstalledApps 查找程序获取 installLocation → 再 sysLaunch（target=exe路径）启动。若 installLocation 为空，sysLaunch 直接传程序名尝试。也可用 sysLaunch 打开文件或 URL。\n")
+         .append("- 启动程序：先 sysInstalledApps 获取 installLocation → cmdPowershell（Start-Process 'exe路径'，cwd=盘符根目录）启动。失败则用 sysLaunch 兆底。打开文件/URL 用 sysLaunch。\n")
          .append("- eIsland 设置：\n")
          .append("  - 主题切换 → 直接 islandThemeSet，mode 参数必须小写：dark/light/system。用户说浅色/亮色 → light，用户说深色/暗色 → dark，用户说跟随系统 → system\n")
          .append("  - 透明度调节 → 直接 islandOpacitySet，opacity 参数为 10-100 整数\n")
